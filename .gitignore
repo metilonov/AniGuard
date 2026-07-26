@@ -1,0 +1,30 @@
+.env
+*.db
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.idea/
+.vscode/
+
+# Секретные данные
+.env
+.env.*
+!.env.example
+
+# Базы данных
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# IDE и система
+.idea/
+.vscode/
+.DS_Store

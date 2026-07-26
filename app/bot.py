@@ -14,7 +14,7 @@ from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatMemberStatus, ChatType, ParseMode
 from aiogram.filters import Command, CommandObject, CommandStart
-from aiogram.middleware.base import BaseMiddleware
+from aiogram import BaseMiddleware
 from aiogram.types import (
     BotCommand,
     CallbackQuery,

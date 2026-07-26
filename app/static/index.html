@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="color-scheme" content="light dark">
+  <meta name="color-scheme" content="dark light">
   <title>AniGuard</title>
   <link rel="stylesheet" href="/static/styles.css">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -16,6 +16,7 @@
     <symbol id="i-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.5"/><path d="m19 13.5 2-1.5-2-1.5-.5-1.2.4-2.4-2.4-.4-1.2-.5L14 4h-4L8.6 7l-1.2.5-2.4-.4-.4 2.4-.5 1.2L2 12l2.1 1.3.5 1.2.4 2.4 2.4-.4 1.2.5L10 20h4l1.4-3 1.2-.5 2.4.4.4-2.4z"/></symbol>
     <symbol id="i-premium" viewBox="0 0 24 24"><path d="m4 8 4-4h8l4 4-8 12z"/><path d="M4 8h16M8 4l4 16 4-16"/></symbol>
     <symbol id="i-rp" viewBox="0 0 24 24"><path d="M4 5h16v10H8l-4 4z"/><path d="M8 9h8M8 12h5"/></symbol>
+    <symbol id="i-game" viewBox="0 0 24 24"><path d="M8 7h8l4 5-2 7-4-3h-4l-4 3-2-7z"/><path d="M8 11v4M6 13h4M15 12h.01M17 14h.01"/></symbol>
     <symbol id="i-report" viewBox="0 0 24 24"><path d="M5 21V4h11l-1 4 4 2-2 5H5"/></symbol>
     <symbol id="i-log" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></symbol>
     <symbol id="i-top" viewBox="0 0 24 24"><path d="M8 4h8v4a4 4 0 0 1-8 0z"/><path d="M8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 12v5M8 21h8M9 17h6"/></symbol>
@@ -24,134 +25,153 @@
     <symbol id="i-mute" viewBox="0 0 24 24"><path d="M5 10v4h4l5 4V6L9 10z"/><path d="m18 9 4 4m0-4-4 4"/></symbol>
     <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m6 6 12 12"/></symbol>
     <symbol id="i-clean" viewBox="0 0 24 24"><path d="m5 15 8-10 4 3-8 10z"/><path d="M4 19h16M7 16l3 3"/></symbol>
-    <symbol id="i-slow" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
-    <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M16 10V7a4 4 0 0 0-7.5-2"/></symbol>
-    <symbol id="i-quarantine" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><rect x="8" y="8" width="8" height="8" rx="1"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></symbol>
-    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/></symbol>
     <symbol id="i-save" viewBox="0 0 24 24"><path d="M4 4h13l3 3v13H4z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-admin" viewBox="0 0 24 24"><path d="M12 3 4 7v5c0 5 3.2 8 8 9 4.8-1 8-4 8-9V7z"/><path d="M9 12h6M12 9v6"/></symbol>
   </svg>
 
-  <div id="app" class="app-shell">
+  <div class="app-shell">
     <header class="topbar">
       <div class="brand">
         <span class="icon-box large"><svg><use href="#i-shield"></use></svg></span>
-        <div>
-          <div class="brand-title">AniGuard</div>
-          <div id="user-line" class="muted">Подключение к Telegram…</div>
-        </div>
+        <div><div class="brand-title">AniGuard</div><div id="user-line" class="muted">Подключение…</div></div>
       </div>
       <select id="chat-select" class="control chat-select" aria-label="Выбранная беседа"></select>
     </header>
 
     <div id="notice" class="notice hidden" role="status"></div>
-
     <div id="empty-state" class="empty-state hidden">
       <span class="icon-box"><svg><use href="#i-shield"></use></svg></span>
       <h1>Нет доступных бесед</h1>
-      <p>Добавьте бота администратором в группу, отправьте там <code>/panel</code>, затем снова откройте Mini App.</p>
+      <p>Добавьте AniGuard администратором в группу, отправьте <code>/panel</code> и снова откройте Mini App.</p>
     </div>
 
     <div id="workspace" class="workspace hidden">
-      <aside class="sidebar">
-        <button class="nav active" data-view="overview"><span class="icon-box small"><svg><use href="#i-home"></use></svg></span><span>Обзор</span></button>
-        <button class="nav" data-view="commands"><span class="icon-box small"><svg><use href="#i-command"></use></svg></span><span>Команды</span></button>
-        <button class="nav" data-view="moderation"><span class="icon-box small"><svg><use href="#i-shield"></use></svg></span><span>Модерация</span></button>
-        <button class="nav" data-view="reports"><span class="icon-box small"><svg><use href="#i-report"></use></svg></span><span>Жалобы</span></button>
-        <button class="nav" data-view="rp"><span class="icon-box small"><svg><use href="#i-rp"></use></svg></span><span>RP-команды</span></button>
-        <button class="nav" data-view="top"><span class="icon-box small"><svg><use href="#i-top"></use></svg></span><span>Топ бесед</span></button>
-        <button class="nav" data-view="settings"><span class="icon-box small"><svg><use href="#i-settings"></use></svg></span><span>Настройки</span></button>
-        <button class="nav" data-view="premium"><span class="icon-box small"><svg><use href="#i-premium"></use></svg></span><span>Premium</span></button>
+      <aside class="sidebar" id="sidebar">
+        <button class="nav active" data-view="overview"><span class="icon-box small"><svg><use href="#i-home"></use></svg></span>Обзор</button>
+        <button class="nav" data-view="commands"><span class="icon-box small"><svg><use href="#i-command"></use></svg></span>Команды</button>
+        <button class="nav" data-view="members"><span class="icon-box small"><svg><use href="#i-user"></use></svg></span>Участники и роли</button>
+        <button class="nav" data-view="custom"><span class="icon-box small"><svg><use href="#i-premium"></use></svg></span>Кастомные команды</button>
+        <button class="nav" data-view="game"><span class="icon-box small"><svg><use href="#i-game"></use></svg></span>Игровые команды</button>
+        <button class="nav" data-view="moderation"><span class="icon-box small"><svg><use href="#i-shield"></use></svg></span>Автомодерация</button>
+        <button class="nav" data-view="reports"><span class="icon-box small"><svg><use href="#i-report"></use></svg></span>Жалобы</button>
+        <button class="nav" data-view="rp"><span class="icon-box small"><svg><use href="#i-rp"></use></svg></span>RP-команды</button>
+        <button class="nav" data-view="settings"><span class="icon-box small"><svg><use href="#i-settings"></use></svg></span>Настройки</button>
+        <button class="nav" data-view="premium"><span class="icon-box small"><svg><use href="#i-premium"></use></svg></span>Premium</button>
+        <button class="nav bot-admin-only hidden" data-view="admin"><span class="icon-box small"><svg><use href="#i-admin"></use></svg></span>Админ-панель</button>
       </aside>
 
       <main class="content">
         <section class="view" data-panel="overview">
           <div id="metrics" class="metrics"></div>
           <div class="two-columns">
-            <article class="card">
-              <div class="section-title"><span class="icon-box"><svg><use href="#i-command"></use></svg></span><div><h2>Быстрые действия</h2><p>Команды выполняются ботом в выбранной беседе</p></div></div>
-              <div id="quick-actions" class="action-grid"></div>
-            </article>
-            <article class="card">
-              <div class="section-title"><span class="icon-box"><svg><use href="#i-log"></use></svg></span><div><h2>Последние действия</h2><p>Журнал модерации</p></div></div>
-              <div id="overview-logs" class="list"></div>
-            </article>
+            <article class="card"><div class="section-title"><span class="icon-box"><svg><use href="#i-command"></use></svg></span><div><h2>Быстрые действия</h2><p>Выполняются в выбранной группе</p></div></div><div id="quick-actions" class="action-grid"></div></article>
+            <article class="card"><div class="section-title"><span class="icon-box"><svg><use href="#i-log"></use></svg></span><div><h2>Последние действия</h2><p>Журнал модерации</p></div></div><div id="overview-logs" class="list"></div></article>
           </div>
+          <article class="card command-examples">
+            <h2>Команды обычным текстом</h2>
+            <code>Мут @username 30 секунд флуд</code>
+            <code>Бан @username<br>реклама</code>
+            <code>Мут</code><span class="muted"> — ответом на сообщение, срок берётся из настроек</span>
+          </article>
         </section>
 
         <section class="view hidden" data-panel="commands">
-          <div class="section-head">
-            <div class="section-title"><span class="icon-box"><svg><use href="#i-command"></use></svg></span><div><h1>Команды</h1><p>Обычные и Premium-команды</p></div></div>
-            <input id="command-search" class="control" type="search" placeholder="Поиск команды">
-          </div>
-          <h2 class="subheading">Обычные</h2>
+          <div class="section-head"><div class="section-title"><span class="icon-box"><svg><use href="#i-command"></use></svg></span><div><h1>Команды модерации</h1><p>Все действия можно выполнить из Mini App</p></div></div><input id="command-search" class="control" type="search" placeholder="Поиск команды"></div>
           <div id="regular-actions" class="action-grid wide"></div>
-          <h2 class="subheading">Premium</h2>
-          <div id="premium-actions" class="action-grid wide"></div>
+        </section>
+
+        <section class="view hidden" data-panel="members">
+          <div class="section-title"><span class="icon-box"><svg><use href="#i-user"></use></svg></span><div><h1>Участники и роли</h1><p>Назначение внутренних модераторов AniGuard</p></div></div>
+          <div id="members-list" class="list spaced"></div>
+        </section>
+
+        <section class="view hidden" data-panel="custom">
+          <div class="section-title"><span class="icon-box"><svg><use href="#i-premium"></use></svg></span><div><h1>Кастомные команды</h1><p>Premium-конструктор команд модерации</p></div></div>
+          <article class="card form-grid">
+            <label>Название<input id="custom-name" class="control" value="Цукиёми"></label>
+            <label>Триггер<input id="custom-trigger" class="control" value="цукиёми"></label>
+            <label>Действие<select id="custom-action" class="control"><option value="mute">Мут</option><option value="ban">Бан</option><option value="kick">Исключить</option><option value="warn">Предупреждение</option><option value="quarantine">Карантин</option><option value="restrict_media">Запрет медиа</option><option value="restrict_links">Запрет ссылок</option><option value="restrict_commands">Блокировка команд</option></select></label>
+            <label>Срок по умолчанию<input id="custom-duration" class="control" value="10 минут" placeholder="10 минут или навсегда"></label>
+            <label>Кто использует<select id="custom-role" class="control"><option value="admins">Администраторы</option><option value="moderators">Администраторы и модераторы</option></select></label>
+            <label>Выбор цели<select id="custom-target" class="control"><option value="reply_or_username">Ответ или @username</option><option value="reply">Только ответом</option></select></label>
+            <label class="full">Ответ бота<textarea id="custom-template" class="control" rows="3">{admin} использовал {command} на {user}.
+
+Срок: {duration}
+Причина: {reason}</textarea></label>
+            <label>Кулдаун, секунд<input id="custom-cooldown" class="control" type="number" min="0" value="0"></label>
+            <label class="switch-line"><input id="custom-reason-required" type="checkbox"><span>Причина обязательна</span></label>
+            <label class="switch-line"><input id="custom-delete" type="checkbox"><span>Удалять сообщение команды</span></label>
+            <button id="create-custom" class="primary button-row full" type="button"><svg><use href="#i-plus"></use></svg>Создать команду</button>
+          </article>
+          <div id="custom-list" class="list spaced"></div>
+        </section>
+
+        <section class="view hidden" data-panel="game">
+          <div class="section-title"><span class="icon-box"><svg><use href="#i-game"></use></svg></span><div><h1>Игровые команды</h1><p>Команды, награды XP и AniCoin</p></div></div>
+          <article class="card form-grid">
+            <label>Название<input id="game-name" class="control" value="Ежедневная награда"></label>
+            <label>Триггер<input id="game-trigger" class="control" value="награда"></label>
+            <label>Тип<select id="game-type" class="control"><option value="text">Текстовая</option><option value="random">Случайный ответ</option><option value="reward">Награда</option></select></label>
+            <label>Доступ<select id="game-access" class="control"><option value="all">Все</option><option value="verified">Проверенные</option><option value="moderators">Модераторы</option><option value="admins">Администраторы</option></select></label>
+            <label class="full">Ответ<textarea id="game-template" class="control" rows="3">{user} получил {coins} AniCoin и {xp} XP.</textarea></label>
+            <label class="full">Дополнительные ответы<textarea id="game-variants" class="control" rows="3" placeholder="Каждый вариант с новой строки"></textarea></label>
+            <label>Награда XP<input id="game-xp" class="control" type="number" min="0" value="10"></label>
+            <label>Награда AniCoin<input id="game-coins" class="control" type="number" min="0" value="5"></label>
+            <label>Кулдаун, секунд<input id="game-cooldown" class="control" type="number" min="0" value="86400"></label>
+            <button id="create-game" class="primary button-row full" type="button"><svg><use href="#i-plus"></use></svg>Добавить игровую команду</button>
+          </article>
+          <div id="game-list" class="list spaced"></div>
         </section>
 
         <section class="view hidden" data-panel="moderation">
-          <div class="section-title"><span class="icon-box"><svg><use href="#i-shield"></use></svg></span><div><h1>Правила модерации</h1><p>Бесплатно до 5 правил, с Premium — до 100</p></div></div>
+          <div class="section-title"><span class="icon-box"><svg><use href="#i-shield"></use></svg></span><div><h1>Автомодерация</h1><p>Правила защиты группы</p></div></div>
           <article class="card form-grid">
             <label>Название<input id="rule-name" class="control" value="Защита новичков"></label>
-            <label>Условие<select id="rule-condition" class="control"><option value="newbie_link">Новичок отправил ссылку</option><option value="flood">Флуд сообщениями</option><option value="blocked_word">Запрещённое слово</option><option value="mass_mentions">Массовые упоминания</option></select></label>
-            <label>Действие<select id="rule-action" class="control"><option value="delete_warn">Удалить и предупредить</option><option value="mute">Удалить и выдать мут</option><option value="quarantine">Поместить в карантин</option><option value="notify">Уведомить модераторов</option></select></label>
+            <label>Условие<select id="rule-condition" class="control"><option value="newbie_link">Новичок отправил ссылку</option><option value="flood">Флуд</option><option value="blocked_word">Запрещённое слово</option><option value="mass_mentions">Массовые упоминания</option></select></label>
+            <label>Действие<select id="rule-action" class="control"><option value="delete_warn">Удалить и предупредить</option><option value="mute">Удалить и выдать мут</option><option value="quarantine">Карантин</option><option value="notify">Уведомить</option></select></label>
             <label class="switch-line"><input id="rule-premium" type="checkbox"><span>Premium-правило</span></label>
-            <button id="create-rule" class="primary button-row" type="button"><svg><use href="#i-plus"></use></svg>Создать правило</button>
+            <button id="create-rule" class="primary button-row full" type="button"><svg><use href="#i-plus"></use></svg>Создать правило</button>
           </article>
           <div id="rules-list" class="list spaced"></div>
         </section>
 
-        <section class="view hidden" data-panel="reports">
-          <div class="section-title"><span class="icon-box"><svg><use href="#i-report"></use></svg></span><div><h1>Жалобы</h1><p>Решения выполняются сразу</p></div></div>
-          <div id="reports-list" class="list spaced"></div>
-        </section>
+        <section class="view hidden" data-panel="reports"><div class="section-title"><span class="icon-box"><svg><use href="#i-report"></use></svg></span><div><h1>Жалобы</h1><p>Решения выполняются сразу</p></div></div><div id="reports-list" class="list spaced"></div></section>
 
         <section class="view hidden" data-panel="rp">
-          <div class="section-title"><span class="icon-box"><svg><use href="#i-rp"></use></svg></span><div><h1>RP-конструктор</h1><p>Пользовательские команды и ответы</p></div></div>
+          <div class="section-title"><span class="icon-box"><svg><use href="#i-rp"></use></svg></span><div><h1>RP-команды</h1><p>Ролевые действия без наказаний</p></div></div>
           <article class="card form-grid">
-            <label>Команда<input id="rp-name" class="control" value="ударить"></label>
-            <label>Псевдонимы<input id="rp-aliases" class="control" placeholder="ударил, врезать"></label>
-            <label class="full">Основной ответ<textarea id="rp-template" class="control" rows="3">{actor} ударил {target}</textarea></label>
-            <label class="full">Дополнительные ответы<textarea id="rp-variants" class="control" rows="3" placeholder="Каждый вариант с новой строки"></textarea></label>
-            <label>Задержка, секунд<input id="rp-cooldown" class="control" type="number" min="0" value="5"></label>
-            <label>Доступ<select id="rp-access" class="control"><option value="all">Все</option><option value="verified">Проверенные</option><option value="moderators">Модераторы</option><option value="admins">Администраторы</option></select></label>
-            <label>Награда XP<input id="rp-xp" class="control" type="number" min="0" value="0"></label>
-            <label>Награда AniCoin<input id="rp-coins" class="control" type="number" min="0" value="0"></label>
-            <label class="switch-line"><input id="rp-premium" type="checkbox"><span>Premium-команда</span></label>
-            <button id="create-rp" class="primary button-row" type="button"><svg><use href="#i-plus"></use></svg>Добавить команду</button>
-          </article>
-          <div id="rp-list" class="list spaced"></div>
-        </section>
-
-        <section class="view hidden" data-panel="top">
-          <div class="section-title"><span class="icon-box"><svg><use href="#i-top"></use></svg></span><div><h1>Топ бесед</h1><p>Рейтинг зарегистрированных сообществ</p></div></div>
-          <div id="top-list" class="list spaced"></div>
+            <label>Команда<input id="rp-name" class="control" value="ударить"></label><label>Псевдонимы<input id="rp-aliases" class="control" placeholder="ударил, врезать"></label>
+            <label class="full">Основной ответ<textarea id="rp-template" class="control" rows="3">{actor} ударил {target}</textarea></label><label class="full">Дополнительные ответы<textarea id="rp-variants" class="control" rows="3"></textarea></label>
+            <label>Кулдаун<input id="rp-cooldown" class="control" type="number" value="5"></label><label>Доступ<select id="rp-access" class="control"><option value="all">Все</option><option value="verified">Проверенные</option><option value="moderators">Модераторы</option><option value="admins">Администраторы</option></select></label>
+            <label>XP<input id="rp-xp" class="control" type="number" value="0"></label><label>AniCoin<input id="rp-coins" class="control" type="number" value="0"></label><label class="switch-line"><input id="rp-premium" type="checkbox"><span>Premium-команда</span></label>
+            <button id="create-rp" class="primary button-row full" type="button"><svg><use href="#i-plus"></use></svg>Добавить RP-команду</button>
+          </article><div id="rp-list" class="list spaced"></div>
         </section>
 
         <section class="view hidden" data-panel="settings">
-          <div class="section-head">
-            <div class="section-title"><span class="icon-box"><svg><use href="#i-settings"></use></svg></span><div><h1>Настройки</h1><p>Каждый модуль открывается отдельно</p></div></div>
-            <input id="settings-search" class="control" type="search" placeholder="Найти настройку">
-          </div>
-          <div id="settings-list" class="accordion-list"></div>
-          <button id="save-settings" class="primary sticky-save" type="button"><svg><use href="#i-save"></use></svg>Сохранить настройки</button>
+          <div class="section-head"><div class="section-title"><span class="icon-box"><svg><use href="#i-settings"></use></svg></span><div><h1>Настройки группы</h1><p>В том числе сроки наказаний по умолчанию</p></div></div><input id="settings-search" class="control" type="search" placeholder="Найти настройку"></div>
+          <div id="settings-list" class="accordion-list"></div><button id="save-settings" class="primary sticky-save" type="button"><svg><use href="#i-save"></use></svg>Сохранить настройки</button>
         </section>
 
         <section class="view hidden" data-panel="premium">
-          <div class="premium-hero">
-            <span class="icon-box large"><svg><use href="#i-premium"></use></svg></span>
-            <div><span class="badge">ANI GUARD PREMIUM</span><h1>Расширенная модерация одной беседы</h1><p id="premium-status">Выберите подходящий период</p></div>
-          </div>
+          <div class="premium-hero"><span class="icon-box large"><svg><use href="#i-premium"></use></svg></span><div><span class="badge">ANI GUARD PREMIUM</span><h1>Расширенные возможности</h1><p id="premium-status">Выберите период</p></div></div>
           <div id="plans-list" class="plans"></div>
-          <article class="card">
-            <h2>В Premium входит</h2>
-            <div class="feature-grid">
-              <span>До 100 правил</span><span>Карантин Pro</span><span>Дела и доказательства</span><span>Журнал до года</span><span>Безлимитные RP</span><span>Расширенные роли</span><span>Антирейд Pro</span><span>Расписание защиты</span>
-            </div>
+          <article class="card"><h2>Premium открывает</h2><div class="feature-grid"><span>Кастомные команды модерации</span><span>До 100 правил</span><span>Карантин Pro</span><span>Безлимитные RP-команды</span><span>Расширенные роли</span><span>Дела и доказательства</span></div></article>
+        </section>
+
+        <section class="view hidden" data-panel="admin">
+          <div class="section-title"><span class="icon-box"><svg><use href="#i-admin"></use></svg></span><div><h1>Глобальная админ-панель</h1><p>Доступна только ID из ADMIN_IDS</p></div></div>
+          <div id="admin-metrics" class="metrics"></div>
+          <article class="card form-grid compact-form">
+            <label>Тип<select id="admin-entity-type" class="control"><option value="user">Пользователи</option><option value="chat">Группы</option></select></label>
+            <label>Поиск<input id="admin-search" class="control" placeholder="ID, имя или username"></label>
+            <button id="admin-search-button" class="primary button-row full" type="button">Найти</button>
           </article>
+          <div id="admin-entities" class="list spaced"></div>
+          <article class="card"><h2>Действия владельца</h2><div id="admin-logs" class="list"></div></article>
         </section>
       </main>
     </div>
@@ -159,23 +179,14 @@
 
   <nav id="bottom-nav" class="bottom-nav hidden">
     <button class="nav active" data-view="overview"><span class="icon-box small"><svg><use href="#i-home"></use></svg></span><span>Обзор</span></button>
-    <button class="nav" data-view="commands"><span class="icon-box small"><svg><use href="#i-command"></use></svg></span><span>Команды</span></button>
-    <button class="nav" data-view="rp"><span class="icon-box small"><svg><use href="#i-rp"></use></svg></span><span>RP</span></button>
+    <button class="nav" data-view="commands"><span class="icon-box small"><svg><use href="#i-command"></use></svg></span><span>Модерация</span></button>
+    <button class="nav" data-view="custom"><span class="icon-box small"><svg><use href="#i-premium"></use></svg></span><span>Кастом</span></button>
+    <button class="nav" data-view="game"><span class="icon-box small"><svg><use href="#i-game"></use></svg></span><span>Игра</span></button>
     <button class="nav" data-view="settings"><span class="icon-box small"><svg><use href="#i-settings"></use></svg></span><span>Настройки</span></button>
-    <button class="nav" data-view="premium"><span class="icon-box small"><svg><use href="#i-premium"></use></svg></span><span>Premium</span></button>
+    <button class="nav bot-admin-only hidden" data-view="admin"><span class="icon-box small"><svg><use href="#i-admin"></use></svg></span><span>Админ</span></button>
   </nav>
 
-  <dialog id="action-dialog">
-    <div class="dialog-body">
-      <div class="dialog-head"><div class="section-title"><span id="action-icon" class="icon-box"><svg><use href="#i-command"></use></svg></span><div><h2 id="action-title">Команда</h2><p id="action-description"></p></div></div><button id="close-action" class="secondary" type="button">Закрыть</button></div>
-      <label id="action-target-row">Пользователь<select id="action-target" class="control"></select></label>
-      <label id="action-duration-row">Срок<select id="action-duration" class="control"><option value="1800">30 минут</option><option value="3600">1 час</option><option value="21600">6 часов</option><option value="86400">24 часа</option><option value="604800">7 дней</option></select></label>
-      <label id="action-amount-row" class="hidden">Количество<input id="action-amount" class="control" type="number" min="1" max="1000" value="25"></label>
-      <label>Причина<textarea id="action-reason" class="control" rows="3" placeholder="Причина действия"></textarea></label>
-      <button id="execute-action" class="primary" type="button">Выполнить</button>
-    </div>
-  </dialog>
-
+  <dialog id="action-dialog"><div class="dialog-body"><div class="dialog-head"><div class="section-title"><span id="action-icon" class="icon-box"><svg><use href="#i-command"></use></svg></span><div><h2 id="action-title">Команда</h2><p id="action-description"></p></div></div><button id="close-action" class="secondary" type="button">Закрыть</button></div><label id="action-target-row">Пользователь<select id="action-target" class="control"></select></label><label id="action-duration-row">Срок<input id="action-duration" class="control" placeholder="Пусто — срок из настроек; например: 30 минут или навсегда"></label><label id="action-amount-row" class="hidden">Количество<input id="action-amount" class="control" type="number" min="1" max="1000" value="25"></label><label>Причина<textarea id="action-reason" class="control" rows="3"></textarea></label><button id="execute-action" class="primary" type="button">Выполнить</button></div></dialog>
   <script src="/static/app.js"></script>
 </body>
 </html>

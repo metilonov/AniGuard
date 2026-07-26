@@ -7,24 +7,3 @@ __pycache__/
 venv/
 .idea/
 .vscode/
-
-# Секретные данные
-.env
-.env.*
-!.env.example
-
-# Базы данных
-*.db
-*.sqlite
-*.sqlite3
-
-# Python
-__pycache__/
-*.py[cod]
-.venv/
-venv/
-
-# IDE и система
-.idea/
-.vscode/
-.DS_Store

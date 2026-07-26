@@ -7,13 +7,14 @@ import re
 import time
 from collections import defaultdict, deque
 from datetime import timedelta
-from typing import Any
+from typing import Any, Awaitable, Callable
 from urllib.parse import urlparse
 
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatMemberStatus, ChatType, ParseMode
 from aiogram.filters import Command, CommandObject, CommandStart
+from aiogram.middleware.base import BaseMiddleware
 from aiogram.types import (
     BotCommand,
     CallbackQuery,
@@ -30,18 +31,35 @@ from sqlalchemy import func, select
 
 from app.config import get_settings
 from app.db import SessionFactory
-from app.models import CaptchaChallenge, Chat, Membership, ModerationLog, ModerationRule, Report, RPCommand, User
+from app.models import (
+    CaptchaChallenge,
+    Chat,
+    CustomCommand,
+    GameCommand,
+    Membership,
+    ModerationLog,
+    ModerationRule,
+    Report,
+    RPCommand,
+    User,
+)
+from app.durations import clean_reason, format_duration_ru, parse_duration_prefix
+from app.moderation_parser import TIMED_ACTIONS, detect_action, parse_moderation_command
 from app.pricing import PREMIUM_PLANS, get_plan
 from app.services import (
+    active_restrictions,
     add_log,
     as_utc,
     create_captcha,
     create_report,
+    ensure_entity_available,
     ensure_membership,
     full_permissions,
+    get_block_record,
     get_chat_or_raise,
     get_merged_settings,
     grant_premium,
+    has_premium_access,
     is_premium,
     muted_permissions,
     parse_payment_payload,
@@ -60,24 +78,60 @@ dp = Dispatcher()
 router = Router(name="aniguard")
 dp.include_router(router)
 
+
+class AccessMiddleware(BaseMiddleware):
+    async def __call__(
+        self,
+        handler: Callable[[Any, dict[str, Any]], Awaitable[Any]],
+        event: Any,
+        data: dict[str, Any],
+    ) -> Any:
+        from_user = getattr(event, "from_user", None)
+        if from_user and from_user.id in settings.admin_ids:
+            return await handler(event, data)
+        chat_obj = getattr(event, "chat", None)
+        if chat_obj is None and getattr(event, "message", None):
+            chat_obj = event.message.chat
+        async with SessionFactory() as session:
+            if from_user:
+                blocked_user = await get_block_record(session, "user", from_user.id)
+                if blocked_user:
+                    if chat_obj and chat_obj.type == ChatType.PRIVATE and hasattr(event, "answer"):
+                        try:
+                            await event.answer(
+                                f"Доступ к AniGuard заблокирован. Причина: {html.escape(blocked_user.reason)}"
+                            )
+                        except Exception:
+                            pass
+                    return None
+            if chat_obj and chat_obj.type in {ChatType.GROUP, ChatType.SUPERGROUP}:
+                blocked_chat = await get_block_record(session, "chat", chat_obj.id)
+                if blocked_chat:
+                    return None
+                message_obj = event if isinstance(event, Message) else getattr(event, "message", None)
+                if from_user and message_obj and (message_obj.text or "").startswith("/"):
+                    restrictions = await active_restrictions(
+                        session, chat_id=chat_obj.id, user_id=from_user.id
+                    )
+                    if "commands" in restrictions:
+                        try:
+                            await message_obj.reply("Для вас временно заблокировано использование команд.")
+                        except Exception:
+                            pass
+                        await session.commit()
+                        return None
+            await session.commit()
+        return await handler(event, data)
+
+
+router.message.outer_middleware(AccessMiddleware())
+router.callback_query.outer_middleware(AccessMiddleware())
+
 _flood_buckets: dict[tuple[int, int], deque[float]] = defaultdict(deque)
 _slow_buckets: dict[tuple[int, int], float] = {}
 _rp_cooldowns: dict[tuple[int, int, int], float] = {}
-
-
-DURATION_PATTERN = re.compile(r"^(\d+)(s|m|h|d|w)?$", re.IGNORECASE)
-
-
-def parse_duration(value: str | None, default: int = 1800) -> int:
-    if not value:
-        return default
-    match = DURATION_PATTERN.fullmatch(value.strip())
-    if not match:
-        raise ValueError("Формат срока: 30m, 2h, 7d или число секунд")
-    amount = int(match.group(1))
-    unit = (match.group(2) or "s").lower()
-    multiplier = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}[unit]
-    return min(amount * multiplier, 31_536_000)
+_custom_cooldowns: dict[tuple[int, int, int], float] = {}
+_game_cooldowns: dict[tuple[int, int, int], float] = {}
 
 
 def split_args(command: CommandObject | None) -> list[str]:
@@ -123,25 +177,152 @@ async def ensure_group_admin(message: Message) -> None:
     await require_chat_admin(bot, message.chat.id, message.from_user.id)
 
 
+async def ensure_group_moderator(message: Message) -> None:
+    if message.chat.type not in {ChatType.GROUP, ChatType.SUPERGROUP}:
+        raise ValueError("Эта команда работает только в группе или супергруппе.")
+    try:
+        member = await bot.get_chat_member(message.chat.id, message.from_user.id)
+        if member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}:
+            return
+    except Exception:
+        pass
+    async with SessionFactory() as session:
+        membership = await session.scalar(
+            select(Membership).where(
+                Membership.chat_id == message.chat.id,
+                Membership.user_id == message.from_user.id,
+            )
+        )
+        if membership and membership.role == "moderator":
+            return
+    raise PermissionError("Команда доступна администраторам и модераторам AniGuard")
+
+
 async def resolve_target(message: Message, token: str | None = None) -> int | None:
+    if token:
+        token = token.strip()
+        if token.lstrip("-").isdigit():
+            return int(token)
+        if token.startswith("@"):
+            username = token[1:].lower()
+            async with SessionFactory() as session:
+                user_id = await session.scalar(
+                    select(User.id).where(func.lower(User.username) == username)
+                )
+                if user_id is not None:
+                    return int(user_id)
+    entities = message.entities or []
+    for entity in entities:
+        if entity.type == "text_mention" and entity.user:
+            return entity.user.id
     if message.reply_to_message and message.reply_to_message.from_user:
         return message.reply_to_message.from_user.id
-    if not token:
-        return None
-    token = token.strip()
-    if token.lstrip("-").isdigit():
-        return int(token)
-    if token.startswith("@"):
-        username = token[1:].lower()
-        async with SessionFactory() as session:
-            return await session.scalar(
-                select(User.id).where(func.lower(User.username) == username)
-            )
     return None
 
 
 async def send_admin_error(message: Message, exc: Exception) -> None:
     await message.answer(f"<b>Не удалось выполнить действие.</b>\n{html.escape(str(exc))}")
+
+
+def profile_link(user_id: int, label: str) -> str:
+    return f'<a href="tg://user?id={int(user_id)}">{html.escape(label)}</a>'
+
+
+ACTION_TITLES = {
+    "warn": "предупреждение",
+    "unwarn": "снятие предупреждения",
+    "mute": "мут",
+    "unmute": "снятие мута",
+    "ban": "бан",
+    "unban": "разбан",
+    "quarantine": "карантин",
+    "unquarantine": "снятие карантина",
+    "kick": "исключение из группы",
+    "restrict_media": "запрет медиа",
+    "unrestrict_media": "снятие запрета медиа",
+    "restrict_links": "запрет ссылок",
+    "unrestrict_links": "снятие запрета ссылок",
+    "restrict_commands": "блокировку команд",
+    "unrestrict_commands": "снятие блокировки команд",
+}
+
+DEFAULT_DURATION_KEYS = {
+    "mute": "default_mute_seconds",
+    "ban": "default_ban_seconds",
+    "quarantine": "default_quarantine_seconds",
+    "restrict_media": "default_restrict_media_seconds",
+    "restrict_links": "default_restrict_links_seconds",
+    "restrict_commands": "default_restrict_commands_seconds",
+}
+
+
+def moderation_response(
+    *,
+    actor_id: int,
+    target_id: int,
+    action: str,
+    duration_seconds: int | None,
+    reason: str,
+    show_duration: bool = True,
+    show_reason: bool = True,
+) -> str:
+    actor = profile_link(actor_id, "Admin")
+    target = profile_link(target_id, "User")
+    title = html.escape(ACTION_TITLES.get(action, action))
+    lines = [f"{actor} применил {title} к {target}."]
+    if show_duration and action in TIMED_ACTIONS:
+        lines.extend(["", f"<b>Срок:</b> {html.escape(format_duration_ru(duration_seconds))}"])
+    if show_reason:
+        lines.append(f"<b>Причина:</b> {html.escape(reason or 'Причина не указана')}")
+    return "\n".join(lines)
+
+
+def render_custom_template(
+    template: str,
+    *,
+    actor_id: int,
+    target_id: int,
+    command_name: str,
+    duration_seconds: int | None,
+    reason: str,
+    chat_title: str,
+) -> str:
+    escaped = html.escape(template)
+    replacements = {
+        "{admin}": profile_link(actor_id, "Admin"),
+        "{user}": profile_link(target_id, "User"),
+        "{command}": html.escape(command_name),
+        "{duration}": html.escape(format_duration_ru(duration_seconds)),
+        "{reason}": html.escape(reason or "Причина не указана"),
+        "{chat}": html.escape(chat_title),
+    }
+    for placeholder, value in replacements.items():
+        escaped = escaped.replace(placeholder, value)
+    return escaped
+
+
+async def ensure_target_can_be_moderated(chat_id: int, target_id: int) -> None:
+    member = await bot.get_chat_member(chat_id, target_id)
+    if member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}:
+        raise PermissionError("Нельзя применить наказание к владельцу или администратору группы")
+
+
+async def member_role(chat_id: int, user_id: int) -> str:
+    try:
+        member = await bot.get_chat_member(chat_id, user_id)
+        if member.status == ChatMemberStatus.CREATOR:
+            return "owner"
+        if member.status == ChatMemberStatus.ADMINISTRATOR:
+            return "admin"
+    except Exception:
+        pass
+    async with SessionFactory() as session:
+        row = await session.scalar(
+            select(Membership).where(Membership.chat_id == chat_id, Membership.user_id == user_id)
+        )
+        if row and row.role == "moderator":
+            return "moderator"
+    return "member"
 
 
 @router.message(CommandStart())
@@ -189,26 +370,19 @@ async def panel_handler(message: Message) -> None:
 @router.message(Command("help"))
 async def help_handler(message: Message) -> None:
     await message.answer(
-        "<b>Команды AniGuard</b>\n"
-        "/panel, /settings — открыть Mini App\n"
-        "/premium — тарифы Premium\n"
-        "/warn, /unwarn — предупреждения\n"
-        "/mute, /unmute — ограничение сообщений\n"
-        "/ban, /unban — блокировка\n"
-        "/purge — очистка сообщений\n"
-        "/slow — программный медленный режим\n"
-        "/lock, /unlock — закрыть или открыть чат\n"
-        "/quarantine — карантин Premium\n"
-        "/report — пожаловаться ответом\n"
-        "/case — создать дело Premium\n"
-        "/profile — профиль участника\n"
-        "/top, /topchats — рейтинги\n"
-        "/antiflood, /links, /captcha, /words — on/off\n"
-        "/anime, /rptoggle — on/off\n"
-        "/rules, /addrule, /delrule — правила\n"
-        "/rplist, /addrp, /delrp — RP-конструктор\n"
-        "/logs, /reports — журнал и жалобы\n"
-        "/susanoo — экстренная защита Premium"
+        "<b>Команды AniGuard</b>\n\n"
+        "<b>Модерация обычным текстом:</b>\n"
+        "<code>Мут @username 30 секунд флуд</code>\n"
+        "<code>Бан @username 7 дней реклама</code>\n"
+        "<code>Бан @username\nфлуд</code>\n"
+        "<code>Мут</code> — ответом на сообщение; без срока используется значение из настроек (изначально 7 дней).\n\n"
+        "Поддерживаются секунды, минуты, часы, дни, недели, месяцы и «навсегда». "
+        "Тем же способом работают карантин, запрет медиа, ссылок и команд.\n\n"
+        "/panel — Mini App и настройки\n"
+        "/premium — Premium\n"
+        "/report — жалоба ответом\n"
+        "/profile, /top — профиль и рейтинг\n"
+        "/rules, /rplist, /logs, /reports — управление и журнал"
     )
 
 
@@ -311,36 +485,63 @@ async def successful_payment_handler(message: Message) -> None:
 
 async def moderation_command(
     message: Message,
-    command: CommandObject,
-    action: str,
+    command: CommandObject | None,
+    action: str | None = None,
     *,
-    needs_target: bool = True,
-    default_duration: int | None = None,
+    raw_text: str | None = None,
 ) -> None:
     try:
-        await ensure_group_admin(message)
+        await ensure_group_moderator(message)
         await ensure_context(message)
-        args = split_args(command)
-        target_id = await resolve_target(message, args[0] if args else None) if needs_target else None
-        arg_offset = 1 if target_id is not None and args and not message.reply_to_message else 0
-        duration = default_duration
-        if action in {"mute", "ban", "quarantine"}:
-            duration = parse_duration(args[arg_offset] if len(args) > arg_offset else None, default_duration or 1800)
-        reason_start = arg_offset + (1 if action in {"mute", "ban", "quarantine"} and len(args) > arg_offset else 0)
-        reason = " ".join(args[reason_start:]) or "Команда модератора"
+        source_text = raw_text if raw_text is not None else (command.args or "" if command else "")
+
         async with SessionFactory() as session:
+            await ensure_entity_available(session, user_id=message.from_user.id, chat_id=message.chat.id)
+            settings_data = await get_merged_settings(session, message.chat.id)
+            detected = detect_action(raw_text or "") if action is None else None
+            resolved_action = action or (detected[0] if detected else None)
+            if not resolved_action:
+                raise ValueError("Не удалось определить команду модерации")
+            default_duration = int(settings_data.get(DEFAULT_DURATION_KEYS.get(resolved_action, "default_mute_seconds"), 604800))
+            parsed = parse_moderation_command(
+                source_text,
+                default_duration_seconds=default_duration,
+                forced_action=resolved_action if raw_text is None else None,
+                forced_trigger=resolved_action,
+            )
+            if parsed is None:
+                raise ValueError("Команда не распознана")
+            target_id = await resolve_target(message, parsed.target_token)
+            if target_id is None:
+                raise ValueError("Ответьте на сообщение пользователя или укажите его @username")
+            if target_id == message.from_user.id:
+                raise PermissionError("Нельзя применить команду к самому себе")
+            if not parsed.action.startswith("un"):
+                await ensure_target_can_be_moderated(message.chat.id, target_id)
+            reason = parsed.reason or str(settings_data.get("default_reason") or "Причина не указана")
             result = await perform_action(
                 session,
                 bot,
                 chat_id=message.chat.id,
                 actor_id=message.from_user.id,
-                action=action,
+                action=parsed.action,
                 target_id=target_id,
-                duration_seconds=duration,
+                duration_seconds=parsed.duration_seconds,
                 reason=reason,
             )
             await session.commit()
-        await message.answer(f"<b>Действие выполнено:</b> {html.escape(action)}\n<code>{html.escape(str(result))}</code>")
+
+        await message.answer(
+            moderation_response(
+                actor_id=message.from_user.id,
+                target_id=target_id,
+                action=parsed.action,
+                duration_seconds=result.get("duration_seconds"),
+                reason=reason,
+                show_duration=bool(settings_data.get("show_moderation_duration", True)),
+                show_reason=bool(settings_data.get("show_moderation_reason", True)),
+            )
+        )
     except Exception as exc:
         await send_admin_error(message, exc)
 
@@ -357,7 +558,7 @@ async def unwarn_handler(message: Message, command: CommandObject) -> None:
 
 @router.message(Command("mute"))
 async def mute_handler(message: Message, command: CommandObject) -> None:
-    await moderation_command(message, command, "mute", default_duration=1800)
+    await moderation_command(message, command, "mute")
 
 
 @router.message(Command("unmute"))
@@ -367,7 +568,7 @@ async def unmute_handler(message: Message, command: CommandObject) -> None:
 
 @router.message(Command("ban"))
 async def ban_handler(message: Message, command: CommandObject) -> None:
-    await moderation_command(message, command, "ban", default_duration=604800)
+    await moderation_command(message, command, "ban")
 
 
 @router.message(Command("unban"))
@@ -377,12 +578,65 @@ async def unban_handler(message: Message, command: CommandObject) -> None:
 
 @router.message(Command("quarantine"))
 async def quarantine_handler(message: Message, command: CommandObject) -> None:
-    await moderation_command(message, command, "quarantine", default_duration=3600)
+    await moderation_command(message, command, "quarantine")
+
+
+@router.message(Command("unquarantine"))
+async def unquarantine_handler(message: Message, command: CommandObject) -> None:
+    await moderation_command(message, command, "unquarantine")
+
+
+@router.message(Command("kick"))
+async def kick_handler(message: Message, command: CommandObject) -> None:
+    await moderation_command(message, command, "kick")
+
+
+@router.message(Command("media"))
+async def media_restrict_handler(message: Message, command: CommandObject) -> None:
+    await moderation_command(message, command, "restrict_media")
+
+
+@router.message(Command("unmedia"))
+async def media_unrestrict_handler(message: Message, command: CommandObject) -> None:
+    await moderation_command(message, command, "unrestrict_media")
+
+
+@router.message(Command("linksban"))
+async def links_restrict_handler(message: Message, command: CommandObject) -> None:
+    await moderation_command(message, command, "restrict_links")
+
+
+@router.message(Command("unlinksban"))
+async def links_unrestrict_handler(message: Message, command: CommandObject) -> None:
+    await moderation_command(message, command, "unrestrict_links")
+
+
+@router.message(Command("commandsban"))
+async def commands_restrict_handler(message: Message, command: CommandObject) -> None:
+    await moderation_command(message, command, "restrict_commands")
+
+
+@router.message(Command("uncommandsban"))
+async def commands_unrestrict_handler(message: Message, command: CommandObject) -> None:
+    await moderation_command(message, command, "unrestrict_commands")
 
 
 @router.message(Command("case"))
 async def case_handler(message: Message, command: CommandObject) -> None:
     await moderation_command(message, command, "case")
+
+
+NATURAL_MODERATION_RE = re.compile(
+    r"^\s*(?:снять\s+(?:ограничение\s+команд|запрет\s+(?:ссылок|медиа)|предупреждение|пред|мут|бан)|"
+    r"разрешить\s+(?:команды|ссылки|медиа)|заблокировать\s+команды|запретить\s+(?:команды|ссылки|медиа)|"
+    r"ограничить\s+(?:команды|ссылки|медиа)|снять\s+карантин|исключить|выгнать|кик|размут|анмут|разбан|анбан|анварн|предупреждение|карантин|мут|бан|пред|варн)(?:\s|$)",
+    re.IGNORECASE,
+)
+
+
+@router.message(F.text.regexp(NATURAL_MODERATION_RE))
+async def natural_moderation_handler(message: Message) -> None:
+    await moderation_command(message, None, raw_text=message.text or "")
 
 
 @router.message(Command("purge"))
@@ -439,14 +693,33 @@ async def slow_handler(message: Message, command: CommandObject) -> None:
         await send_admin_error(message, exc)
 
 
+async def chat_state_action(message: Message, action: str) -> None:
+    try:
+        await ensure_group_admin(message)
+        await ensure_context(message)
+        async with SessionFactory() as session:
+            await perform_action(
+                session,
+                bot,
+                chat_id=message.chat.id,
+                actor_id=message.from_user.id,
+                action=action,
+                reason="Чат закрыт" if action == "lock" else "Чат открыт",
+            )
+            await session.commit()
+        await message.answer("Чат закрыт для участников." if action == "lock" else "Чат снова открыт.")
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
 @router.message(Command("lock"))
-async def lock_handler(message: Message, command: CommandObject) -> None:
-    await moderation_command(message, command, "lock", needs_target=False)
+async def lock_handler(message: Message) -> None:
+    await chat_state_action(message, "lock")
 
 
 @router.message(Command("unlock"))
-async def unlock_handler(message: Message, command: CommandObject) -> None:
-    await moderation_command(message, command, "unlock", needs_target=False)
+async def unlock_handler(message: Message) -> None:
+    await chat_state_action(message, "unlock")
 
 
 @router.message(Command("report"))
@@ -598,7 +871,8 @@ async def rp_toggle_handler(message: Message, command: CommandObject) -> None:
 async def susanoo_handler(message: Message, command: CommandObject) -> None:
     try:
         await ensure_group_admin(message)
-        duration = parse_duration((command.args or "30m").split()[0], 1800)
+        parsed = parse_duration_prefix(command.args or "")
+        duration = 1800 if parsed.seconds is None else parsed.seconds
         async with SessionFactory() as session:
             await perform_action(
                 session,
@@ -610,7 +884,7 @@ async def susanoo_handler(message: Message, command: CommandObject) -> None:
                 reason="Экстренная защита",
             )
             await session.commit()
-        await message.answer(f"Экстренная защита включена на {duration} сек.")
+        await message.answer(f"Экстренная защита включена. Срок: {format_duration_ru(duration)}.")
     except Exception as exc:
         await send_admin_error(message, exc)
 
@@ -642,14 +916,17 @@ async def add_rule_handler(message: Message, command: CommandObject) -> None:
             raise ValueError("Формат: /addrule Название | flood/newbie_link/blocked_word/mass_mentions | delete_warn/mute/quarantine/notify")
         name, condition_type, action_type = parts
         async with SessionFactory() as session:
-            chat = await get_chat_or_raise(session, message.chat.id)
+            await get_chat_or_raise(session, message.chat.id)
             count = await session.scalar(select(func.count()).select_from(ModerationRule).where(ModerationRule.chat_id == message.chat.id))
-            if not is_premium(chat) and (count or 0) >= 5:
+            premium_access = await has_premium_access(
+                session, chat_id=message.chat.id, user_id=message.from_user.id
+            )
+            if not premium_access and (count or 0) >= 5:
                 raise PermissionError("Бесплатный тариф позволяет создать до 5 правил")
-            if is_premium(chat) and (count or 0) >= 100:
+            if premium_access and (count or 0) >= 100:
                 raise PermissionError("Premium позволяет создать до 100 правил")
             premium_rule = action_type == "quarantine"
-            if premium_rule and not is_premium(chat):
+            if premium_rule and not premium_access:
                 raise PermissionError("Карантин в правилах требует Premium")
             row = ModerationRule(
                 chat_id=message.chat.id,
@@ -707,9 +984,12 @@ async def add_rp_handler(message: Message, command: CommandObject) -> None:
             raise ValueError("Формат: /addrp команда | {actor} выполнил действие над {target}")
         name, template = parts
         async with SessionFactory() as session:
-            chat = await get_chat_or_raise(session, message.chat.id)
+            await get_chat_or_raise(session, message.chat.id)
             count = await session.scalar(select(func.count()).select_from(RPCommand).where(RPCommand.chat_id == message.chat.id))
-            if not is_premium(chat) and (count or 0) >= 25:
+            premium_access = await has_premium_access(
+                session, chat_id=message.chat.id, user_id=message.from_user.id
+            )
+            if not premium_access and (count or 0) >= 25:
                 raise PermissionError("Бесплатный тариф позволяет создать до 25 RP-команд")
             existing = await session.scalar(select(RPCommand).where(RPCommand.chat_id == message.chat.id, func.lower(RPCommand.name) == name.lower()))
             if existing:
@@ -856,6 +1136,37 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
             except Exception:
                 pass
 
+        text = message.text or message.caption or ""
+        lowered = text.casefold()
+        restrictions = await active_restrictions(
+            session,
+            chat_id=chat.id,
+            user_id=membership.user_id,
+        )
+        has_media = any(
+            (
+                message.photo,
+                message.video,
+                message.document,
+                message.audio,
+                message.voice,
+                message.video_note,
+                message.animation,
+                message.sticker,
+            )
+        )
+        has_link_any = "http://" in lowered or "https://" in lowered or "t.me/" in lowered
+        if "media" in restrictions and has_media:
+            await delete_message()
+            await add_log(session, chat.id, "restricted_media", target_id=membership.user_id, reason=text[:200])
+            await session.commit()
+            return True
+        if "links" in restrictions and has_link_any:
+            await delete_message()
+            await add_log(session, chat.id, "restricted_link", target_id=membership.user_id, reason=text[:200])
+            await session.commit()
+            return True
+
         now_mono = time.monotonic()
         key = (chat.id, membership.user_id)
         slow_seconds = int(settings_data.get("slow_mode_seconds", 0))
@@ -866,8 +1177,6 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
                 return True
             _slow_buckets[key] = now_mono
 
-        text = message.text or message.caption or ""
-        lowered = text.casefold()
         blocked_words = [str(word).casefold() for word in settings_data.get("blocked_words", [])]
         blocked_trigger = any(word and word in lowered for word in blocked_words)
         mention_count = sum(1 for entity in (message.entities or []) if entity.type in {"mention", "text_mention"})
@@ -915,7 +1224,10 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
             condition_type = str((rule.condition or {}).get("type", ""))
             if not signals.get(condition_type, False):
                 continue
-            if rule.is_premium and not is_premium(chat):
+            rule_premium = await has_premium_access(
+                session, chat_id=chat.id, user_id=rule.created_by
+            )
+            if rule.is_premium and not rule_premium:
                 continue
             stopped = False
             for action_config in rule.actions or []:
@@ -930,7 +1242,7 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
                     until = utcnow() + timedelta(seconds=duration)
                     await bot.restrict_chat_member(chat.id, membership.user_id, muted_permissions(), until_date=until)
                     user_member.muted_until = until
-                elif action_type == "quarantine" and is_premium(chat):
+                elif action_type == "quarantine" and rule_premium:
                     duration = int(action_config.get("duration_seconds", 3600))
                     until = utcnow() + timedelta(seconds=duration)
                     await bot.restrict_chat_member(chat.id, membership.user_id, quarantine_permissions(), until_date=until)
@@ -984,6 +1296,204 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
     return False
 
 
+def role_allows(required: str, role: str) -> bool:
+    if required == "admins":
+        return role in {"owner", "admin"}
+    if required == "moderators":
+        return role in {"owner", "admin", "moderator"}
+    if required == "verified":
+        return role in {"owner", "admin", "moderator", "verified"}
+    return True
+
+
+async def try_custom_command(message: Message, chat: Chat, membership: Membership) -> bool:
+    text = (message.text or "").strip()
+    if not text or text.startswith("/"):
+        return False
+    async with SessionFactory() as session:
+        commands = (
+            await session.scalars(
+                select(CustomCommand).where(
+                    CustomCommand.chat_id == chat.id,
+                    CustomCommand.enabled.is_(True),
+                )
+            )
+        ).all()
+        matched: tuple[CustomCommand, str] | None = None
+        lowered = text.casefold()
+        for command in sorted(commands, key=lambda item: len(item.trigger), reverse=True):
+            trigger = command.trigger.casefold().strip()
+            if lowered == trigger:
+                matched = (command, "")
+                break
+            if lowered.startswith(trigger + " ") or lowered.startswith(trigger + "\n"):
+                matched = (command, text[len(command.trigger):].strip())
+                break
+        if not matched:
+            return False
+
+        command, remainder = matched
+        restrictions = await active_restrictions(session, chat_id=chat.id, user_id=membership.user_id)
+        if "commands" in restrictions:
+            await message.reply("Для вас временно заблокировано использование команд.")
+            return True
+        premium = await has_premium_access(session, chat_id=chat.id, user_id=command.creator_id)
+        if not premium:
+            await message.reply("Эта кастомная команда заморожена до продления AniGuard Premium.")
+            return True
+        role = await member_role(chat.id, membership.user_id)
+        if not role_allows(command.required_role, role):
+            await message.reply("У вас недостаточно прав для этой команды.")
+            return True
+        if command.target_mode == "reply" and not message.reply_to_message:
+            await message.reply("Эту команду нужно отправить ответом на сообщение пользователя.")
+            return True
+
+        now_mono = time.monotonic()
+        cooldown_key = (chat.id, membership.user_id, command.id)
+        remaining = command.cooldown_seconds - (now_mono - _custom_cooldowns.get(cooldown_key, 0))
+        if remaining > 0:
+            await message.reply(f"Команда будет доступна через {int(remaining) + 1} сек.")
+            return True
+
+        settings_data = await get_merged_settings(session, chat.id)
+        default_duration = command.duration_seconds
+        if default_duration is None:
+            default_duration = int(settings_data.get(DEFAULT_DURATION_KEYS.get(command.action_type, "default_mute_seconds"), 604800))
+        parsed = parse_moderation_command(
+            remainder,
+            default_duration_seconds=int(default_duration),
+            forced_action=command.action_type,
+            forced_trigger=command.trigger,
+        )
+        if parsed is None:
+            await message.reply("Не удалось разобрать параметры команды.")
+            return True
+        target_id = await resolve_target(message, parsed.target_token)
+        if target_id is None:
+            await message.reply("Ответьте на сообщение пользователя или укажите его @username.")
+            return True
+        if target_id == message.from_user.id:
+            await message.reply("Нельзя применить команду к самому себе.")
+            return True
+        await ensure_target_can_be_moderated(chat.id, target_id)
+        reason = parsed.reason or str(settings_data.get("default_reason") or "Причина не указана")
+        if command.require_reason and not parsed.reason:
+            await message.reply("Для этой команды обязательно нужно указать причину.")
+            return True
+
+        result = await perform_action(
+            session,
+            bot,
+            chat_id=chat.id,
+            actor_id=message.from_user.id,
+            action=command.action_type,
+            target_id=target_id,
+            duration_seconds=parsed.duration_seconds,
+            reason=reason,
+            premium_override=True,
+        )
+        _custom_cooldowns[cooldown_key] = now_mono
+        await session.commit()
+        if command.delete_trigger:
+            try:
+                await message.delete()
+            except Exception:
+                pass
+        await bot.send_message(
+            chat.id,
+            render_custom_template(
+                command.response_template,
+                actor_id=message.from_user.id,
+                target_id=target_id,
+                command_name=command.name,
+                duration_seconds=result.get("duration_seconds"),
+                reason=reason,
+                chat_title=chat.title,
+            ),
+        )
+        return True
+
+
+async def try_game_command(message: Message, chat: Chat, membership: Membership) -> bool:
+    text = (message.text or "").strip()
+    if not text or text.startswith("/"):
+        return False
+    async with SessionFactory() as session:
+        commands = (
+            await session.scalars(
+                select(GameCommand).where(GameCommand.chat_id == chat.id, GameCommand.enabled.is_(True))
+            )
+        ).all()
+        matched: tuple[GameCommand, str] | None = None
+        lowered = text.casefold()
+        for command in sorted(commands, key=lambda item: len(item.trigger), reverse=True):
+            trigger = command.trigger.casefold().strip()
+            if lowered == trigger:
+                matched = (command, "")
+                break
+            if lowered.startswith(trigger + " ") or lowered.startswith(trigger + "\n"):
+                matched = (command, text[len(command.trigger):].strip())
+                break
+        if not matched:
+            return False
+        command, remainder = matched
+        restrictions = await active_restrictions(session, chat_id=chat.id, user_id=membership.user_id)
+        if "commands" in restrictions:
+            await message.reply("Для вас временно заблокировано использование команд.")
+            return True
+        role = await member_role(chat.id, membership.user_id)
+        allowed = role_allows(command.access, role)
+        if command.access == "verified" and role == "member":
+            db_access_member = await session.scalar(
+                select(Membership).where(
+                    Membership.chat_id == chat.id,
+                    Membership.user_id == membership.user_id,
+                )
+            )
+            if db_access_member:
+                joined_at = as_utc(db_access_member.joined_at) or utcnow()
+                allowed = (
+                    utcnow() - joined_at >= timedelta(hours=24)
+                    and db_access_member.warnings == 0
+                )
+        if not allowed:
+            await message.reply("У вас недостаточно прав для этой игровой команды.")
+            return True
+
+        now_mono = time.monotonic()
+        cooldown_key = (chat.id, membership.user_id, command.id)
+        remaining = command.cooldown_seconds - (now_mono - _game_cooldowns.get(cooldown_key, 0))
+        if remaining > 0:
+            await message.reply(f"Команда будет доступна через {int(remaining) + 1} сек.")
+            return True
+
+        db_member = await session.scalar(
+            select(Membership).where(Membership.chat_id == chat.id, Membership.user_id == membership.user_id)
+        )
+        if db_member:
+            db_member.xp += command.reward_xp
+            db_member.coins += command.reward_coins
+        variants = [command.response_template, *(command.response_variants or [])]
+        template = random.choice([item for item in variants if item.strip()])
+        target_id, target_name = await resolve_rp_target(message, remainder)
+        response = html.escape(template)
+        replacements = {
+            "{user}": profile_link(message.from_user.id, message.from_user.first_name),
+            "{target}": profile_link(target_id, target_name) if target_id else html.escape(target_name),
+            "{text}": html.escape(remainder),
+            "{chat}": html.escape(chat.title),
+            "{xp}": str(command.reward_xp),
+            "{coins}": str(command.reward_coins),
+        }
+        for placeholder, value in replacements.items():
+            response = response.replace(placeholder, value)
+        _game_cooldowns[cooldown_key] = now_mono
+        await session.commit()
+        await message.answer(response)
+        return True
+
+
 async def resolve_rp_target(message: Message, remainder: str) -> tuple[int | None, str]:
     if message.reply_to_message and message.reply_to_message.from_user:
         user = message.reply_to_message.from_user
@@ -1026,8 +1536,12 @@ async def try_rp_command(message: Message, chat: Chat, membership: Membership) -
             return False
 
         command, remainder = command_match
-        if command.is_premium and not is_premium(chat):
-            await message.reply("Эта RP-команда доступна только с AniGuard Premium.")
+        restrictions = await active_restrictions(session, chat_id=chat.id, user_id=membership.user_id)
+        if "commands" in restrictions:
+            await message.reply("Для вас временно заблокировано использование команд.")
+            return True
+        if command.is_premium and not await has_premium_access(session, chat_id=chat.id, user_id=command.created_by):
+            await message.reply("Эта RP-команда заморожена до продления AniGuard Premium.")
             return True
 
         membership_db = await session.scalar(
@@ -1083,6 +1597,26 @@ async def group_message_pipeline(message: Message) -> None:
     chat, _, membership = await ensure_context(message)
     if membership is None:
         return
+    async with SessionFactory() as access_session:
+        try:
+            await ensure_entity_available(
+                access_session,
+                user_id=message.from_user.id,
+                chat_id=chat.id,
+            )
+            await access_session.commit()
+        except PermissionError:
+            return
+
+    try:
+        if await try_custom_command(message, chat, membership):
+            return
+        if await try_game_command(message, chat, membership):
+            return
+    except Exception as exc:
+        await send_admin_error(message, exc)
+        return
+
     blocked = await enforce_message_protection(message, chat, membership)
     if blocked:
         return

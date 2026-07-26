@@ -1,8 +1,9 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Annotated
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -15,11 +16,11 @@ class Settings(BaseSettings):
         default=f"sqlite+aiosqlite:///{BASE_DIR / 'aniguard.db'}",
         alias="DATABASE_URL",
     )
-    admin_ids: set[int] = Field(default_factory=set, alias="ADMIN_IDS")
+    admin_ids: Annotated[set[int], NoDecode] = Field(default_factory=set, alias="ADMIN_IDS")
     dev_mode: bool = Field(default=False, alias="DEV_MODE")
     init_data_max_age: int = Field(default=3600, alias="INIT_DATA_MAX_AGE")
     host: str = Field(default="0.0.0.0", alias="HOST")
-    port: int = Field(default=8000, alias="PORT")
+    port: int = Field(default=3000, alias="PORT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
     model_config = SettingsConfigDict(
@@ -34,9 +35,16 @@ class Settings(BaseSettings):
     def parse_admin_ids(cls, value):
         if value in (None, ""):
             return set()
+        if isinstance(value, int):
+            return {value}
         if isinstance(value, str):
-            return {int(item.strip()) for item in value.split(",") if item.strip()}
-        return set(value)
+            cleaned = value.strip()
+            if cleaned.startswith("[") and cleaned.endswith("]"):
+                cleaned = cleaned[1:-1]
+            return {int(item.strip()) for item in cleaned.split(",") if item.strip()}
+        if isinstance(value, (list, tuple, set)):
+            return {int(item) for item in value}
+        raise ValueError("ADMIN_IDS должен содержать один или несколько Telegram ID")
 
     @field_validator("webapp_url")
     @classmethod

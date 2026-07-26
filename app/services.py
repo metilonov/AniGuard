@@ -12,8 +12,14 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
+    ActiveRestriction,
+    AdminActionLog,
+    BlockedEntity,
     CaptchaChallenge,
     Chat,
+    CustomCommand,
+    EntityAccessGrant,
+    GameCommand,
     Membership,
     ModerationLog,
     ModerationRule,
@@ -39,6 +45,252 @@ def as_utc(value: datetime | None) -> datetime | None:
 def is_premium(chat: Chat) -> bool:
     premium_until = as_utc(chat.premium_until)
     return bool(premium_until and premium_until > utcnow())
+
+
+async def get_entity_grant(
+    session: AsyncSession,
+    entity_type: str,
+    entity_id: int,
+) -> EntityAccessGrant | None:
+    return await session.scalar(
+        select(EntityAccessGrant).where(
+            EntityAccessGrant.entity_type == entity_type,
+            EntityAccessGrant.entity_id == entity_id,
+        )
+    )
+
+
+async def entity_has_premium(
+    session: AsyncSession,
+    entity_type: str,
+    entity_id: int,
+) -> bool:
+    if entity_type == "chat":
+        chat = await session.get(Chat, entity_id)
+        if chat and is_premium(chat):
+            return True
+    grant = await get_entity_grant(session, entity_type, entity_id)
+    if grant and grant.is_lifetime:
+        return True
+    premium_until = as_utc(grant.premium_until) if grant else None
+    return bool(premium_until and premium_until > utcnow())
+
+
+async def has_premium_access(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    user_id: int | None = None,
+) -> bool:
+    if await entity_has_premium(session, "chat", chat_id):
+        return True
+    return bool(user_id is not None and await entity_has_premium(session, "user", user_id))
+
+
+async def get_block_record(
+    session: AsyncSession,
+    entity_type: str,
+    entity_id: int,
+) -> BlockedEntity | None:
+    row = await session.scalar(
+        select(BlockedEntity).where(
+            BlockedEntity.entity_type == entity_type,
+            BlockedEntity.entity_id == entity_id,
+            BlockedEntity.is_active.is_(True),
+        )
+    )
+    if row and row.blocked_until:
+        blocked_until = as_utc(row.blocked_until)
+        if blocked_until and blocked_until <= utcnow():
+            row.is_active = False
+            await session.flush()
+            return None
+    return row
+
+
+async def entity_is_blocked(session: AsyncSession, entity_type: str, entity_id: int) -> bool:
+    return await get_block_record(session, entity_type, entity_id) is not None
+
+
+async def ensure_entity_available(
+    session: AsyncSession,
+    *,
+    user_id: int | None = None,
+    chat_id: int | None = None,
+) -> None:
+    if user_id is not None:
+        row = await get_block_record(session, "user", user_id)
+        if row:
+            raise PermissionError(f"Доступ к AniGuard заблокирован. Причина: {row.reason}")
+    if chat_id is not None:
+        row = await get_block_record(session, "chat", chat_id)
+        if row:
+            raise PermissionError(f"AniGuard отключён для этой группы. Причина: {row.reason}")
+
+
+async def set_entity_premium(
+    session: AsyncSession,
+    *,
+    entity_type: str,
+    entity_id: int,
+    days: int,
+    admin_id: int,
+    permanent: bool = False,
+    plan: str = "admin",
+    note: str = "",
+) -> EntityAccessGrant:
+    if entity_type not in {"user", "chat"}:
+        raise ValueError("entity_type должен быть user или chat")
+    if days < 0 or days > 3650:
+        raise ValueError("Срок Premium должен быть от 0 до 3650 дней")
+    row = await get_entity_grant(session, entity_type, entity_id)
+    if row is None:
+        row = EntityAccessGrant(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            granted_by=admin_id,
+        )
+        session.add(row)
+    row.granted_by = admin_id
+    row.premium_plan = plan
+    row.note = note.strip() or None
+    row.is_lifetime = bool(permanent)
+    if permanent:
+        row.premium_until = None
+    elif days == 0:
+        row.premium_until = None
+        row.premium_plan = None
+    else:
+        current = as_utc(row.premium_until)
+        start = current if current and current > utcnow() else utcnow()
+        row.premium_until = start + timedelta(days=days)
+    if entity_type == "chat":
+        chat = await session.get(Chat, entity_id)
+        if chat:
+            chat.premium_until = utcnow() + timedelta(days=3650) if permanent else row.premium_until
+            chat.premium_plan = plan if (permanent or row.premium_until) else None
+    session.add(AdminActionLog(
+        admin_id=admin_id,
+        action="premium_grant" if days else "premium_revoke",
+        entity_type=entity_type,
+        entity_id=entity_id,
+        details={"days": days, "permanent": permanent, "plan": plan, "note": note},
+    ))
+    await session.flush()
+    return row
+
+
+async def set_entity_block(
+    session: AsyncSession,
+    *,
+    entity_type: str,
+    entity_id: int,
+    blocked: bool,
+    admin_id: int,
+    reason: str = "",
+    duration_seconds: int | None = None,
+) -> BlockedEntity:
+    if entity_type not in {"user", "chat"}:
+        raise ValueError("entity_type должен быть user или chat")
+    row = await session.scalar(
+        select(BlockedEntity).where(
+            BlockedEntity.entity_type == entity_type,
+            BlockedEntity.entity_id == entity_id,
+        )
+    )
+    if row is None:
+        row = BlockedEntity(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            blocked_by=admin_id,
+        )
+        session.add(row)
+    row.is_active = blocked
+    row.blocked_by = admin_id
+    row.reason = reason.strip() or "Причина не указана"
+    row.blocked_until = (
+        utcnow() + timedelta(seconds=duration_seconds)
+        if blocked and duration_seconds and duration_seconds > 0
+        else None
+    )
+    session.add(AdminActionLog(
+        admin_id=admin_id,
+        action="block" if blocked else "unblock",
+        entity_type=entity_type,
+        entity_id=entity_id,
+        details={"reason": row.reason, "duration_seconds": duration_seconds},
+    ))
+    await session.flush()
+    return row
+
+
+async def set_restriction(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    user_id: int,
+    kind: str,
+    duration_seconds: int,
+    actor_id: int,
+    reason: str,
+) -> ActiveRestriction:
+    row = await session.scalar(
+        select(ActiveRestriction).where(
+            ActiveRestriction.chat_id == chat_id,
+            ActiveRestriction.user_id == user_id,
+            ActiveRestriction.kind == kind,
+        )
+    )
+    if row is None:
+        row = ActiveRestriction(chat_id=chat_id, user_id=user_id, kind=kind, created_by=actor_id)
+        session.add(row)
+    row.created_by = actor_id
+    row.reason = reason
+    row.expires_at = None if duration_seconds == 0 else utcnow() + timedelta(seconds=duration_seconds)
+    await session.flush()
+    return row
+
+
+async def clear_restriction(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    user_id: int,
+    kind: str,
+) -> None:
+    await session.execute(
+        delete(ActiveRestriction).where(
+            ActiveRestriction.chat_id == chat_id,
+            ActiveRestriction.user_id == user_id,
+            ActiveRestriction.kind == kind,
+        )
+    )
+    await session.flush()
+
+
+async def active_restrictions(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    user_id: int,
+) -> set[str]:
+    rows = (
+        await session.scalars(
+            select(ActiveRestriction).where(
+                ActiveRestriction.chat_id == chat_id,
+                ActiveRestriction.user_id == user_id,
+            )
+        )
+    ).all()
+    result: set[str] = set()
+    for row in rows:
+        expires_at = as_utc(row.expires_at)
+        if expires_at and expires_at <= utcnow():
+            await session.delete(row)
+        else:
+            result.add(row.kind)
+    await session.flush()
+    return result
 
 
 async def upsert_user(session: AsyncSession, user: TgUser | Any) -> User:
@@ -91,7 +343,14 @@ async def ensure_membership(
         membership = Membership(chat_id=chat_id, user_id=user_id, role=role)
         session.add(membership)
     else:
-        membership.role = role or membership.role
+        # Telegram owner/admin states are authoritative, while the internal
+        # AniGuard moderator role must survive ordinary messages.
+        if role in {"owner", "admin"}:
+            membership.role = role
+        elif membership.role in {"owner", "admin"}:
+            membership.role = "member"
+        elif membership.role != "moderator" and role:
+            membership.role = role
         membership.last_seen_at = utcnow()
     await session.flush()
     return membership
@@ -241,63 +500,86 @@ async def perform_action(
     duration_seconds: int | None = None,
     amount: int | None = None,
     reason: str = "",
+    premium_override: bool = False,
 ) -> dict[str, Any]:
     chat = await get_chat_or_raise(session, chat_id)
+    await ensure_entity_available(session, user_id=actor_id, chat_id=chat_id)
     settings = await get_merged_settings(session, chat_id)
-    premium = is_premium(chat)
-    reason = reason.strip() or "Причина не указана"
+    premium = premium_override or await has_premium_access(session, chat_id=chat_id, user_id=actor_id)
+    reason = reason.strip() or str(settings.get("default_reason") or "Причина не указана")
 
-    target_required = {"warn", "unwarn", "mute", "unmute", "ban", "unban", "quarantine", "case"}
+    target_required = {
+        "warn", "unwarn", "mute", "unmute", "ban", "unban", "kick", "quarantine", "unquarantine", "case",
+        "restrict_media", "unrestrict_media", "restrict_links", "unrestrict_links",
+        "restrict_commands", "unrestrict_commands",
+    }
+    timed_defaults = {
+        "mute": "default_mute_seconds",
+        "ban": "default_ban_seconds",
+        "quarantine": "default_quarantine_seconds",
+        "restrict_media": "default_restrict_media_seconds",
+        "restrict_links": "default_restrict_links_seconds",
+        "restrict_commands": "default_restrict_commands_seconds",
+    }
     premium_actions = {"quarantine", "susanoo", "case"}
     if action in target_required and target_id is None:
-        raise ValueError("Target user is required")
+        raise ValueError("Не указан пользователь. Ответьте на его сообщение или укажите @username.")
     if action in premium_actions and not premium:
-        raise PermissionError("This action requires AniGuard Premium")
+        raise PermissionError("Для этого действия нужен AniGuard Premium")
     if action == "quarantine" and not settings.get("premium_quarantine", True):
-        raise PermissionError("The Quarantine Pro module is disabled in settings")
+        raise PermissionError("Модуль «Карантин Pro» отключён в настройках")
     if action == "case" and not settings.get("premium_cases", True):
-        raise PermissionError("The Cases and Evidence module is disabled in settings")
+        raise PermissionError("Модуль «Дела и доказательства» отключён в настройках")
 
-    duration_seconds = duration_seconds or int(settings["default_mute_seconds"])
-    result: dict[str, Any] = {"action": action, "chat_id": chat_id, "target_id": target_id}
+    if action in timed_defaults and duration_seconds is None:
+        duration_seconds = int(settings.get(timed_defaults[action], 604800))
+    result: dict[str, Any] = {
+        "action": action,
+        "chat_id": chat_id,
+        "target_id": target_id,
+        "duration_seconds": duration_seconds,
+        "reason": reason,
+    }
 
-    if target_id is not None:
-        membership = await ensure_membership(session, chat_id, target_id)
-    else:
-        membership = None
+    membership = await ensure_membership(session, chat_id, target_id) if target_id is not None else None
 
     if action == "warn":
         assert membership is not None
         membership.warnings += 1
         result["warnings"] = membership.warnings
         if settings["warn_threshold"] and membership.warnings >= int(settings["warn_threshold"]):
-            until = utcnow() + timedelta(seconds=duration_seconds)
+            auto_duration = int(settings.get("default_mute_seconds", 604800))
+            until = utcnow() + timedelta(seconds=auto_duration)
             await bot.restrict_chat_member(chat_id, target_id, muted_permissions(), until_date=until)
             membership.muted_until = until
             result["auto_muted"] = True
+            result["auto_mute_seconds"] = auto_duration
     elif action == "unwarn":
         assert membership is not None
         membership.warnings = max(0, membership.warnings - 1)
         result["warnings"] = membership.warnings
     elif action == "mute":
-        until = utcnow() + timedelta(seconds=duration_seconds)
+        until = None if duration_seconds == 0 else utcnow() + timedelta(seconds=int(duration_seconds or 0))
         await bot.restrict_chat_member(chat_id, target_id, muted_permissions(), until_date=until)
         assert membership is not None
         membership.muted_until = until
-        result["until"] = until.isoformat()
+        result["until"] = until.isoformat() if until else None
     elif action == "unmute":
         await bot.restrict_chat_member(chat_id, target_id, full_permissions())
         assert membership is not None
         membership.muted_until = None
     elif action == "ban":
-        until = utcnow() + timedelta(seconds=duration_seconds) if duration_seconds else None
+        until = None if duration_seconds == 0 else utcnow() + timedelta(seconds=int(duration_seconds or 0))
         await bot.ban_chat_member(chat_id, target_id, until_date=until)
         result["until"] = until.isoformat() if until else None
     elif action == "unban":
         await bot.unban_chat_member(chat_id, target_id, only_if_banned=True)
+    elif action == "kick":
+        await bot.ban_chat_member(chat_id, target_id)
+        await bot.unban_chat_member(chat_id, target_id, only_if_banned=True)
     elif action == "purge":
         if not amount:
-            raise ValueError("Message count is required")
+            raise ValueError("Не указано количество сообщений")
         result["requested_count"] = amount
     elif action == "slow":
         delay = int(amount or duration_seconds or 15)
@@ -319,11 +601,15 @@ async def perform_action(
         settings.pop("permissions_before_lock", None)
         chat.settings = settings
     elif action == "quarantine":
-        until = utcnow() + timedelta(seconds=duration_seconds)
+        until = None if duration_seconds == 0 else utcnow() + timedelta(seconds=int(duration_seconds or 0))
         await bot.restrict_chat_member(chat_id, target_id, quarantine_permissions(), until_date=until)
         assert membership is not None
         membership.quarantined_until = until
-        result["until"] = until.isoformat()
+        result["until"] = until.isoformat() if until else None
+    elif action == "unquarantine":
+        await bot.restrict_chat_member(chat_id, target_id, full_permissions())
+        assert membership is not None
+        membership.quarantined_until = None
     elif action == "susanoo":
         chat_info = await bot.get_chat(chat_id)
         if chat_info.permissions and "permissions_before_lock" not in settings:
@@ -332,11 +618,26 @@ async def perform_action(
         settings["chat_locked"] = True
         settings["slow_mode_seconds"] = 30
         chat.settings = settings
-        result["duration_seconds"] = duration_seconds
     elif action == "case":
         result["case_created"] = True
+    elif action in {"restrict_media", "restrict_links", "restrict_commands"}:
+        kind = action.removeprefix("restrict_")
+        await set_restriction(
+            session,
+            chat_id=chat_id,
+            user_id=int(target_id),
+            kind=kind,
+            duration_seconds=int(duration_seconds or 0),
+            actor_id=actor_id,
+            reason=reason,
+        )
+        result["restriction"] = kind
+    elif action in {"unrestrict_media", "unrestrict_links", "unrestrict_commands"}:
+        kind = action.removeprefix("unrestrict_")
+        await clear_restriction(session, chat_id=chat_id, user_id=int(target_id), kind=kind)
+        result["restriction_removed"] = kind
     else:
-        raise ValueError("Unsupported moderation action")
+        raise ValueError("Неподдерживаемое действие модерации")
 
     await add_log(
         session,
@@ -496,6 +797,12 @@ async def dashboard_data(session: AsyncSession, chat_id: int) -> dict[str, Any]:
     rule_count = await session.scalar(
         select(func.count()).select_from(ModerationRule).where(ModerationRule.chat_id == chat_id)
     )
+    custom_count = await session.scalar(
+        select(func.count()).select_from(CustomCommand).where(CustomCommand.chat_id == chat_id)
+    )
+    game_count = await session.scalar(
+        select(func.count()).select_from(GameCommand).where(GameCommand.chat_id == chat_id)
+    )
     return {
         "chat": {
             "id": chat.id,
@@ -508,6 +815,8 @@ async def dashboard_data(session: AsyncSession, chat_id: int) -> dict[str, Any]:
             "actions_today": logs or 0,
             "open_reports": reports or 0,
             "rp_commands": rp_count or 0,
+            "custom_commands": custom_count or 0,
+            "game_commands": game_count or 0,
             "rules": rule_count or 0,
         },
         "settings": await get_merged_settings(session, chat_id),

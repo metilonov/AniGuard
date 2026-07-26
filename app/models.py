@@ -28,7 +28,15 @@ def default_chat_settings() -> dict[str, Any]:
         "captcha_enabled": True,
         "captcha_timeout_seconds": 180,
         "warn_threshold": 3,
-        "default_mute_seconds": 1800,
+        "default_mute_seconds": 604800,
+        "default_ban_seconds": 604800,
+        "default_quarantine_seconds": 604800,
+        "default_restrict_media_seconds": 604800,
+        "default_restrict_links_seconds": 604800,
+        "default_restrict_commands_seconds": 604800,
+        "default_reason": "Причина не указана",
+        "show_moderation_duration": True,
+        "show_moderation_reason": True,
         "warnings_expire_days": 30,
         "reports_enabled": True,
         "report_hide_threshold": 3,
@@ -185,3 +193,106 @@ class Payment(Base):
     invoice_payload: Mapped[str] = mapped_column(String(128), unique=True)
     telegram_payment_charge_id: Mapped[str] = mapped_column(String(255), unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class EntityAccessGrant(Base):
+    __tablename__ = "entity_access_grants"
+    __table_args__ = (UniqueConstraint("entity_type", "entity_id", name="uq_access_entity"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_type: Mapped[str] = mapped_column(String(16), index=True)
+    entity_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    premium_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    premium_plan: Mapped[str | None] = mapped_column(String(32))
+    is_lifetime: Mapped[bool] = mapped_column(Boolean, default=False)
+    granted_by: Mapped[int] = mapped_column(BigInteger)
+    note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class BlockedEntity(Base):
+    __tablename__ = "blocked_entities"
+    __table_args__ = (UniqueConstraint("entity_type", "entity_id", name="uq_blocked_entity"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    entity_type: Mapped[str] = mapped_column(String(16), index=True)
+    entity_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    reason: Mapped[str] = mapped_column(Text, default="Причина не указана")
+    blocked_by: Mapped[int] = mapped_column(BigInteger)
+    blocked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class ActiveRestriction(Base):
+    __tablename__ = "active_restrictions"
+    __table_args__ = (UniqueConstraint("chat_id", "user_id", "kind", name="uq_active_restriction"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    kind: Mapped[str] = mapped_column(String(32), index=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reason: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[int] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CustomCommand(Base):
+    __tablename__ = "custom_commands"
+    __table_args__ = (UniqueConstraint("chat_id", "trigger", name="uq_custom_command_trigger"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id", ondelete="CASCADE"), index=True)
+    creator_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    name: Mapped[str] = mapped_column(String(64))
+    trigger: Mapped[str] = mapped_column(String(64))
+    action_type: Mapped[str] = mapped_column(String(32), index=True)
+    duration_seconds: Mapped[int | None] = mapped_column(Integer)
+    response_template: Mapped[str] = mapped_column(
+        Text,
+        default="{admin} использовал {command} на {user}.",
+    )
+    required_role: Mapped[str] = mapped_column(String(32), default="admins")
+    target_mode: Mapped[str] = mapped_column(String(32), default="reply_or_username")
+    cooldown_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    delete_trigger: Mapped[bool] = mapped_column(Boolean, default=False)
+    require_reason: Mapped[bool] = mapped_column(Boolean, default=False)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class GameCommand(Base):
+    __tablename__ = "game_commands"
+    __table_args__ = (UniqueConstraint("chat_id", "trigger", name="uq_game_command_trigger"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id", ondelete="CASCADE"), index=True)
+    creator_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    name: Mapped[str] = mapped_column(String(64))
+    trigger: Mapped[str] = mapped_column(String(64))
+    command_type: Mapped[str] = mapped_column(String(32), default="text")
+    response_template: Mapped[str] = mapped_column(Text)
+    response_variants: Mapped[list[str]] = mapped_column(JSON, default=list)
+    reward_xp: Mapped[int] = mapped_column(Integer, default=0)
+    reward_coins: Mapped[int] = mapped_column(Integer, default=0)
+    cooldown_seconds: Mapped[int] = mapped_column(Integer, default=5)
+    access: Mapped[str] = mapped_column(String(32), default="all")
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class AdminActionLog(Base):
+    __tablename__ = "admin_action_logs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    admin_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    action: Mapped[str] = mapped_column(String(64), index=True)
+    entity_type: Mapped[str | None] = mapped_column(String(16), index=True)
+    entity_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)

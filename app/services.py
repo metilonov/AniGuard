@@ -9,6 +9,7 @@ from aiogram import Bot
 from aiogram.enums import ChatMemberStatus
 from aiogram.types import ChatPermissions, LabeledPrice, User as TgUser
 from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
@@ -294,38 +295,54 @@ async def active_restrictions(
 
 
 async def upsert_user(session: AsyncSession, user: TgUser | Any) -> User:
-    db_user = await session.get(User, int(user.id))
+    user_id = int(user.id)
+    db_user = await session.get(User, user_id)
     if db_user is None:
-        db_user = User(
-            id=int(user.id),
+        candidate = User(
+            id=user_id,
             username=getattr(user, "username", None),
             first_name=getattr(user, "first_name", "User") or "User",
             last_name=getattr(user, "last_name", None),
         )
-        session.add(db_user)
-    else:
-        db_user.username = getattr(user, "username", None)
-        db_user.first_name = getattr(user, "first_name", db_user.first_name) or db_user.first_name
-        db_user.last_name = getattr(user, "last_name", None)
+        try:
+            async with session.begin_nested():
+                session.add(candidate)
+                await session.flush()
+            db_user = candidate
+        except IntegrityError:
+            db_user = await session.get(User, user_id, populate_existing=True)
+            if db_user is None:
+                raise
+    db_user.username = getattr(user, "username", None)
+    db_user.first_name = getattr(user, "first_name", db_user.first_name) or db_user.first_name
+    db_user.last_name = getattr(user, "last_name", None)
     await session.flush()
     return db_user
 
 
 async def upsert_chat(session: AsyncSession, chat_obj: Any) -> Chat:
-    chat = await session.get(Chat, int(chat_obj.id))
+    chat_id = int(chat_obj.id)
     title = getattr(chat_obj, "title", None) or getattr(chat_obj, "full_name", None) or "Telegram chat"
+    chat = await session.get(Chat, chat_id)
     if chat is None:
-        chat = Chat(
-            id=int(chat_obj.id),
+        candidate = Chat(
+            id=chat_id,
             title=title,
             username=getattr(chat_obj, "username", None),
             settings=default_chat_settings(),
         )
-        session.add(chat)
-    else:
-        chat.title = title
-        chat.username = getattr(chat_obj, "username", None)
-        chat.is_active = True
+        try:
+            async with session.begin_nested():
+                session.add(candidate)
+                await session.flush()
+            chat = candidate
+        except IntegrityError:
+            chat = await session.get(Chat, chat_id, populate_existing=True)
+            if chat is None:
+                raise
+    chat.title = title
+    chat.username = getattr(chat_obj, "username", None)
+    chat.is_active = True
     await session.flush()
     return chat
 
@@ -340,18 +357,30 @@ async def ensure_membership(
         select(Membership).where(Membership.chat_id == chat_id, Membership.user_id == user_id)
     )
     if membership is None:
-        membership = Membership(chat_id=chat_id, user_id=user_id, role=role)
-        session.add(membership)
-    else:
-        # Telegram owner/admin states are authoritative, while the internal
-        # AniGuard moderator role must survive ordinary messages.
-        if role in {"owner", "admin"}:
-            membership.role = role
-        elif membership.role in {"owner", "admin"}:
-            membership.role = "member"
-        elif membership.role != "moderator" and role:
-            membership.role = role
-        membership.last_seen_at = utcnow()
+        candidate = Membership(chat_id=chat_id, user_id=user_id, role=role)
+        try:
+            async with session.begin_nested():
+                session.add(candidate)
+                await session.flush()
+            membership = candidate
+        except IntegrityError:
+            membership = await session.scalar(
+                select(Membership).where(
+                    Membership.chat_id == chat_id,
+                    Membership.user_id == user_id,
+                )
+            )
+            if membership is None:
+                raise
+    # Telegram owner/admin states are authoritative, while the internal
+    # AniGuard moderator role must survive ordinary messages.
+    if role in {"owner", "admin"}:
+        membership.role = role
+    elif membership.role in {"owner", "admin"}:
+        membership.role = "member"
+    elif membership.role != "moderator" and role:
+        membership.role = role
+    membership.last_seen_at = utcnow()
     await session.flush()
     return membership
 

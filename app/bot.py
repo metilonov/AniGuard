@@ -5,6 +5,7 @@ import html
 import random
 import re
 import time
+import unicodedata
 from collections import defaultdict, deque
 from datetime import timedelta
 from typing import Any, Awaitable, Callable
@@ -132,6 +133,9 @@ _slow_buckets: dict[tuple[int, int], float] = {}
 _rp_cooldowns: dict[tuple[int, int, int], float] = {}
 _custom_cooldowns: dict[tuple[int, int, int], float] = {}
 _game_cooldowns: dict[tuple[int, int, int], float] = {}
+_duplicate_buckets: dict[tuple[int, int], deque[tuple[float, str]]] = defaultdict(deque)
+_join_buckets: dict[int, deque[float]] = defaultdict(deque)
+_threat_buckets: dict[int, deque[float]] = defaultdict(deque)
 
 
 def split_args(command: CommandObject | None) -> list[str]:
@@ -1050,6 +1054,42 @@ async def new_members_handler(message: Message) -> None:
     async with SessionFactory() as session:
         chat = await upsert_chat(session, message.chat)
         chat_settings = await get_merged_settings(session, chat.id)
+        premium_access = await has_premium_access(
+            session,
+            chat_id=chat.id,
+            user_id=message.from_user.id if message.from_user else None,
+        )
+        now_mono = time.monotonic()
+        join_bucket = _join_buckets[chat.id]
+        raid_window = int(chat_settings.get("raid_window_seconds", 30))
+        while join_bucket and now_mono - join_bucket[0] > raid_window:
+            join_bucket.popleft()
+        for _ in message.new_chat_members:
+            join_bucket.append(now_mono)
+        raid_detected = len(join_bucket) >= int(chat_settings.get("raid_join_limit", 8))
+        if (
+            raid_detected
+            and premium_access
+            and chat_settings.get("premium_raid_lockdown_enabled", False)
+            and not chat_settings.get("chat_locked", False)
+        ):
+            try:
+                await bot.set_chat_permissions(chat.id, ChatPermissions(can_send_messages=False))
+                chat_settings["chat_locked"] = True
+                chat.settings = chat_settings
+                await add_log(
+                    session,
+                    chat.id,
+                    "auto_raid_lockdown",
+                    actor_id=message.from_user.id if message.from_user else None,
+                    reason=f"За {raid_window} сек. вступило {len(join_bucket)} участников",
+                )
+                await message.answer(
+                    "🛡 <b>AniGuard включил экстренную защиту.</b> "
+                    "Обнаружено массовое вступление участников, отправка сообщений временно закрыта."
+                )
+            except Exception:
+                pass
         for member in message.new_chat_members:
             if member.is_bot:
                 continue
@@ -1156,6 +1196,72 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
             )
         )
         has_link_any = "http://" in lowered or "https://" in lowered or "t.me/" in lowered
+        premium_access = await has_premium_access(
+            session,
+            chat_id=chat.id,
+            user_id=membership.user_id,
+        )
+
+        async def apply_automatic_violation(
+            action_name: str,
+            reason: str,
+            *,
+            add_warning: bool = True,
+            quarantine: bool = False,
+        ) -> bool:
+            await delete_message()
+            if add_warning and settings_data.get("auto_warn_enabled", True):
+                user_member.warnings += 1
+            if quarantine and premium_access:
+                duration = int(settings_data.get("premium_newcomer_quarantine_seconds", 3600))
+                until = utcnow() + timedelta(seconds=duration)
+                try:
+                    await bot.restrict_chat_member(
+                        chat.id,
+                        membership.user_id,
+                        quarantine_permissions(),
+                        until_date=until,
+                    )
+                    user_member.quarantined_until = until
+                except Exception:
+                    pass
+            if premium_access and settings_data.get("premium_punishment_ladder_enabled", False):
+                threshold = max(1, int(settings_data.get("warn_threshold", 3)))
+                if user_member.warnings >= threshold * 2:
+                    try:
+                        await bot.ban_chat_member(chat.id, membership.user_id)
+                    except Exception:
+                        pass
+                elif user_member.warnings >= threshold:
+                    duration = int(settings_data.get("premium_ladder_mute_seconds", 3600))
+                    until = utcnow() + timedelta(seconds=duration)
+                    try:
+                        await bot.restrict_chat_member(
+                            chat.id,
+                            membership.user_id,
+                            muted_permissions(),
+                            until_date=until,
+                        )
+                        user_member.muted_until = until
+                    except Exception:
+                        pass
+            threat_bucket = _threat_buckets[chat.id]
+            now_value = time.monotonic()
+            threat_window = int(settings_data.get("premium_adaptive_window_seconds", 60))
+            while threat_bucket and now_value - threat_bucket[0] > threat_window:
+                threat_bucket.popleft()
+            threat_bucket.append(now_value)
+            await add_log(
+                session,
+                chat.id,
+                action_name,
+                target_id=membership.user_id,
+                reason=reason[:500],
+                details={"warnings": user_member.warnings},
+            )
+            await session.commit()
+            return True
+
         if "media" in restrictions and has_media:
             await delete_message()
             await add_log(session, chat.id, "restricted_media", target_id=membership.user_id, reason=text[:200])
@@ -1179,19 +1285,93 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
 
         blocked_words = [str(word).casefold() for word in settings_data.get("blocked_words", [])]
         blocked_trigger = any(word and word in lowered for word in blocked_words)
-        mention_count = sum(1 for entity in (message.entities or []) if entity.type in {"mention", "text_mention"})
-        mass_mentions_trigger = mention_count > int(settings_data.get("mass_mentions_limit", 5))
+        mention_count = sum(
+            1 for entity in (message.entities or [])
+            if entity.type in {"mention", "text_mention"}
+        )
+        mass_mentions_trigger = bool(settings_data.get("mass_mentions_enabled", True)) and (
+            mention_count > int(settings_data.get("mass_mentions_limit", 5))
+        )
+
+        normalized_text = re.sub(r"\s+", " ", lowered).strip()
+        duplicate_trigger = False
+        if settings_data.get("duplicate_filter_enabled", True) and len(normalized_text) >= 3:
+            duplicate_bucket = _duplicate_buckets[key]
+            duplicate_window = int(settings_data.get("duplicate_window_seconds", 30))
+            while duplicate_bucket and now_mono - duplicate_bucket[0][0] > duplicate_window:
+                duplicate_bucket.popleft()
+            duplicate_bucket.append((now_mono, normalized_text))
+            duplicate_trigger = sum(1 for _, value in duplicate_bucket if value == normalized_text) >= int(
+                settings_data.get("duplicate_limit", 3)
+            )
+
+        letters = [char for char in text if char.isalpha()]
+        upper_count = sum(1 for char in letters if char.isupper())
+        caps_trigger = bool(settings_data.get("caps_filter_enabled", False)) and (
+            len(letters) >= int(settings_data.get("caps_min_letters", 12))
+            and upper_count * 100 / max(1, len(letters)) >= int(settings_data.get("caps_ratio_percent", 75))
+        )
+
+        emoji_count = sum(1 for char in text if unicodedata.category(char) in {"So", "Sk"})
+        emoji_trigger = bool(settings_data.get("emoji_flood_enabled", False)) and (
+            emoji_count > int(settings_data.get("emoji_limit", 20))
+        )
+        forward_trigger = bool(settings_data.get("forward_filter_enabled", False)) and bool(
+            getattr(message, "forward_origin", None)
+        )
+        media_trigger = bool(settings_data.get("media_filter_enabled", False)) and has_media
+
+        text_link_urls = [
+            str(getattr(entity, "url", "") or "")
+            for entity in (message.entities or [])
+            if entity.type == "text_link"
+        ]
+        short_domains = {"bit.ly", "tinyurl.com", "clck.ru", "goo.su", "cutt.ly", "t.co"}
+        hidden_link_trigger = premium_access and bool(
+            settings_data.get("premium_hidden_links_enabled", False)
+        ) and any(
+            (urlparse(url).hostname or "").casefold() in short_domains
+            for url in text_link_urls
+        )
+
+        url_count = len(re.findall(r"(?:https?://|t\.me/)", lowered))
+        phone_like = bool(re.search(r"(?:\+?\d[\s()\-]*){9,}", text))
+        repeated_chars = bool(re.search(r"(.)\1{8,}", lowered))
+        spam_words = ("заработок", "быстрый доход", "пиши в лс", "инвестиции", "розыгрыш")
+        smart_spam_trigger = premium_access and bool(
+            settings_data.get("premium_smart_spam_enabled", False)
+        ) and (
+            url_count >= 2
+            or (phone_like and has_link_any)
+            or repeated_chars
+            or sum(1 for word in spam_words if word in lowered) >= 2
+        )
+
+        joined_at = as_utc(user_member.joined_at) or utcnow()
+        age_hours = max(0, (utcnow() - joined_at).total_seconds() / 3600)
+        suspicious_newcomer = premium_access and bool(
+            settings_data.get("premium_suspicious_newcomers_enabled", False)
+        ) and age_hours < int(settings_data.get("newcomer_window_hours", 24)) and (
+            not message.from_user.username
+            and (has_link_any or mention_count > 0 or smart_spam_trigger)
+        )
 
         bucket = _flood_buckets[key]
         window = int(settings_data.get("flood_window_seconds", 10))
         while bucket and now_mono - bucket[0] > window:
             bucket.popleft()
         bucket.append(now_mono)
-        flood_trigger = len(bucket) > int(settings_data.get("flood_limit", 6))
+        flood_limit = int(settings_data.get("flood_limit", 6))
+        if premium_access and settings_data.get("premium_adaptive_protection_enabled", False):
+            threat_bucket = _threat_buckets[chat.id]
+            adaptive_window = int(settings_data.get("premium_adaptive_window_seconds", 60))
+            while threat_bucket and now_mono - threat_bucket[0] > adaptive_window:
+                threat_bucket.popleft()
+            if len(threat_bucket) >= int(settings_data.get("premium_adaptive_trigger_count", 5)):
+                flood_limit = max(3, flood_limit // 2)
+        flood_trigger = len(bucket) > flood_limit
 
-        has_link = "http://" in lowered or "https://" in lowered or "t.me/" in lowered
-        joined_at = as_utc(user_member.joined_at) or utcnow()
-        age_hours = max(0, (utcnow() - joined_at).total_seconds() / 3600)
+        has_link = has_link_any
         link_trigger = False
         if has_link and age_hours < int(settings_data.get("links_newbie_hours", 24)):
             allowed = [str(domain).casefold() for domain in settings_data.get("allowed_domains", [])]
@@ -1261,37 +1441,81 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
             if stopped:
                 return True
 
-        if settings_data["anti_flood_enabled"] and flood_trigger:
-            await delete_message()
-            user_member.warnings += 1
-            await add_log(
-                session,
-                chat.id,
+        if settings_data.get("anti_flood_enabled", True) and flood_trigger:
+            return await apply_automatic_violation(
                 "auto_flood",
-                target_id=membership.user_id,
-                reason="Превышен лимит сообщений",
+                "Превышен лимит сообщений",
             )
-            await session.commit()
-            return True
 
-        if settings_data["word_filter_enabled"] and blocked_trigger:
-            await delete_message()
-            user_member.warnings += 1
-            await add_log(session, chat.id, "blocked_word", target_id=membership.user_id, reason=text[:200])
-            await session.commit()
-            return True
+        if duplicate_trigger:
+            return await apply_automatic_violation(
+                "duplicate_message",
+                "Повторяющиеся сообщения",
+            )
 
-        if settings_data["link_filter_enabled"] and link_trigger:
-            await delete_message()
-            await add_log(session, chat.id, "newbie_link", target_id=membership.user_id, reason=text[:200])
-            await session.commit()
-            return True
+        if caps_trigger:
+            return await apply_automatic_violation(
+                "caps_flood",
+                "Превышена доля заглавных букв",
+            )
+
+        if emoji_trigger:
+            return await apply_automatic_violation(
+                "emoji_flood",
+                f"Слишком много эмодзи: {emoji_count}",
+            )
+
+        if forward_trigger:
+            return await apply_automatic_violation(
+                "forwarded_message",
+                "Пересланные сообщения запрещены",
+                add_warning=False,
+            )
+
+        if media_trigger:
+            return await apply_automatic_violation(
+                "media_filter",
+                "Медиа запрещено настройками группы",
+                add_warning=False,
+            )
+
+        if settings_data.get("word_filter_enabled", True) and blocked_trigger:
+            return await apply_automatic_violation(
+                "blocked_word",
+                text[:200] or "Запрещённое слово",
+            )
+
+        if settings_data.get("link_filter_enabled", True) and link_trigger:
+            return await apply_automatic_violation(
+                "newbie_link",
+                text[:200] or "Ссылка от нового участника",
+                add_warning=False,
+            )
 
         if mass_mentions_trigger:
-            await delete_message()
-            await add_log(session, chat.id, "mass_mentions", target_id=membership.user_id, details={"count": mention_count})
-            await session.commit()
-            return True
+            return await apply_automatic_violation(
+                "mass_mentions",
+                f"Массовые упоминания: {mention_count}",
+            )
+
+        if hidden_link_trigger:
+            return await apply_automatic_violation(
+                "hidden_link",
+                "Скрытая или сокращённая ссылка",
+            )
+
+        if smart_spam_trigger:
+            return await apply_automatic_violation(
+                "smart_spam",
+                "Сообщение распознано как спам",
+            )
+
+        if suspicious_newcomer:
+            return await apply_automatic_violation(
+                "suspicious_newcomer",
+                "Подозрительная активность нового участника",
+                quarantine=bool(settings_data.get("premium_auto_quarantine_enabled", False)),
+            )
 
     return False
 

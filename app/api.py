@@ -161,6 +161,69 @@ async def get_dashboard(
         raise http_error(exc) from exc
 
 
+@router.get("/chats/{chat_id}/profile")
+async def get_chat_profile(
+    chat_id: int,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Return the group profile used by the Mini App.
+
+    Telegram may reject some optional lookups when the bot lacks a permission;
+    in that case the endpoint still returns the data stored by AniGuard.
+    """
+    await ensure_admin(chat_id, user)
+    chat = await get_chat_or_raise(session, chat_id)
+    db_members = await session.scalar(
+        select(func.count()).select_from(Membership).where(Membership.chat_id == chat_id)
+    ) or 0
+    result: dict[str, Any] = {
+        "id": chat.id,
+        "title": chat.title,
+        "username": chat.username,
+        "description": "",
+        "invite_link": None,
+        "members": db_members,
+        "premium": await has_premium_access(session, chat_id=chat_id, user_id=user.id),
+        "premium_until": chat.premium_until.isoformat() if chat.premium_until else None,
+        "owner": None,
+        "administrators": [],
+    }
+    try:
+        telegram_chat = await bot.get_chat(chat_id)
+        result["title"] = telegram_chat.title or chat.title
+        result["username"] = telegram_chat.username or chat.username
+        result["description"] = telegram_chat.description or ""
+        result["invite_link"] = telegram_chat.invite_link
+    except Exception:
+        pass
+    try:
+        result["members"] = await bot.get_chat_member_count(chat_id)
+    except Exception:
+        pass
+    try:
+        admins = await bot.get_chat_administrators(chat_id)
+        admin_rows: list[dict[str, Any]] = []
+        for admin in admins:
+            admin_user = admin.user
+            status_value = getattr(admin.status, "value", str(admin.status))
+            row = {
+                "id": admin_user.id,
+                "first_name": admin_user.first_name,
+                "last_name": admin_user.last_name,
+                "username": admin_user.username,
+                "status": status_value,
+                "custom_title": getattr(admin, "custom_title", None),
+            }
+            admin_rows.append(row)
+            if admin.status == ChatMemberStatus.CREATOR:
+                result["owner"] = row
+        result["administrators"] = admin_rows
+    except Exception:
+        pass
+    return result
+
+
 @router.get("/chats/{chat_id}/settings")
 async def get_settings_endpoint(
     chat_id: int,
@@ -189,9 +252,25 @@ async def put_settings(
 ) -> dict[str, Any]:
     await ensure_admin(chat_id, user)
     try:
+        premium_keys = {
+            "premium_quarantine", "premium_cases", "premium_schedule", "premium_stats",
+            "premium_smart_spam_enabled", "premium_hidden_links_enabled",
+            "premium_suspicious_newcomers_enabled", "premium_auto_quarantine_enabled",
+            "premium_punishment_ladder_enabled", "premium_adaptive_protection_enabled",
+            "premium_raid_lockdown_enabled", "premium_newcomer_quarantine_seconds",
+            "premium_ladder_mute_seconds", "premium_adaptive_trigger_count",
+            "premium_adaptive_window_seconds",
+        }
+        premium_access = await has_premium_access(session, chat_id=chat_id, user_id=user.id)
+        current_settings = await get_merged_settings(session, chat_id)
+        if not premium_access and any(
+            key in premium_keys and value != current_settings.get(key)
+            for key, value in payload.settings.items()
+        ):
+            raise PermissionError("Эти настройки доступны только с AniGuard Premium")
         updated = await update_chat_settings(session, chat_id, payload.settings)
         await session.commit()
-        return {"settings": updated}
+        return {"settings": updated, "premium": premium_access}
     except Exception as exc:
         await session.rollback()
         raise http_error(exc) from exc

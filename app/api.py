@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 from aiogram.enums import ChatMemberStatus
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.bot import bot, moderation_response
+from app.bot import bot, moderation_response, render_custom_template
+from app.defaults import BASIC_MODERATION_COMMANDS, PREMIUM_SETTING_KEYS, default_basic_commands
 from app.config import get_settings
 from app.db import SessionFactory, get_session
 from app.models import (
@@ -42,6 +46,10 @@ from app.schemas import (
     RuleCreate,
     RuleUpdate,
     SettingsUpdate,
+    BasicCommandUpdate,
+    CaptchaSettingsUpdate,
+    GroupRulesUpdate,
+    WelcomeSettingsUpdate,
 )
 from app.security import TelegramUser, current_telegram_user
 from app.services import (
@@ -62,11 +70,18 @@ from app.services import (
     update_chat_settings,
     as_utc,
     utcnow,
+    active_restrictions,
+    ensure_membership,
+    premium_access_details,
+    upsert_user,
 )
 
 
 router = APIRouter(prefix="/api")
 settings = get_settings()
+UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
+WELCOME_DIR = UPLOAD_DIR / "welcome"
+WELCOME_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def http_error(exc: Exception) -> HTTPException:
@@ -129,17 +144,20 @@ async def get_chats(
                 select(Chat).where(Chat.is_active.is_(True)).order_by(Chat.updated_at.desc()).limit(300)
             )
         ).all()
-        return [
-            {
+        result: list[dict[str, Any]] = []
+        for row in rows:
+            details = await premium_access_details(session, chat_id=row.id, user_id=user.id)
+            result.append({
                 "id": row.id,
                 "title": row.title,
                 "username": row.username,
-                "premium": await entity_has_premium(session, "chat", row.id),
-                "premium_until": row.premium_until.isoformat() if row.premium_until else None,
-                "premium_plan": row.premium_plan,
-            }
-            for row in rows
-        ]
+                "premium": details["active"],
+                "premium_until": details["until"].isoformat() if details["until"] else None,
+                "premium_plan": details["plan"],
+                "premium_source": details["source"],
+                "owner_id": details["owner_id"],
+            })
+        return result
     await ensure_entity_available(session, user_id=user.id)
     return await list_admin_chats(session, bot, user.id)
 
@@ -153,9 +171,17 @@ async def get_dashboard(
     await ensure_admin(chat_id, user)
     try:
         data = await dashboard_data(session, chat_id)
-        data["chat"]["chat_premium"] = data["chat"]["premium"]
-        data["chat"]["user_premium"] = await entity_has_premium(session, "user", user.id)
-        data["chat"]["premium"] = await has_premium_access(session, chat_id=chat_id, user_id=user.id)
+        premium = await premium_access_details(session, chat_id=chat_id, user_id=user.id)
+        data["chat"].update({
+            "premium": premium["active"],
+            "chat_premium": premium["group"]["active"],
+            "owner_premium": premium["owner"]["active"],
+            "user_premium": await entity_has_premium(session, "user", user.id),
+            "premium_source": premium["source"],
+            "premium_until": premium["until"].isoformat() if premium["until"] else None,
+            "premium_plan": premium["plan"],
+            "owner_id": premium["owner_id"],
+        })
         return data
     except Exception as exc:
         raise http_error(exc) from exc
@@ -167,11 +193,7 @@ async def get_chat_profile(
     user: TelegramUser = Depends(current_telegram_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    """Return the group profile used by the Mini App.
-
-    Telegram may reject some optional lookups when the bot lacks a permission;
-    in that case the endpoint still returns the data stored by AniGuard.
-    """
+    """Return current Telegram group data and synchronise its creator."""
     await ensure_admin(chat_id, user)
     chat = await get_chat_or_raise(session, chat_id)
     db_members = await session.scalar(
@@ -184,8 +206,6 @@ async def get_chat_profile(
         "description": "",
         "invite_link": None,
         "members": db_members,
-        "premium": await has_premium_access(session, chat_id=chat_id, user_id=user.id),
-        "premium_until": chat.premium_until.isoformat() if chat.premium_until else None,
         "owner": None,
         "administrators": [],
     }
@@ -195,6 +215,8 @@ async def get_chat_profile(
         result["username"] = telegram_chat.username or chat.username
         result["description"] = telegram_chat.description or ""
         result["invite_link"] = telegram_chat.invite_link
+        chat.title = result["title"]
+        chat.username = result["username"]
     except Exception:
         pass
     try:
@@ -204,23 +226,45 @@ async def get_chat_profile(
     try:
         admins = await bot.get_chat_administrators(chat_id)
         admin_rows: list[dict[str, Any]] = []
+        merged_settings = await get_merged_settings(session, chat_id)
         for admin in admins:
             admin_user = admin.user
+            await upsert_user(session, admin_user)
             status_value = getattr(admin.status, "value", str(admin.status))
+            role = "owner" if admin.status == ChatMemberStatus.CREATOR else "admin"
+            await ensure_membership(session, chat_id, admin_user.id, role)
             row = {
                 "id": admin_user.id,
                 "first_name": admin_user.first_name,
                 "last_name": admin_user.last_name,
+                "full_name": " ".join(filter(None, [admin_user.first_name, admin_user.last_name])),
                 "username": admin_user.username,
                 "status": status_value,
                 "custom_title": getattr(admin, "custom_title", None),
+                "avatar_url": f"/api/avatars/{admin_user.id}",
             }
             admin_rows.append(row)
             if admin.status == ChatMemberStatus.CREATOR:
                 result["owner"] = row
+                merged_settings["owner_user_id"] = admin_user.id
+        chat.settings = merged_settings
         result["administrators"] = admin_rows
     except Exception:
         pass
+
+    premium = await premium_access_details(session, chat_id=chat_id, user_id=user.id)
+    result.update({
+        "premium": premium["active"],
+        "premium_until": premium["until"].isoformat() if premium["until"] else None,
+        "premium_plan": premium["plan"],
+        "premium_source": premium["source"],
+        "premium_lifetime": premium["lifetime"],
+        "owner_premium": premium["owner"]["active"],
+        "owner_premium_until": premium["owner"]["until"].isoformat() if premium["owner"]["until"] else None,
+        "group_premium": premium["group"]["active"],
+        "group_premium_until": premium["group"]["until"].isoformat() if premium["group"]["until"] else None,
+    })
+    await session.commit()
     return result
 
 
@@ -232,12 +276,16 @@ async def get_settings_endpoint(
 ) -> dict[str, Any]:
     await ensure_admin(chat_id, user)
     try:
-        chat = await get_chat_or_raise(session, chat_id)
+        await get_chat_or_raise(session, chat_id)
+        premium = await premium_access_details(session, chat_id=chat_id, user_id=user.id)
         return {
             "settings": await get_merged_settings(session, chat_id),
-            "premium": await has_premium_access(session, chat_id=chat_id, user_id=user.id),
-            "chat_premium": is_premium(chat),
+            "premium": premium["active"],
+            "chat_premium": premium["group"]["active"],
+            "owner_premium": premium["owner"]["active"],
             "user_premium": await entity_has_premium(session, "user", user.id),
+            "premium_source": premium["source"],
+            "premium_until": premium["until"].isoformat() if premium["until"] else None,
         }
     except Exception as exc:
         raise http_error(exc) from exc
@@ -252,15 +300,7 @@ async def put_settings(
 ) -> dict[str, Any]:
     await ensure_admin(chat_id, user)
     try:
-        premium_keys = {
-            "premium_quarantine", "premium_cases", "premium_schedule", "premium_stats",
-            "premium_smart_spam_enabled", "premium_hidden_links_enabled",
-            "premium_suspicious_newcomers_enabled", "premium_auto_quarantine_enabled",
-            "premium_punishment_ladder_enabled", "premium_adaptive_protection_enabled",
-            "premium_raid_lockdown_enabled", "premium_newcomer_quarantine_seconds",
-            "premium_ladder_mute_seconds", "premium_adaptive_trigger_count",
-            "premium_adaptive_window_seconds",
-        }
+        premium_keys = PREMIUM_SETTING_KEYS
         premium_access = await has_premium_access(session, chat_id=chat_id, user_id=user.id)
         current_settings = await get_merged_settings(session, chat_id)
         if not premium_access and any(
@@ -280,7 +320,7 @@ async def put_settings(
 async def get_members(
     chat_id: int,
     q: str = Query(default="", max_length=64),
-    limit: int = Query(default=50, ge=1, le=200),
+    limit: int = Query(default=200, ge=1, le=500),
     user: TelegramUser = Depends(current_telegram_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[dict[str, Any]]:
@@ -289,33 +329,105 @@ async def get_members(
         select(Membership, User)
         .join(User, User.id == Membership.user_id)
         .where(Membership.chat_id == chat_id)
-        .order_by(Membership.last_seen_at.desc())
+        .order_by(Membership.role.desc(), Membership.last_seen_at.desc())
         .limit(limit)
     )
     if q:
         pattern = f"%{q.lower()}%"
         stmt = stmt.where(
             func.lower(User.first_name).like(pattern)
+            | func.lower(func.coalesce(User.last_name, "")).like(pattern)
             | func.lower(func.coalesce(User.username, "")).like(pattern)
         )
     rows = (await session.execute(stmt)).all()
-    return [
-        {
+    result: list[dict[str, Any]] = []
+    for membership, db_user in rows:
+        telegram_status: str | None = None
+        try:
+            tg_member = await bot.get_chat_member(chat_id, db_user.id)
+            telegram_status = getattr(tg_member.status, "value", str(tg_member.status))
+            if tg_member.status == ChatMemberStatus.CREATOR:
+                membership.role = "owner"
+            elif tg_member.status == ChatMemberStatus.ADMINISTRATOR:
+                membership.role = "admin"
+        except Exception:
+            pass
+        result.append({
             "id": db_user.id,
             "username": db_user.username,
             "first_name": db_user.first_name,
+            "last_name": db_user.last_name,
+            "full_name": " ".join(filter(None, [db_user.first_name, db_user.last_name])),
+            "avatar_url": f"/api/avatars/{db_user.id}",
             "role": membership.role,
+            "telegram_status": telegram_status,
             "warnings": membership.warnings,
             "penalty_points": membership.penalty_points,
             "messages": membership.message_count,
             "xp": membership.xp,
             "coins": membership.coins,
             "joined_at": membership.joined_at.isoformat(),
+            "last_seen_at": membership.last_seen_at.isoformat(),
             "muted_until": membership.muted_until.isoformat() if membership.muted_until else None,
             "quarantined_until": membership.quarantined_until.isoformat() if membership.quarantined_until else None,
+        })
+    await session.flush()
+    return result
+
+
+@router.get("/chats/{chat_id}/members/{member_id}")
+async def get_member_details(
+    chat_id: int,
+    member_id: int,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    row = await session.execute(
+        select(Membership, User)
+        .join(User, User.id == Membership.user_id)
+        .where(Membership.chat_id == chat_id, Membership.user_id == member_id)
+    )
+    found = row.first()
+    if not found:
+        raise HTTPException(status_code=404, detail="Участник не найден")
+    membership, db_user = found
+    restrictions = sorted(await active_restrictions(session, chat_id=chat_id, user_id=member_id))
+    telegram: dict[str, Any] = {}
+    try:
+        tg_member = await bot.get_chat_member(chat_id, member_id)
+        telegram = {
+            "status": getattr(tg_member.status, "value", str(tg_member.status)),
+            "custom_title": getattr(tg_member, "custom_title", None),
+            "is_member": getattr(tg_member, "is_member", None),
+            "until_date": getattr(tg_member, "until_date", None).isoformat() if getattr(tg_member, "until_date", None) else None,
+            "can_send_messages": getattr(tg_member, "can_send_messages", None),
+            "can_send_photos": getattr(tg_member, "can_send_photos", None),
+            "can_send_videos": getattr(tg_member, "can_send_videos", None),
+            "can_send_other_messages": getattr(tg_member, "can_send_other_messages", None),
         }
-        for membership, db_user in rows
-    ]
+    except Exception:
+        telegram = {"status": None}
+    return {
+        "id": db_user.id,
+        "username": db_user.username,
+        "first_name": db_user.first_name,
+        "last_name": db_user.last_name,
+        "full_name": " ".join(filter(None, [db_user.first_name, db_user.last_name])),
+        "avatar_url": f"/api/avatars/{db_user.id}",
+        "role": membership.role,
+        "warnings": membership.warnings,
+        "penalty_points": membership.penalty_points,
+        "messages": membership.message_count,
+        "xp": membership.xp,
+        "coins": membership.coins,
+        "joined_at": membership.joined_at.isoformat(),
+        "last_seen_at": membership.last_seen_at.isoformat(),
+        "muted_until": membership.muted_until.isoformat() if membership.muted_until else None,
+        "quarantined_until": membership.quarantined_until.isoformat() if membership.quarantined_until else None,
+        "active_restrictions": restrictions,
+        "telegram": telegram,
+    }
 
 
 @router.patch("/chats/{chat_id}/members/{member_id}/role")
@@ -397,9 +509,24 @@ async def run_action(
         if payload.target_id is not None and payload.action not in {"purge", "slow", "lock", "unlock", "susanoo"}:
             try:
                 group_settings = await get_merged_settings(session, chat_id)
-                await bot.send_message(
-                    chat_id,
-                    moderation_response(
+                command_settings = group_settings.get("basic_moderation_commands") or {}
+                selected = next(
+                    (value for value in command_settings.values() if isinstance(value, dict) and value.get("action") == payload.action),
+                    None,
+                )
+                if selected and selected.get("response"):
+                    chat = await get_chat_or_raise(session, chat_id)
+                    response_text = render_custom_template(
+                        str(selected["response"]),
+                        actor_id=user.id,
+                        target_id=payload.target_id,
+                        command_name=str(selected.get("name") or payload.action),
+                        duration_seconds=result.get("duration_seconds"),
+                        reason=str(result.get("reason") or payload.reason or "Причина не указана"),
+                        chat_title=chat.title,
+                    )
+                else:
+                    response_text = moderation_response(
                         actor_id=user.id,
                         target_id=payload.target_id,
                         action=payload.action,
@@ -407,8 +534,8 @@ async def run_action(
                         reason=str(result.get("reason") or payload.reason or "Причина не указана"),
                         show_duration=bool(group_settings.get("show_moderation_duration", True)),
                         show_reason=bool(group_settings.get("show_moderation_reason", True)),
-                    ),
-                )
+                    )
+                await bot.send_message(chat_id, response_text)
             except Exception:
                 pass
         return result
@@ -1156,3 +1283,381 @@ async def admin_logs(
         }
         for row in rows
     ]
+
+
+# ---------------------------------------------------------------------------
+# Extended Mini App integrations: avatars, members, group content, CAPTCHA,
+# editable built-in moderation commands, and effective Premium information.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/avatars/{user_id}", include_in_schema=False)
+async def get_avatar(user_id: int) -> Response:
+    """Proxy a Telegram profile photo without exposing the bot token."""
+    try:
+        photos = await bot.get_user_profile_photos(user_id, limit=1)
+        if not photos.photos:
+            raise HTTPException(status_code=404, detail="У пользователя нет аватара")
+        file_id = photos.photos[0][-1].file_id
+        telegram_file = await bot.get_file(file_id)
+        if not telegram_file.file_path:
+            raise HTTPException(status_code=404, detail="Аватар недоступен")
+        buffer = BytesIO()
+        await bot.download_file(telegram_file.file_path, destination=buffer)
+        return Response(
+            content=buffer.getvalue(),
+            media_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=900"},
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="Аватар недоступен") from exc
+
+
+@router.get("/media/welcome/{chat_id}", include_in_schema=False)
+async def get_public_welcome_photo(chat_id: int) -> FileResponse:
+    async with SessionFactory() as session:
+        try:
+            merged = await get_merged_settings(session, chat_id)
+        except Exception as exc:
+            raise HTTPException(status_code=404, detail="Фотография не найдена") from exc
+    raw_path = str(merged.get("welcome_photo_path") or "")
+    if not raw_path:
+        raise HTTPException(status_code=404, detail="Фотография не добавлена")
+    path = Path(raw_path).resolve()
+    try:
+        path.relative_to(WELCOME_DIR.resolve())
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail="Некорректный путь фотографии") from exc
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Фотография не найдена")
+    return FileResponse(path, headers={"Cache-Control": "public, max-age=300"})
+
+
+@router.get("/chats/{chat_id}/group-rules")
+async def get_group_rules(
+    chat_id: int,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    merged = await get_merged_settings(session, chat_id)
+    return {"rules": [str(item) for item in merged.get("group_rules", []) if str(item).strip()]}
+
+
+@router.put("/chats/{chat_id}/group-rules")
+async def put_group_rules(
+    chat_id: int,
+    payload: GroupRulesUpdate,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    rules = [item.strip() for item in payload.rules if item.strip()]
+    if len(rules) > 100:
+        raise HTTPException(status_code=400, detail="Можно добавить не более 100 правил")
+    if any(len(item) > 500 for item in rules):
+        raise HTTPException(status_code=400, detail="Одно правило не может быть длиннее 500 символов")
+    updated = await update_chat_settings(session, chat_id, {"group_rules": rules})
+    await session.commit()
+    return {"rules": updated["group_rules"]}
+
+
+@router.get("/chats/{chat_id}/welcome")
+async def get_welcome_settings(
+    chat_id: int,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    merged = await get_merged_settings(session, chat_id)
+    photo_name = str(merged.get("welcome_photo_name") or "")
+    return {
+        "enabled": bool(merged.get("welcome_enabled", True)),
+        "text": str(merged.get("welcome_text") or ""),
+        "after_captcha": bool(merged.get("welcome_after_captcha", True)),
+        "photo_name": photo_name,
+        "photo_url": f"/api/media/welcome/{chat_id}?v={int(utcnow().timestamp())}" if photo_name else None,
+    }
+
+
+@router.put("/chats/{chat_id}/welcome")
+async def put_welcome_settings(
+    chat_id: int,
+    payload: WelcomeSettingsUpdate,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    text_value = payload.text.strip()
+    if payload.enabled and not text_value:
+        raise HTTPException(status_code=400, detail="Введите текст приветственного сообщения")
+    updated = await update_chat_settings(
+        session,
+        chat_id,
+        {
+            "welcome_enabled": payload.enabled,
+            "welcome_text": text_value,
+            "welcome_after_captcha": payload.after_captcha,
+        },
+    )
+    await session.commit()
+    return {
+        "enabled": updated["welcome_enabled"],
+        "text": updated["welcome_text"],
+        "after_captcha": updated["welcome_after_captcha"],
+        "photo_name": updated.get("welcome_photo_name") or "",
+        "photo_url": f"/api/media/welcome/{chat_id}?v={int(utcnow().timestamp())}" if updated.get("welcome_photo_name") else None,
+    }
+
+
+@router.post("/chats/{chat_id}/welcome/photo")
+async def upload_welcome_photo(
+    chat_id: int,
+    photo: UploadFile = File(...),
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    allowed = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+    }
+    suffix = allowed.get(photo.content_type or "")
+    if suffix is None:
+        raise HTTPException(status_code=400, detail="Поддерживаются JPG, PNG и WEBP")
+    content = await photo.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Файл пуст")
+    if len(content) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Размер фотографии не должен превышать 8 МБ")
+    for existing in WELCOME_DIR.glob(f"{chat_id}.*"):
+        try:
+            existing.unlink()
+        except OSError:
+            pass
+    target = WELCOME_DIR / f"{chat_id}{suffix}"
+    target.write_bytes(content)
+    updated = await update_chat_settings(
+        session,
+        chat_id,
+        {
+            "welcome_photo_path": str(target),
+            "welcome_photo_name": Path(photo.filename or target.name).name,
+        },
+    )
+    await session.commit()
+    return {
+        "photo_name": updated["welcome_photo_name"],
+        "photo_url": f"/api/media/welcome/{chat_id}?v={int(utcnow().timestamp())}",
+    }
+
+
+@router.delete("/chats/{chat_id}/welcome/photo", status_code=204)
+async def delete_welcome_photo(
+    chat_id: int,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    await ensure_admin(chat_id, user)
+    merged = await get_merged_settings(session, chat_id)
+    raw_path = str(merged.get("welcome_photo_path") or "")
+    if raw_path:
+        path = Path(raw_path)
+        try:
+            if path.resolve().is_relative_to(WELCOME_DIR.resolve()) and path.exists():
+                path.unlink()
+        except (OSError, ValueError):
+            pass
+    await update_chat_settings(session, chat_id, {"welcome_photo_path": "", "welcome_photo_name": ""})
+    await session.commit()
+    return Response(status_code=204)
+
+
+@router.get("/chats/{chat_id}/captcha")
+async def get_captcha_settings(
+    chat_id: int,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    merged = await get_merged_settings(session, chat_id)
+    return {
+        "enabled": bool(merged.get("captcha_enabled", True)),
+        "timeout_seconds": int(merged.get("captcha_timeout_seconds", 60)),
+        "attempts": int(merged.get("captcha_attempts", 3)),
+        "failure_action": str(merged.get("captcha_failure_action", "kick")),
+        "image_set": str(merged.get("captcha_image_set", "random")),
+        "message": str(merged.get("captcha_message") or ""),
+    }
+
+
+@router.put("/chats/{chat_id}/captcha")
+async def put_captcha_settings(
+    chat_id: int,
+    payload: CaptchaSettingsUpdate,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    message_value = payload.message.strip()
+    if payload.enabled and not message_value:
+        raise HTTPException(status_code=400, detail="Введите сообщение CAPTCHA")
+    updated = await update_chat_settings(
+        session,
+        chat_id,
+        {
+            "captcha_enabled": payload.enabled,
+            "captcha_timeout_seconds": payload.timeout_seconds,
+            "captcha_attempts": payload.attempts,
+            "captcha_failure_action": payload.failure_action,
+            "captcha_image_set": payload.image_set,
+            "captcha_message": message_value,
+        },
+    )
+    await session.commit()
+    return {
+        "enabled": updated["captcha_enabled"],
+        "timeout_seconds": updated["captcha_timeout_seconds"],
+        "attempts": updated["captcha_attempts"],
+        "failure_action": updated["captcha_failure_action"],
+        "image_set": updated["captcha_image_set"],
+        "message": updated["captcha_message"],
+    }
+
+
+@router.get("/chats/{chat_id}/captcha/preview")
+async def get_captcha_preview(
+    chat_id: int,
+    image_set: str | None = Query(default=None, max_length=20),
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    from app.captcha import select_captcha
+
+    await ensure_admin(chat_id, user)
+    merged = await get_merged_settings(session, chat_id)
+    selected = select_captcha(str(image_set or merged.get("captcha_image_set", "random")))
+    return {
+        "key": selected["key"],
+        "image_url": f"/static/captcha/{selected['key']}.png",
+        "options": selected["options"],
+        "answer": selected["answer"],
+        "label": selected["label"],
+    }
+
+
+@router.get("/chats/{chat_id}/basic-commands")
+async def get_basic_commands(
+    chat_id: int,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    merged = await get_merged_settings(session, chat_id)
+    commands = default_basic_commands()
+    stored = merged.get("basic_moderation_commands")
+    if isinstance(stored, dict):
+        for key, value in stored.items():
+            if key in commands and isinstance(value, dict):
+                commands[key].update({item_key: item_value for item_key, item_value in value.items() if item_key in {"name", "trigger", "action", "response"}})
+    premium = await premium_access_details(session, chat_id=chat_id, user_id=user.id)
+    return {"commands": [{"key": key, **value} for key, value in commands.items()], "premium": premium["active"]}
+
+
+@router.put("/chats/{chat_id}/basic-commands/{command_key}")
+async def update_basic_command(
+    chat_id: int,
+    command_key: str,
+    payload: BasicCommandUpdate,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    premium = await premium_access_details(session, chat_id=chat_id, user_id=user.id)
+    if not premium["active"]:
+        raise HTTPException(status_code=403, detail="Редактор основных команд доступен только с AniGuard Premium")
+    if command_key not in BASIC_MODERATION_COMMANDS:
+        raise HTTPException(status_code=404, detail="Команда не найдена")
+    trigger = payload.trigger.strip().lstrip("/").strip()
+    if not trigger:
+        raise HTTPException(status_code=400, detail="Вызов команды не может быть пустым")
+    merged = await get_merged_settings(session, chat_id)
+    commands = default_basic_commands()
+    stored = merged.get("basic_moderation_commands")
+    if isinstance(stored, dict):
+        for key, value in stored.items():
+            if key in commands and isinstance(value, dict):
+                commands[key].update(value)
+    duplicate = next(
+        (item for key, item in commands.items() if key != command_key and str(item.get("trigger", "")).casefold() == trigger.casefold()),
+        None,
+    )
+    if duplicate:
+        raise HTTPException(status_code=400, detail=f"Вызов «{trigger}» уже используется другой командой")
+    response = payload.response.strip()
+    if not response:
+        raise HTTPException(status_code=400, detail="Ответ бота не может быть пустым")
+    commands[command_key]["trigger"] = trigger
+    commands[command_key]["response"] = response
+    await update_chat_settings(session, chat_id, {"basic_moderation_commands": commands})
+    await session.commit()
+    return commands[command_key]
+
+
+@router.get("/chats/{chat_id}/premium/status")
+async def get_premium_status(
+    chat_id: int,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    details = await premium_access_details(session, chat_id=chat_id, user_id=user.id)
+    owner: dict[str, Any] | None = None
+    if details["owner_id"]:
+        db_owner = await session.get(User, details["owner_id"])
+        if db_owner:
+            owner = {
+                "id": db_owner.id,
+                "first_name": db_owner.first_name,
+                "last_name": db_owner.last_name,
+                "full_name": " ".join(filter(None, [db_owner.first_name, db_owner.last_name])),
+                "username": db_owner.username,
+                "avatar_url": f"/api/avatars/{db_owner.id}",
+            }
+    until = details["until"]
+    remaining_seconds = max(0, int((until - utcnow()).total_seconds())) if until else None
+    return {
+        "active": details["active"],
+        "source": details["source"],
+        "until": until.isoformat() if until else None,
+        "remaining_seconds": remaining_seconds,
+        "lifetime": details["lifetime"],
+        "plan": details["plan"],
+        "owner": owner,
+        "group_subscription": {
+            "active": details["group"]["active"],
+            "until": details["group"]["until"].isoformat() if details["group"]["until"] else None,
+            "lifetime": details["group"]["lifetime"],
+            "plan": details["group"]["plan"],
+        },
+        "owner_subscription": {
+            "active": details["owner"]["active"],
+            "until": details["owner"]["until"].isoformat() if details["owner"]["until"] else None,
+            "lifetime": details["owner"]["lifetime"],
+            "plan": details["owner"]["plan"],
+        },
+        "features": [
+            "Полный набор автоматических фильтров",
+            "Умный антиспам и антифишинг",
+            "Координированный спам и защита от рейдов",
+            "Автокарантин и лестница наказаний",
+            "Адаптивная и ночная защита",
+            "Редактор вызовов основных команд",
+            "Редактор ответов бота",
+            "Кастомные команды и расширенные правила",
+            "Расширенная статистика и журналирование",
+        ],
+    }

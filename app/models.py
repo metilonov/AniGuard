@@ -6,98 +6,11 @@ from typing import Any
 from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from app.defaults import default_chat_settings
+
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
-
-
-def default_chat_settings() -> dict[str, Any]:
-    return {
-        # Core anti-flood and message protection.
-        "anti_flood_enabled": True,
-        "flood_limit": 6,
-        "flood_window_seconds": 10,
-        "flood_action": "delete_warn",
-        "slow_mode_seconds": 0,
-        "duplicate_filter_enabled": True,
-        "duplicate_limit": 3,
-        "duplicate_window_seconds": 30,
-        "caps_filter_enabled": False,
-        "caps_ratio_percent": 75,
-        "caps_min_letters": 12,
-        "emoji_flood_enabled": False,
-        "emoji_limit": 20,
-        "forward_filter_enabled": False,
-        "media_filter_enabled": False,
-
-        # Links, mentions and forbidden content.
-        "link_filter_enabled": True,
-        "links_newbie_hours": 24,
-        "allowed_domains": ["youtube.com", "youtu.be", "t.me"],
-        "word_filter_enabled": True,
-        "blocked_words": ["реклама", "спам", "обман", "накрутка"],
-        "symbol_replacement_check": True,
-        "mass_mentions_enabled": True,
-        "mass_mentions_limit": 5,
-
-        # New members and CAPTCHA.
-        "captcha_enabled": True,
-        "captcha_timeout_seconds": 180,
-        "raid_join_limit": 8,
-        "raid_window_seconds": 30,
-        "newcomer_window_hours": 24,
-
-        # Automatic punishments and defaults.
-        "auto_warn_enabled": True,
-        "warn_threshold": 3,
-        "default_mute_seconds": 604800,
-        "default_ban_seconds": 604800,
-        "default_quarantine_seconds": 604800,
-        "default_restrict_media_seconds": 604800,
-        "default_restrict_links_seconds": 604800,
-        "default_restrict_commands_seconds": 604800,
-        "default_reason": "Причина не указана",
-        "show_moderation_duration": True,
-        "show_moderation_reason": True,
-        "warnings_expire_days": 30,
-
-        # Reports and chat tools.
-        "reports_enabled": True,
-        "report_hide_threshold": 3,
-        "chat_locked": False,
-
-        # Game and RP modules.
-        "rp_enabled": True,
-        "rp_default_cooldown": 5,
-        "anime_enabled": True,
-        "anime_replies": True,
-        "anime_style": "shinobi",
-        "ranks_enabled": True,
-        "economy_enabled": True,
-        "xp_per_message": 2,
-        "coins_per_message": 1,
-
-        # Premium modules. These values are checked server-side.
-        "premium_quarantine": False,
-        "premium_cases": False,
-        "premium_schedule": False,
-        "premium_stats": False,
-        "premium_smart_spam_enabled": False,
-        "premium_hidden_links_enabled": False,
-        "premium_suspicious_newcomers_enabled": False,
-        "premium_auto_quarantine_enabled": False,
-        "premium_punishment_ladder_enabled": False,
-        "premium_adaptive_protection_enabled": False,
-        "premium_raid_lockdown_enabled": False,
-        "premium_newcomer_quarantine_seconds": 3600,
-        "premium_ladder_mute_seconds": 3600,
-        "premium_adaptive_trigger_count": 5,
-        "premium_adaptive_window_seconds": 60,
-
-        # Internal service values.
-        "last_message_id": 0,
-    }
-
 
 
 class Base(DeclarativeBase):
@@ -222,6 +135,12 @@ class CaptchaChallenge(Base):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     passed: Mapped[bool] = mapped_column(Boolean, default=False)
     message_id: Mapped[int | None] = mapped_column(Integer)
+    answer: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    options: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    image_key: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    attempts_left: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    failure_action: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Payment(Base):

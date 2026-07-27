@@ -77,15 +77,106 @@ async def entity_has_premium(
     return bool(premium_until and premium_until > utcnow())
 
 
+async def entity_premium_details(
+    session: AsyncSession,
+    entity_type: str,
+    entity_id: int,
+) -> dict[str, Any]:
+    """Return the effective Premium state for a user or a chat."""
+    direct_until: datetime | None = None
+    direct_plan: str | None = None
+    if entity_type == "chat":
+        chat = await session.get(Chat, entity_id)
+        if chat and is_premium(chat):
+            direct_until = as_utc(chat.premium_until)
+            direct_plan = chat.premium_plan
+
+    grant = await get_entity_grant(session, entity_type, entity_id)
+    if grant and grant.is_lifetime:
+        return {
+            "active": True,
+            "until": None,
+            "plan": grant.premium_plan or direct_plan,
+            "lifetime": True,
+        }
+    grant_until = as_utc(grant.premium_until) if grant else None
+    candidates = [value for value in (direct_until, grant_until) if value and value > utcnow()]
+    until = max(candidates) if candidates else None
+    return {
+        "active": until is not None,
+        "until": until,
+        "plan": (grant.premium_plan if grant and grant_until == until else direct_plan),
+        "lifetime": False,
+    }
+
+
+async def chat_owner_id(session: AsyncSession, chat_id: int) -> int | None:
+    chat = await session.get(Chat, chat_id)
+    settings = (chat.settings or {}) if chat else {}
+    configured = settings.get("owner_user_id")
+    if configured:
+        try:
+            return int(configured)
+        except (TypeError, ValueError):
+            pass
+    return await session.scalar(
+        select(Membership.user_id).where(
+            Membership.chat_id == chat_id,
+            Membership.role == "owner",
+        ).limit(1)
+    )
+
+
+async def premium_access_details(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    user_id: int | None = None,
+) -> dict[str, Any]:
+    """Resolve Premium for a group.
+
+    A group has Premium when it has its own active subscription or while its
+    Telegram creator has a user Premium grant.  An ordinary administrator's
+    personal Premium is deliberately not inherited by somebody else's group.
+    """
+    chat_details = await entity_premium_details(session, "chat", chat_id)
+    owner_id = await chat_owner_id(session, chat_id)
+    owner_details = (
+        await entity_premium_details(session, "user", owner_id)
+        if owner_id is not None
+        else {"active": False, "until": None, "plan": None, "lifetime": False}
+    )
+
+    if chat_details["active"]:
+        source = "group"
+        effective = chat_details
+    elif owner_details["active"]:
+        source = "owner"
+        effective = owner_details
+    else:
+        source = None
+        effective = {"active": False, "until": None, "plan": None, "lifetime": False}
+
+    return {
+        "active": bool(effective["active"]),
+        "source": source,
+        "until": effective["until"],
+        "plan": effective["plan"],
+        "lifetime": bool(effective["lifetime"]),
+        "owner_id": owner_id,
+        "group": chat_details,
+        "owner": owner_details,
+        "request_user_id": user_id,
+    }
+
+
 async def has_premium_access(
     session: AsyncSession,
     *,
     chat_id: int,
     user_id: int | None = None,
 ) -> bool:
-    if await entity_has_premium(session, "chat", chat_id):
-        return True
-    return bool(user_id is not None and await entity_has_premium(session, "user", user_id))
+    return bool((await premium_access_details(session, chat_id=chat_id, user_id=user_id))["active"])
 
 
 async def get_block_record(
@@ -436,19 +527,31 @@ async def list_admin_chats(
     result: list[dict[str, Any]] = []
     for chat in chats:
         try:
-            if await user_is_chat_admin(bot, chat.id, user_id):
-                result.append(
-                    {
-                        "id": chat.id,
-                        "title": chat.title,
-                        "username": chat.username,
-                        "premium": is_premium(chat),
-                        "premium_until": chat.premium_until.isoformat() if chat.premium_until else None,
-                        "premium_plan": chat.premium_plan,
-                    }
-                )
+            member = await bot.get_chat_member(chat.id, user_id)
+            if member.status not in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}:
+                continue
+            if member.status == ChatMemberStatus.CREATOR:
+                await ensure_membership(session, chat.id, user_id, "owner")
+                merged = default_chat_settings()
+                merged.update(chat.settings or {})
+                merged["owner_user_id"] = user_id
+                chat.settings = merged
+            details = await premium_access_details(session, chat_id=chat.id, user_id=user_id)
+            result.append(
+                {
+                    "id": chat.id,
+                    "title": chat.title,
+                    "username": chat.username,
+                    "premium": details["active"],
+                    "premium_until": details["until"].isoformat() if details["until"] else None,
+                    "premium_plan": details["plan"],
+                    "premium_source": details["source"],
+                    "owner_id": details["owner_id"],
+                }
+            )
         except Exception:
             continue
+    await session.flush()
     return result
 
 
@@ -708,6 +811,12 @@ async def create_captcha(
     chat_id: int,
     user_id: int,
     expires_in: int,
+    *,
+    answer: str,
+    options: list[str],
+    image_key: str,
+    attempts: int = 3,
+    failure_action: str = "kick",
 ) -> CaptchaChallenge:
     existing = await session.scalar(
         select(CaptchaChallenge).where(
@@ -721,8 +830,13 @@ async def create_captcha(
     challenge = CaptchaChallenge(
         chat_id=chat_id,
         user_id=user_id,
-        token=secrets.token_urlsafe(18),
+        token=secrets.token_urlsafe(10),
         expires_at=utcnow() + timedelta(seconds=expires_in),
+        answer=answer,
+        options=list(options),
+        image_key=image_key,
+        attempts_left=max(1, min(int(attempts), 9)),
+        failure_action=failure_action,
     )
     session.add(challenge)
     await session.flush()
@@ -836,8 +950,11 @@ async def dashboard_data(session: AsyncSession, chat_id: int) -> dict[str, Any]:
         "chat": {
             "id": chat.id,
             "title": chat.title,
-            "premium": is_premium(chat),
-            "premium_until": chat.premium_until.isoformat() if chat.premium_until else None,
+            "premium": (premium_details := await premium_access_details(session, chat_id=chat_id))["active"],
+            "premium_until": premium_details["until"].isoformat() if premium_details["until"] else None,
+            "premium_source": premium_details["source"],
+            "premium_plan": premium_details["plan"],
+            "owner_id": premium_details["owner_id"],
         },
         "metrics": {
             "members": members or 0,

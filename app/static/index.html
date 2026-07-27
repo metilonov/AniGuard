@@ -36,6 +36,7 @@
     <symbol id="i-save" viewBox="0 0 24 24"><path d="M4 4h13l3 3v13H4z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></symbol>
     <symbol id="i-edit" viewBox="0 0 24 24"><path d="m4 16-1 5 5-1L19 9l-4-4z"/><path d="m13 7 4 4"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></symbol>
     <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4z"/><path d="M12 9v5M12 17h.01"/></symbol>
     <symbol id="i-warning-off" viewBox="0 0 24 24"><path d="m3 3 18 18"/><path d="M10.5 6 2.8 20h17.7M12 9v2M12 17h.01"/></symbol>
     <symbol id="i-mute" viewBox="0 0 24 24"><path d="M5 10v4h4l5 4V6L9 10z"/><path d="m18 9 4 4m0-4-4 4"/></symbol>
@@ -77,6 +78,10 @@
     <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l2 2M14 9l2 2"/></symbol>
     <symbol id="i-message-star" viewBox="0 0 24 24"><path d="M4 5h16v12H7l-3 3z"/><path d="m12 8 1 2 2 .3-1.5 1.5.4 2.2-1.9-1-1.9 1 .4-2.2L9 10.3l2-.3z"/></symbol>
     <symbol id="i-id" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M5 16a3 3 0 0 1 6 0M13 10h5M13 14h5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="m8 6 2-3h4l2 3"/><circle cx="12" cy="13" r="4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M7 8a7 7 0 0 1 11-1l2 5M17 16a7 7 0 0 1-11 1l-2-5"/></symbol>
     <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></symbol>
     <symbol id="i-admin" viewBox="0 0 24 24"><path d="M12 3 4 7v5c0 5 3.2 8 8 9 4.8-1 8-4 8-9V7z"/><path d="M9 12h6M12 9v6"/></symbol>
     <symbol id="i-user" viewBox="0 0 24 24"><circle cx="10" cy="8" r="4"/><path d="M3 21a7 7 0 0 1 14 0"/><path d="M18 7v6M15 10h6"/></symbol>
@@ -141,7 +146,7 @@
             <div>
               <span class="eyebrow">ANIGUARD PROTECTION</span>
               <h1 id="overview-chat-title">Защита работает</h1>
-              <p id="overview-chat-subtitle">Загрузка состояния группы…</p>
+              <p id="overview-chat-subtitle" class="hidden"></p>
             </div>
             <span id="overview-status" class="status-pill">Активна</span>
           </article>
@@ -164,12 +169,15 @@
         </section>
 
         <section class="view hidden" data-panel="commands">
-          <div class="view-header"><div><h1>Команды модерации</h1><p>Каждая команда открывает форму с пользователем, сроком и причиной</p></div><input id="command-search" class="control compact" type="search" placeholder="Найти команду"></div>
+          <div class="view-header"><div><h1>Команды модерации</h1></div><input id="command-search" class="control compact" type="search" placeholder="Найти команду"></div>
+          <div class="command-editor-heading"><h2>Основные команды</h2><span id="basic-editor-status" class="premium-chip">РЕДАКТОР PREMIUM</span></div>
+          <div id="basic-commands-list" class="telegram-list"></div>
+          <div class="section-heading"><div><h2>Дополнительные действия</h2><p>Запускаются через форму Mini App</p></div></div>
           <div id="regular-actions" class="action-grid wide"></div>
         </section>
 
         <section class="view hidden" data-panel="moderation">
-          <div class="view-header"><div><h1>Автомодерация</h1><p>Настройки сохраняются отдельно для каждой группы</p></div><span id="moderation-premium-state" class="status-pill">Проверка Premium…</span></div>
+          <div class="moderation-toolbar"><span id="moderation-premium-state" class="status-pill">Проверка Premium…</span></div>
           <div id="automod-sections" class="automod-sections"></div>
           <div class="section-heading"><div><h2>Пользовательские правила</h2><p>Дополнительные условия и действия</p></div></div>
           <article class="card form-grid">
@@ -187,7 +195,6 @@
             <div id="profile-avatar" class="profile-avatar">AG</div>
             <h1 id="profile-title">Группа</h1>
             <p id="profile-username" class="muted">Загрузка…</p>
-            <p id="profile-description" class="profile-description">Информация о группе загружается.</p>
             <div class="profile-actions">
               <button id="profile-open-link" class="profile-action pressable" type="button"><svg><use href="#i-link"></use></svg><span>Открыть</span></button>
               <button class="profile-action nav pressable" data-view="members" type="button"><svg><use href="#i-users"></use></svg><span>Участники</span></button>
@@ -212,8 +219,8 @@
         </section>
 
         <section class="view hidden" data-panel="members">
-          <div class="view-header"><div><h1>Участники и роли</h1><p>Назначение внутренних модераторов AniGuard</p></div></div>
-          <div id="members-list" class="list spaced"></div>
+          <div class="view-header"><div><h1>Участники</h1><p id="members-count">Загрузка списка…</p></div><input id="members-search" class="control compact" type="search" placeholder="Имя, ID или @username"></div>
+          <div class="members-table-wrap"><div class="members-table-head"><span>Участник</span><span>Действия</span></div><div id="members-list" class="members-table"></div></div>
         </section>
 
         <section class="view hidden" data-panel="custom">
@@ -275,8 +282,9 @@
 
         <section class="view hidden" data-panel="premium">
           <div class="premium-hero"><span class="premium-hero-icon"><svg><use href="#i-diamond"></use></svg></span><div><span class="premium-chip">ANIGUARD PREMIUM</span><h1>Расширенная защита</h1><p id="premium-status">Выберите период</p></div></div>
+          <div id="premium-details" class="premium-details"></div>
           <div id="plans-list" class="plans"></div>
-          <article class="card"><h2>Premium открывает</h2><div class="feature-grid"><span>Умный антиспам</span><span>Лестницу наказаний</span><span>Автокарантин</span><span>Адаптивную защиту</span><span>Кастомные команды</span><span>До 100 правил</span></div></article>
+          <article class="card"><h2>Возможности Premium</h2><div id="premium-features" class="feature-grid"></div></article>
         </section>
 
         <section class="view hidden" data-panel="admin">
@@ -308,6 +316,18 @@
   <dialog id="premium-dialog" class="sheet-dialog"><div class="sheet compact-sheet"><div class="sheet-handle"></div><span class="premium-hero-icon small"><svg><use href="#i-diamond"></use></svg></span><h2>Нужен AniGuard Premium</h2><p id="premium-dialog-text">Эта функция доступна только с Premium.</p><button id="premium-dialog-open" class="primary" type="button">Посмотреть Premium</button><button id="premium-dialog-close" class="secondary" type="button">Закрыть</button></div></dialog>
 
   <dialog id="action-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div class="section-title"><span id="action-icon" class="section-icon"><svg><use href="#i-command-panel"></use></svg></span><div><h2 id="action-title">Команда</h2><p id="action-description"></p></div></div><button id="close-action" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><label id="action-target-row">Пользователь<select id="action-target" class="control"></select></label><label id="action-duration-row">Срок<input id="action-duration" class="control" placeholder="Пусто — срок из настроек; например: 30 минут или навсегда"></label><label id="action-amount-row" class="hidden">Количество<input id="action-amount" class="control" type="number" min="1" max="1000" value="25"></label><label>Причина<textarea id="action-reason" class="control" rows="3"></textarea></label><button id="execute-action" class="primary" type="button">Выполнить</button></div></dialog>
+
+  <dialog id="member-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Информация об участнике</h2><p>Данные, известные Telegram-боту</p></div><button id="close-member-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="member-details"></div></div></dialog>
+
+  <dialog id="owner-dialog" class="sheet-dialog"><div class="sheet compact-sheet"><div class="sheet-handle"></div><div id="owner-details"></div><button id="close-owner-dialog" class="secondary" type="button">Закрыть</button></div></dialog>
+
+  <dialog id="basic-command-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2 id="basic-command-title">Редактор команды</h2><p>Изменения сразу применяются в Telegram-беседе</p></div><button id="close-basic-command" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><label>Вызов команды<input id="basic-command-trigger" class="control"></label><label>Ответ бота<textarea id="basic-command-response" class="control" rows="5"></textarea></label><p class="muted">Переменные: {admin}, {user}, {duration}, {reason}, {group}.</p><button id="save-basic-command" class="primary" type="button">Сохранить команду</button></div></dialog>
+
+  <dialog id="rules-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Правила группы</h2><p>Каждое правило вводится с новой строки</p></div><button id="close-rules-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><label>Правила<textarea id="group-rules-text" class="control" rows="10"></textarea></label><div id="group-rules-preview" class="rules-preview"></div><button id="save-group-rules" class="primary" type="button">Сохранить правила</button></div></dialog>
+
+  <dialog id="welcome-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Приветственное сообщение</h2><p>Отправляется новому участнику после CAPTCHA</p></div><button id="close-welcome-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><label class="switch-line"><input id="welcome-enabled" type="checkbox"><span>Отправлять приветствие</span></label><label class="switch-line"><input id="welcome-after-captcha" type="checkbox"><span>Отправлять после успешной CAPTCHA</span></label><label>Текст<textarea id="welcome-text" class="control" rows="6"></textarea></label><p class="muted">Переменные: {user}, {group}, {rules}, {members}.</p><label>Фотография<input id="welcome-photo" class="control" type="file" accept="image/png,image/jpeg,image/webp"></label><img id="welcome-photo-preview" class="welcome-photo hidden" alt="Фотография приветствия"><div class="dialog-buttons"><button id="upload-welcome-photo" class="secondary" type="button">Загрузить фото</button><button id="delete-welcome-photo" class="danger" type="button">Удалить фото</button></div><button id="save-welcome" class="primary" type="button">Сохранить приветствие</button></div></dialog>
+
+  <dialog id="captcha-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>CAPTCHA новых участников</h2><p>Смысловая картинка и клавиатура 3×3</p></div><button id="close-captcha-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><label class="switch-line"><input id="captcha-enabled" type="checkbox"><span>Проверять новых участников</span></label><div class="form-grid"><label>Время на ответ<select id="captcha-timeout" class="control"><option value="30">30 секунд</option><option value="60">60 секунд</option><option value="120">2 минуты</option><option value="300">5 минут</option></select></label><label>Попытки<select id="captcha-attempts" class="control"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="5">5</option></select></label><label>При провале<select id="captcha-failure" class="control"><option value="kick">Удалить</option><option value="ban">Заблокировать</option><option value="quarantine">Оставить в карантине</option><option value="notify">Уведомить модераторов</option></select></label><label>Набор картинок<select id="captcha-image-set" class="control"><option value="random">Случайный</option><option value="nature">Природа</option><option value="food">Еда</option><option value="objects">Предметы</option></select></label><label class="full">Сообщение<textarea id="captcha-message" class="control" rows="4"></textarea></label></div><button id="preview-captcha" class="secondary" type="button">Проверить CAPTCHA</button><div id="captcha-preview" class="captcha-preview hidden"><img id="captcha-preview-image" alt="Изображение CAPTCHA"><p>Выберите смайл, который соответствует изображению</p><div id="captcha-options" class="captcha-options"></div><p id="captcha-result" class="muted"></p></div><button id="save-captcha" class="primary" type="button">Сохранить CAPTCHA</button></div></dialog>
 
   <script src="/static/app.js"></script>
 </body>

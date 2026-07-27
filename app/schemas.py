@@ -154,3 +154,27 @@ class AdminBlockRequest(BaseModel):
 
 class MemberRoleUpdate(BaseModel):
     role: Literal["member", "moderator"]
+
+
+class BasicCommandUpdate(BaseModel):
+    trigger: str = Field(min_length=1, max_length=64)
+    response: str = Field(min_length=1, max_length=1500)
+
+
+class GroupRulesUpdate(BaseModel):
+    rules: list[str] = Field(default_factory=list, max_length=100)
+
+
+class WelcomeSettingsUpdate(BaseModel):
+    enabled: bool = True
+    text: str = Field(default="", max_length=4000)
+    after_captcha: bool = True
+
+
+class CaptchaSettingsUpdate(BaseModel):
+    enabled: bool = True
+    timeout_seconds: int = Field(default=60, ge=30, le=1800)
+    attempts: int = Field(default=3, ge=1, le=9)
+    failure_action: Literal["kick", "ban", "quarantine", "notify"] = "kick"
+    image_set: Literal["random", "nature", "food", "objects", "animals"] = "random"
+    message: str = Field(default="", max_length=2000)

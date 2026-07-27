@@ -18,6 +18,13 @@
     profile: null,
     logs: [],
     currentView: 'overview',
+    basicCommands: [],
+    rulesConfig: {rules:[]},
+    welcome: null,
+    captcha: null,
+    premiumStatus: null,
+    editingBasicKey: null,
+    captchaPreviewAnswer: null,
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -50,114 +57,101 @@
   ];
 
   const settingGroups = [
-    {
-      id:'messages', title:'Сообщения', icon:'i-filter', keywords:'флуд повтор капс эмодзи пересылка медиа', automod:true,
-      fields:[
-        {key:'anti_flood_enabled', type:'switch', label:'Антифлуд', description:'Ограничивает слишком частые сообщения', icon:'i-filter'},
-        {key:'duplicate_filter_enabled', type:'switch', label:'Повторные сообщения', description:'Удаляет одинаковый текст и копипаст', icon:'i-copy'},
-        {key:'caps_filter_enabled', type:'switch', label:'Капс-фильтр', description:'Ограничивает сообщения заглавными буквами', icon:'i-caps'},
-        {key:'emoji_flood_enabled', type:'switch', label:'Эмодзи-флуд', description:'Удаляет сообщения с избытком эмодзи', icon:'i-emoji'},
-        {key:'forward_filter_enabled', type:'switch', label:'Пересланные сообщения', description:'Блокирует пересылки из других чатов', icon:'i-forward'},
-        {key:'media_filter_enabled', type:'switch', label:'Ограничение медиа', description:'Контролирует фото, видео, файлы и GIF', icon:'i-media'},
-      ],
-    },
-    {
-      id:'links', title:'Ссылки и спам', icon:'i-link-lock', keywords:'ссылки реклама спам упоминания скрытые', automod:true,
-      fields:[
-        {key:'link_filter_enabled', type:'switch', label:'Фильтр ссылок', description:'Удаляет запрещённые домены у новичков', icon:'i-link-lock'},
-        {key:'mass_mentions_enabled', type:'switch', label:'Массовые упоминания', description:'Блокирует спам через @username', icon:'i-at'},
-        {key:'word_filter_enabled', type:'switch', label:'Запрещённые слова', description:'Удаляет сообщения по словарю группы', icon:'i-warning'},
-        {key:'premium_smart_spam_enabled', type:'switch', label:'Умный антиспам', description:'Находит замаскированную рекламу и спам', icon:'i-brain', premium:true},
-        {key:'premium_hidden_links_enabled', type:'switch', label:'Скрытые ссылки', description:'Проверяет сокращённые и скрытые URL', icon:'i-hidden-link', premium:true},
-      ],
-    },
-    {
-      id:'newcomers', title:'Новые участники', icon:'i-captcha', keywords:'captcha новичок рейд подозрительный карантин', automod:true,
-      fields:[
-        {key:'captcha_enabled', type:'switch', label:'CAPTCHA', description:'Проверяет новых участников перед доступом', icon:'i-captcha'},
-        {key:'premium_raid_lockdown_enabled', type:'switch', label:'Автоблокировка при рейде', description:'Закрывает чат при массовом вступлении', icon:'i-raid-lock', premium:true},
-        {key:'premium_suspicious_newcomers_enabled', type:'switch', label:'Подозрительные аккаунты', description:'Определяет риск по поведению новичка', icon:'i-suspicious', premium:true},
-        {key:'premium_auto_quarantine_enabled', type:'switch', label:'Автокарантин', description:'Ограничивает подозрительных новичков', icon:'i-quarantine', premium:true},
-      ],
-    },
-    {
-      id:'punishment-auto', title:'Автоматические наказания', icon:'i-stairs', keywords:'варн мут бан лестница адаптивная', automod:true,
-      fields:[
-        {key:'auto_warn_enabled', type:'switch', label:'Автопредупреждения', description:'Добавляет предупреждение после нарушения', icon:'i-auto-warn'},
-        {key:'premium_punishment_ladder_enabled', type:'switch', label:'Лестница наказаний', description:'Предупреждение → мут → бан', icon:'i-stairs', premium:true},
-        {key:'premium_adaptive_protection_enabled', type:'switch', label:'Адаптивная защита', description:'Усиливает фильтры при серии нарушений', icon:'i-adaptive', premium:true},
-      ],
-    },
-    {
-      id:'punishments', title:'Сроки наказаний', icon:'i-timer', keywords:'срок мут бан карантин медиа ссылки команды причина',
-      fields:[
-        {key:'default_mute_seconds', type:'duration', label:'Мут по умолчанию'},
-        {key:'default_ban_seconds', type:'duration', label:'Бан по умолчанию'},
-        {key:'default_quarantine_seconds', type:'duration', label:'Карантин по умолчанию'},
-        {key:'default_restrict_media_seconds', type:'duration', label:'Запрет медиа по умолчанию'},
-        {key:'default_restrict_links_seconds', type:'duration', label:'Запрет ссылок по умолчанию'},
-        {key:'default_restrict_commands_seconds', type:'duration', label:'Блокировка команд по умолчанию'},
-        {key:'default_reason', type:'text', label:'Причина по умолчанию'},
-        {key:'show_moderation_duration', type:'switch', label:'Показывать срок в ответе'},
-        {key:'show_moderation_reason', type:'switch', label:'Показывать причину в ответе'},
-        {key:'warn_threshold', type:'number', label:'Порог предупреждений', min:1, max:20},
-      ],
-    },
-    {
-      id:'limits', title:'Лимиты фильтров', icon:'i-activity', keywords:'лимит окно сообщения капс эмодзи упоминания рейд',
-      fields:[
-        {key:'flood_limit', type:'number', label:'Лимит сообщений', min:3, max:50},
-        {key:'flood_window_seconds', type:'number', label:'Окно антифлуда, секунд', min:3, max:300},
-        {key:'duplicate_limit', type:'number', label:'Повторов до удаления', min:2, max:20},
-        {key:'duplicate_window_seconds', type:'number', label:'Окно повторов, секунд', min:5, max:600},
-        {key:'caps_ratio_percent', type:'number', label:'Доля CAPS, %', min:30, max:100},
-        {key:'caps_min_letters', type:'number', label:'Минимум букв для CAPS', min:3, max:100},
-        {key:'emoji_limit', type:'number', label:'Максимум эмодзи', min:3, max:200},
-        {key:'mass_mentions_limit', type:'number', label:'Максимум упоминаний', min:1, max:100},
-        {key:'slow_mode_seconds', type:'number', label:'Задержка сообщений, секунд', min:0, max:3600},
-      ],
-    },
-    {
-      id:'domains', title:'Домены и слова', icon:'i-document', keywords:'домены слова список запрещенные',
-      fields:[
-        {key:'links_newbie_hours', type:'number', label:'Возраст новичка, часов', min:0, max:720},
-        {key:'allowed_domains', type:'textarea-list', label:'Разрешённые домены'},
-        {key:'blocked_words', type:'textarea-list', label:'Запрещённые слова'},
-        {key:'symbol_replacement_check', type:'switch', label:'Учитывать замену букв символами'},
-      ],
-    },
-    {
-      id:'captcha-raid', title:'CAPTCHA и рейды', icon:'i-raid', keywords:'captcha рейд вступление окно карантин',
-      fields:[
-        {key:'captcha_timeout_seconds', type:'number', label:'Время CAPTCHA, секунд', min:30, max:1800},
-        {key:'raid_join_limit', type:'number', label:'Вступлений для определения рейда', min:3, max:100},
-        {key:'raid_window_seconds', type:'number', label:'Окно рейда, секунд', min:5, max:600},
-        {key:'newcomer_window_hours', type:'number', label:'Период новичка, часов', min:1, max:720},
-        {key:'premium_newcomer_quarantine_seconds', type:'duration', label:'Срок автокарантина', premium:true},
-      ],
-    },
-    {
-      id:'premium-auto', title:'Premium-защита', icon:'i-diamond', keywords:'premium адаптивная лестница карантин', premium:true,
-      fields:[
-        {key:'premium_ladder_mute_seconds', type:'duration', label:'Мут в лестнице наказаний', premium:true},
-        {key:'premium_adaptive_trigger_count', type:'number', label:'Нарушений для усиления защиты', min:2, max:100, premium:true},
-        {key:'premium_adaptive_window_seconds', type:'number', label:'Окно адаптивной защиты, секунд', min:10, max:3600, premium:true},
-        {key:'premium_quarantine', type:'switch', label:'Карантин Pro', premium:true},
-        {key:'premium_cases', type:'switch', label:'Дела и доказательства', premium:true},
-        {key:'premium_schedule', type:'switch', label:'Расписание защиты', premium:true},
-        {key:'premium_stats', type:'switch', label:'Расширенная статистика', premium:true},
-      ],
-    },
-    {
-      id:'game', title:'Игровые функции', icon:'i-gamepad', keywords:'игра опыт монеты ранги rp',
-      fields:[
-        {key:'rp_enabled', type:'switch', label:'Включить RP-команды'},
-        {key:'ranks_enabled', type:'switch', label:'Включить XP и ранги'},
-        {key:'economy_enabled', type:'switch', label:'Включить AniCoin'},
-        {key:'xp_per_message', type:'number', label:'XP за сообщение', min:0, max:100},
-        {key:'coins_per_message', type:'number', label:'AniCoin за сообщение', min:0, max:100},
-      ],
-    },
+    {id:'frequency',title:'Частота сообщений',icon:'i-filter',keywords:'флуд повторы строки длина эмодзи хэштеги упоминания команды',automod:true,fields:[
+      {key:'anti_flood_enabled',type:'switch',label:'Антифлуд',description:'Ограничивает слишком частые сообщения',icon:'i-filter'},
+      {key:'duplicate_filter_enabled',type:'switch',label:'Повторные сообщения',description:'Удаляет одинаковый текст и копипаст',icon:'i-copy'},
+      {key:'line_flood_enabled',type:'switch',label:'Флуд строками',description:'Ограничивает большое количество строк',icon:'i-document'},
+      {key:'long_message_filter_enabled',type:'switch',label:'Длинные сообщения',description:'Удаляет текст длиннее заданного лимита',icon:'i-message-star'},
+      {key:'emoji_flood_enabled',type:'switch',label:'Эмодзи-флуд',description:'Контролирует количество обычных эмодзи',icon:'i-emoji'},
+      {key:'hashtag_flood_enabled',type:'switch',label:'Хэштег-флуд',description:'Ограничивает массовые хэштеги',icon:'i-at'},
+      {key:'mass_mentions_enabled',type:'switch',label:'Массовые упоминания',description:'Блокирует спам через @username',icon:'i-users'},
+      {key:'command_flood_enabled',type:'switch',label:'Флуд командами',description:'Контролирует частые вызовы команд бота',icon:'i-command-panel'},
+    ]},
+    {id:'text-content',title:'Текст и содержимое',icon:'i-document',keywords:'капс слова символы правки обход спам алфавит финансы розыгрыш',automod:true,fields:[
+      {key:'caps_filter_enabled',type:'switch',label:'Капс-фильтр',description:'Контролирует сообщения заглавными буквами',icon:'i-caps'},
+      {key:'word_filter_enabled',type:'switch',label:'Запрещённые слова',description:'Использует словарь выбранной группы',icon:'i-warning'},
+      {key:'invisible_symbols_filter_enabled',type:'switch',label:'Невидимые символы',description:'Обнаруживает скрытые управляющие символы',icon:'i-hidden-link'},
+      {key:'edited_message_filter_enabled',type:'switch',label:'Проверка редактирования',description:'Повторно анализирует изменённые сообщения',icon:'i-edit',premium:true},
+      {key:'obfuscation_filter_enabled',type:'switch',label:'Обход запрещённых слов',description:'Распознаёт замену букв и символов',icon:'i-spark',premium:true},
+      {key:'smart_spam_enabled',type:'switch',label:'Умный антиспам',description:'Определяет замаскированную рекламу',icon:'i-brain',premium:true},
+      {key:'mixed_alphabet_filter_enabled',type:'switch',label:'Смешение алфавитов',description:'Ищет подмену кириллицы латиницей',icon:'i-id',premium:true},
+      {key:'financial_spam_filter_enabled',type:'switch',label:'Финансовый спам',description:'Фильтрует подозрительные предложения',icon:'i-diamond',premium:true},
+      {key:'fake_giveaway_filter_enabled',type:'switch',label:'Поддельные розыгрыши',description:'Определяет мошеннические конкурсы',icon:'i-crown',premium:true},
+    ]},
+    {id:'links',title:'Ссылки',icon:'i-link-lock',keywords:'ссылки приглашения сокращенные скрытые фишинг домены',automod:true,fields:[
+      {key:'link_filter_enabled',type:'switch',label:'Фильтр ссылок новичков',description:'Удаляет неизвестные домены у новых участников',icon:'i-link-lock'},
+      {key:'invite_link_filter_enabled',type:'switch',label:'Приглашения в другие чаты',description:'Блокирует сторонние Telegram-приглашения',icon:'i-link'},
+      {key:'short_link_filter_enabled',type:'switch',label:'Сокращённые ссылки',description:'Проверяет скрытые переадресации',icon:'i-hidden-link',premium:true},
+      {key:'hidden_link_filter_enabled',type:'switch',label:'Скрытые ссылки',description:'Проверяет URL внутри текста',icon:'i-link-check',premium:true},
+      {key:'phishing_filter_enabled',type:'switch',label:'Антифишинг',description:'Определяет опасные и поддельные сайты',icon:'i-suspicious',premium:true},
+      {key:'domain_whitelist_enabled',type:'switch',label:'Белый список доменов',description:'Разрешает только доверенные сайты',icon:'i-document',premium:true},
+    ]},
+    {id:'media',title:'Медиа и типы сообщений',icon:'i-media',keywords:'медиа стикеры голосовые файлы контакты фото опрос игры эмодзи',automod:true,fields:[
+      {key:'media_filter_enabled',type:'switch',label:'Ограничение медиа',description:'Контролирует фото, видео, файлы и GIF',icon:'i-media'},
+      {key:'sticker_flood_enabled',type:'switch',label:'Стикер-флуд',description:'Ограничивает частые стикеры',icon:'i-message-star'},
+      {key:'voice_flood_enabled',type:'switch',label:'Голосовые и видеокружки',description:'Контролирует частые голосовые сообщения',icon:'i-volume'},
+      {key:'dangerous_file_filter_enabled',type:'switch',label:'Опасные файлы',description:'Блокирует запрещённые расширения',icon:'i-document'},
+      {key:'contact_location_filter_enabled',type:'switch',label:'Контакты и геолокация',description:'Запрещает отправку личных данных',icon:'i-id'},
+      {key:'image_text_filter_enabled',type:'switch',label:'Текст медиа',description:'Проверяет подписи и имена файлов',icon:'i-image-lock',premium:true},
+      {key:'media_duplicate_filter_enabled',type:'switch',label:'Повтор одинакового медиа',description:'Находит повторную отправку одного файла',icon:'i-copy',premium:true},
+      {key:'poll_filter_enabled',type:'switch',label:'Опросы',description:'Ограничивает создание опросов',icon:'i-activity'},
+      {key:'game_filter_enabled',type:'switch',label:'Встроенные игры',description:'Контролирует игровые сообщения Telegram',icon:'i-gamepad'},
+      {key:'custom_emoji_flood_enabled',type:'switch',label:'Кастомные эмодзи',description:'Ограничивает Premium-эмодзи в сообщении',icon:'i-emoji',premium:true},
+    ]},
+    {id:'sources',title:'Источники сообщений',icon:'i-forward',keywords:'пересылки каналы координированный спам',automod:true,fields:[
+      {key:'forward_filter_enabled',type:'switch',label:'Пересланные сообщения',description:'Контролирует пересылки из других чатов',icon:'i-forward'},
+      {key:'channel_sender_filter_enabled',type:'switch',label:'Сообщения от каналов',description:'Блокирует отправку от имени сторонних каналов',icon:'i-chat'},
+      {key:'coordinated_spam_enabled',type:'switch',label:'Координированный спам',description:'Находит одинаковые действия нескольких аккаунтов',icon:'i-users',premium:true},
+    ]},
+    {id:'newcomers',title:'Новые участники',icon:'i-captcha',keywords:'капча рейд аккаунт профиль карантин медиа новичков',automod:true,fields:[
+      {key:'captcha_enabled',type:'switch',label:'Автоматическая CAPTCHA',description:'Смысловая картинка и 3×3 кнопки',icon:'i-captcha'},
+      {key:'account_risk_filter_enabled',type:'switch',label:'Риск аккаунта',description:'Проверяет базовые признаки нового профиля',icon:'i-id',premium:true},
+      {key:'suspicious_profile_filter_enabled',type:'switch',label:'Подозрительные профили',description:'Анализирует поведение новичка',icon:'i-suspicious',premium:true},
+      {key:'auto_quarantine_enabled',type:'switch',label:'Автокарантин',description:'Ограничивает подозрительных новичков',icon:'i-quarantine',premium:true},
+      {key:'newcomer_media_filter_enabled',type:'switch',label:'Медиа новичков',description:'Запрещает медиа в первые часы после вступления',icon:'i-image-lock',premium:true},
+      {key:'raid_lockdown_enabled',type:'switch',label:'Защита от рейда',description:'Закрывает чат при массовом вступлении',icon:'i-raid-lock',premium:true},
+    ]},
+    {id:'automatic-punishment',title:'Автоматические наказания',icon:'i-stairs',keywords:'предупреждение очистка лестница адаптивная закрытие ночь',automod:true,fields:[
+      {key:'auto_warn_enabled',type:'switch',label:'Автопредупреждения',description:'Добавляет предупреждение после нарушения',icon:'i-auto-warn'},
+      {key:'auto_cleanup_enabled',type:'switch',label:'Очистка истории',description:'Пытается удалить недавние сообщения при нарушении',icon:'i-broom'},
+      {key:'punishment_ladder_enabled',type:'switch',label:'Лестница наказаний',description:'Предупреждение → мут → бан',icon:'i-stairs',premium:true},
+      {key:'adaptive_protection_enabled',type:'switch',label:'Адаптивная защита',description:'Усиливает фильтры при серии нарушений',icon:'i-adaptive',premium:true},
+      {key:'auto_chat_close_enabled',type:'switch',label:'Автозакрытие чата',description:'Закрывает отправку сообщений во время атаки',icon:'i-lock',premium:true},
+      {key:'night_protection_enabled',type:'switch',label:'Ночная защита',description:'Использует усиленные лимиты ночью',icon:'i-clock',premium:true},
+    ]},
+    {id:'punishments',title:'Сроки наказаний',icon:'i-timer',keywords:'срок мут бан карантин медиа ссылки команды причина',fields:[
+      {key:'default_mute_seconds',type:'duration',label:'Мут по умолчанию'},
+      {key:'default_ban_seconds',type:'duration',label:'Бан по умолчанию'},
+      {key:'default_quarantine_seconds',type:'duration',label:'Карантин по умолчанию'},
+      {key:'default_restrict_media_seconds',type:'duration',label:'Запрет медиа по умолчанию'},
+      {key:'default_restrict_links_seconds',type:'duration',label:'Запрет ссылок по умолчанию'},
+      {key:'default_restrict_commands_seconds',type:'duration',label:'Блокировка команд по умолчанию'},
+      {key:'default_reason',type:'text',label:'Причина по умолчанию'},
+      {key:'warn_threshold',type:'number',label:'Порог предупреждений',min:1,max:20},
+    ]},
+    {id:'limits',title:'Лимиты фильтров',icon:'i-activity',keywords:'лимит окно сообщения капс эмодзи строки длина',fields:[
+      {key:'flood_limit',type:'number',label:'Лимит сообщений',min:3,max:50},
+      {key:'flood_window_seconds',type:'number',label:'Окно антифлуда, секунд',min:3,max:300},
+      {key:'duplicate_limit',type:'number',label:'Повторов до удаления',min:2,max:20},
+      {key:'line_limit',type:'number',label:'Максимум строк',min:2,max:200},
+      {key:'max_message_length',type:'number',label:'Максимальная длина сообщения',min:100,max:4096},
+      {key:'emoji_limit',type:'number',label:'Максимум эмодзи',min:3,max:200},
+      {key:'hashtag_limit',type:'number',label:'Максимум хэштегов',min:1,max:100},
+      {key:'mass_mentions_limit',type:'number',label:'Максимум упоминаний',min:1,max:100},
+    ]},
+    {id:'domains',title:'Домены и слова',icon:'i-document',keywords:'домены слова список запрещенные файлы',fields:[
+      {key:'allowed_domains',type:'textarea-list',label:'Разрешённые домены'},
+      {key:'blocked_words',type:'textarea-list',label:'Запрещённые слова'},
+      {key:'dangerous_extensions',type:'textarea-list',label:'Опасные расширения файлов'},
+      {key:'symbol_replacement_check',type:'switch',label:'Учитывать замену букв символами'},
+    ]},
+    {id:'game',title:'Игровые функции',icon:'i-gamepad',keywords:'игра опыт монеты ранги rp',fields:[
+      {key:'rp_enabled',type:'switch',label:'Включить RP-команды'},
+      {key:'ranks_enabled',type:'switch',label:'Включить XP и ранги'},
+      {key:'economy_enabled',type:'switch',label:'Включить AniCoin'},
+      {key:'xp_per_message',type:'number',label:'XP за сообщение',min:0,max:100},
+      {key:'coins_per_message',type:'number',label:'AniCoin за сообщение',min:0,max:100},
+    ]},
   ];
 
   function applyTelegramChrome() {
@@ -180,7 +174,7 @@
 
   async function api(path, options = {}) {
     const headers = new Headers(options.headers || {});
-    headers.set('Content-Type', 'application/json');
+    if (!(options.body instanceof FormData)) headers.set('Content-Type', 'application/json');
     if (tg?.initData) headers.set('X-Telegram-Init-Data', tg.initData);
     else {
       const devUserId = new URLSearchParams(location.search).get('dev_user_id');
@@ -210,7 +204,7 @@
   }
 
   function premiumAvailable() {
-    return Boolean(state.user?.premium || currentChat()?.premium || state.dashboard?.chat?.premium);
+    return Boolean(state.premiumStatus?.active || currentChat()?.premium || state.dashboard?.chat?.premium);
   }
 
   function setView(view) {
@@ -294,25 +288,28 @@
       const members = state.profile?.members ?? state.dashboard?.metrics?.members;
       $('#current-chat-meta').textContent = `${members ?? '—'} участников${premiumAvailable() ? ' · Premium' : ''}`;
       $('#overview-chat-title').textContent = chat.title;
-      $('#overview-chat-subtitle').textContent = premiumAvailable()
-        ? 'Расширенная защита и автоматическая модерация активны.'
-        : 'Основные фильтры и ручная модерация активны.';
+      $('#overview-chat-subtitle').textContent = '';
     }
   }
 
   async function loadChat() {
     if (!state.chatId) return;
     try {
-      const [dashboard, profile, members, logs, reports, rp, rules, custom, game] = await Promise.all([
+      const [dashboard, profile, members, logs, reports, rp, rules, custom, game, basicCommands, groupRules, welcome, captcha, premiumStatus] = await Promise.all([
         api(`/api/chats/${state.chatId}/dashboard`),
         api(`/api/chats/${state.chatId}/profile`),
-        api(`/api/chats/${state.chatId}/members?limit=150`),
+        api(`/api/chats/${state.chatId}/members?limit=500`),
         api(`/api/chats/${state.chatId}/logs?limit=100`),
         api(`/api/chats/${state.chatId}/reports`),
         api(`/api/chats/${state.chatId}/rp`),
         api(`/api/chats/${state.chatId}/rules`),
         api(`/api/chats/${state.chatId}/custom-commands`),
         api(`/api/chats/${state.chatId}/game-commands`),
+        api(`/api/chats/${state.chatId}/basic-commands`),
+        api(`/api/chats/${state.chatId}/group-rules`),
+        api(`/api/chats/${state.chatId}/welcome`),
+        api(`/api/chats/${state.chatId}/captcha`),
+        api(`/api/chats/${state.chatId}/premium/status`),
       ]);
       state.dashboard = dashboard;
       state.profile = profile;
@@ -321,12 +318,18 @@
       state.settings = structuredClone(dashboard.settings);
       state.customCommands = custom;
       state.gameCommands = game;
+      state.basicCommands = basicCommands.commands || [];
+      state.rulesConfig = groupRules;
+      state.welcome = welcome;
+      state.captcha = captcha;
+      state.premiumStatus = premiumStatus;
       const chat = currentChat();
       if (chat) {
         chat.premium = dashboard.chat.premium;
         chat.premium_until = dashboard.chat.premium_until;
       }
       renderMetrics();
+      renderBasicCommands();
       renderMembers();
       renderLogs(logs);
       renderFullLogs(logs);
@@ -339,6 +342,7 @@
       renderSettingsValues();
       renderAutomodValues();
       updatePremiumStatus();
+      renderPremiumDetails();
       renderChatSelect();
       $('#chat-select').value = String(state.chatId);
     } catch (error) {
@@ -363,17 +367,55 @@
     $('#quick-actions').innerHTML = actionDefinitions.filter(item => ['warn','mute','ban','restrict_media','restrict_links','quarantine'].includes(item.action)).map(card).join('');
   }
 
-  function renderMembers() {
+
+  function initialsOf(user) {
+    return [user?.first_name, user?.last_name].filter(Boolean).map(value => String(value)[0]).join('').slice(0, 2).toUpperCase() || 'AG';
+  }
+
+  function avatarHtml(user, large = false) {
+    return `<span class="user-avatar${large ? ' large' : ''}"><span>${escapeHtml(initialsOf(user))}</span>${user?.avatar_url ? `<img src="${escapeHtml(user.avatar_url)}" alt="Аватар ${escapeHtml(user.full_name || user.first_name || '')}" loading="lazy">` : ''}</span>`;
+  }
+
+  function renderBasicCommands() {
+    const node = $('#basic-commands-list');
+    if (!node) return;
+    $('#basic-editor-status').textContent = premiumAvailable() ? 'РЕДАКТОР PREMIUM АКТИВЕН' : 'РЕДАКТОР PREMIUM ЗАБЛОКИРОВАН';
+    node.innerHTML = state.basicCommands.length ? state.basicCommands.map(command => {
+      const action = actionDefinitions.find(item => item.action === command.action);
+      return `<div class="telegram-row basic-command-row" data-basic-key="${escapeHtml(command.key)}">
+        <span class="row-icon"><svg><use href="#${action?.icon || 'i-command-panel'}"></use></svg></span>
+        <span class="row-copy"><b>${escapeHtml(command.name)}</b><small>Вызов команды: ${escapeHtml(command.trigger)}</small></span>
+        <span class="basic-command-actions">
+          <button class="secondary basic-run" type="button" aria-label="Выполнить"><svg><use href="#i-play"></use></svg></button>
+          <button class="secondary basic-edit" type="button" aria-label="Редактировать"><svg><use href="#i-edit"></use></svg></button>
+        </span>
+      </div>`;
+    }).join('') : '<p class="muted">Основные команды недоступны.</p>';
+  }
+
+  function renderMembers(filter = '') {
     $('#action-target').innerHTML = state.members.length
-      ? state.members.map(user => `<option value="${user.id}">${escapeHtml(user.first_name)}${user.username ? ` (@${escapeHtml(user.username)})` : ''}</option>`).join('')
+      ? state.members.map(user => `<option value="${user.id}">${escapeHtml(user.full_name || user.first_name)}${user.username ? ` (@${escapeHtml(user.username)})` : ''}</option>`).join('')
       : '<option value="">Нет известных участников</option>';
     const list = $('#members-list');
     if (!list) return;
-    list.innerHTML = state.members.length ? state.members.map(user => {
-      const lockedRole = ['owner','admin'].includes(user.role);
-      return `<article class="list-card" data-member-id="${user.id}"><div>${icon('i-user')}<h3>${escapeHtml(user.first_name)}${user.username ? ` · @${escapeHtml(user.username)}` : ''}</h3><p>ID: ${user.id} · предупреждений: ${user.warnings} · сообщений: ${user.messages}</p></div><div class="actions"><select class="control member-role" ${lockedRole ? 'disabled' : ''}><option value="member" ${user.role === 'member' ? 'selected' : ''}>Участник</option><option value="moderator" ${user.role === 'moderator' ? 'selected' : ''}>Модератор AniGuard</option>${lockedRole ? `<option selected>${user.role === 'owner' ? 'Владелец' : 'Администратор'}</option>` : ''}</select></div></article>`;
-    }).join('') : '<article class="card muted">Участники ещё не зарегистрированы.</article>';
+    const query = String(filter || '').trim().toLowerCase();
+    const rows = state.members.filter(user => !query || `${user.full_name || ''} ${user.id} ${user.username || ''}`.toLowerCase().includes(query));
+    $('#members-count').textContent = `${rows.length} из ${state.members.length} участников`;
+    list.innerHTML = rows.length ? rows.map(user => {
+      const protectedUser = ['owner','admin'].includes(user.role);
+      const username = user.username ? `@${escapeHtml(user.username)}` : 'Юзернейм отсутствует';
+      return `<article class="member-row" data-member-id="${user.id}">
+        <div class="member-identity">${avatarHtml(user)}<div class="user-copy"><b>${escapeHtml(user.full_name || user.first_name || 'Без имени')}</b><small>ID: ${user.id}</small><small>${username}</small></div></div>
+        <div class="member-buttons">
+          <button class="danger member-ban" type="button" ${protectedUser ? 'disabled' : ''}>Заблокировать</button>
+          <button class="secondary member-kick" type="button" ${protectedUser ? 'disabled' : ''}>Удалить</button>
+          <button class="secondary member-info" type="button">Информация</button>
+        </div>
+      </article>`;
+    }).join('') : '<div class="card muted">Участники не найдены.</div>';
   }
+
 
   function renderLogs(logs) {
     $('#overview-logs').innerHTML = logs.length
@@ -389,8 +431,8 @@
       : '<article class="card muted">Журнал пока пуст.</article>';
   }
 
-  function profileRow(iconId, title, subtitle, value = '') {
-    return `<button class="telegram-row pressable" type="button" data-profile-info="${escapeHtml(title)}"><span class="row-icon"><svg><use href="#${iconId}"></use></svg></span><span class="row-copy"><b>${escapeHtml(title)}</b><small>${escapeHtml(subtitle)}</small></span>${value ? `<span class="muted">${escapeHtml(value)}</span>` : '<svg class="chevron"><use href="#i-chevron-right"></use></svg>'}</button>`;
+  function profileRow(iconId, title, subtitle, value = '', action = '') {
+    return `<button class="telegram-row pressable profile-click-row" type="button" ${action ? `data-profile-action="${action}"` : ''}><span class="row-icon"><svg><use href="#${iconId}"></use></svg></span><span class="row-copy"><b>${escapeHtml(title)}</b><small>${escapeHtml(subtitle)}</small></span>${value ? `<span class="muted">${escapeHtml(value)}</span>` : '<svg class="chevron"><use href="#i-chevron-right"></use></svg>'}</button>`;
   }
 
   function quickSettingRow(key, iconId, title, subtitle) {
@@ -403,28 +445,28 @@
     $('#profile-avatar').textContent = chatInitials(profile.title);
     $('#profile-title').textContent = profile.title;
     $('#profile-username').textContent = profile.username ? `@${profile.username} · Telegram-группа` : `ID: ${profile.id}`;
-    $('#profile-description').textContent = profile.description || 'Описание группы не указано.';
     const owner = profile.owner;
-    const ownerName = owner ? `${owner.first_name}${owner.username ? ` · @${owner.username}` : ''}` : 'Не определён';
+    const ownerName = owner ? (owner.full_name || owner.first_name || `ID ${owner.id}`) : 'Не определён';
+    const premiumSubtitle = state.premiumStatus?.source === 'owner'
+      ? 'Получен автоматически от Premium создателя группы'
+      : profile.premium ? 'Premium куплен для группы' : 'Premium не активен';
     $('#profile-info-list').innerHTML = [
-      profileRow('i-users', 'Участники', 'Количество участников группы', String(profile.members ?? state.members.length)),
-      profileRow('i-crown', 'Владелец', 'Создатель Telegram-группы', ownerName),
-      profileRow('i-admin', 'Администраторы', 'Пользователи с правами управления', String((profile.administrators || []).length)),
-      profileRow('i-diamond', 'AniGuard Premium', profile.premium ? 'Расширенные возможности активны' : 'Используется обычный доступ', profile.premium ? 'Активен' : 'Неактивен'),
+      profileRow('i-users', 'Участники', 'Открыть полный список участников', String(profile.members ?? state.members.length), 'members'),
+      profileRow('i-crown', 'Владелец', 'Открыть данные создателя группы', ownerName, 'owner'),
+      profileRow('i-diamond', 'AniGuard Premium', premiumSubtitle, profile.premium ? 'Активен' : 'Неактивен', 'premium'),
       profileRow('i-id', 'Telegram ID', 'Идентификатор выбранной группы', String(profile.id)),
     ].join('');
     $('#profile-quick-settings').innerHTML = [
+      profileRow('i-rule', 'Правила группы', 'Создать или изменить опубликованные правила', `${state.rulesConfig?.rules?.length || 0}`, 'rules'),
+      profileRow('i-message-star', 'Приветственное сообщение', state.welcome?.photo_name ? 'Текст и фотография добавлены' : 'Текст и фотография для новичков', state.welcome?.enabled ? 'Включено' : 'Выключено', 'welcome'),
+      profileRow('i-captcha', 'CAPTCHA новых участников', 'Смысловая картинка и клавиатура 3×3', state.captcha?.enabled ? 'Включена' : 'Выключена', 'captcha'),
       quickSettingRow('anti_flood_enabled', 'i-filter', 'Антифлуд', 'Контроль частых сообщений'),
-      quickSettingRow('captcha_enabled', 'i-captcha', 'CAPTCHA', 'Проверка новых участников'),
       quickSettingRow('link_filter_enabled', 'i-link-lock', 'Фильтр ссылок', 'Ограничение ссылок новичков'),
-      quickSettingRow('duplicate_filter_enabled', 'i-copy', 'Повторные сообщения', 'Удаление копипаста'),
     ].join('');
-    $$('[data-quick-setting]').forEach(input => {
-      input.checked = Boolean(state.settings[input.dataset.quickSetting]);
-    });
-    const linkButton = $('#profile-open-link');
-    linkButton.disabled = !(profile.username || profile.invite_link);
+    $$('[data-quick-setting]').forEach(input => { input.checked = Boolean(state.settings[input.dataset.quickSetting]); });
+    $('#profile-open-link').disabled = !(profile.username || profile.invite_link);
   }
+
 
   function renderAutomodStructure() {
     const node = $('#automod-sections');
@@ -564,15 +606,42 @@
   }
 
   function renderPlans() {
-    $('#plans-list').innerHTML = state.plans.map(plan => `<article class="plan ${plan.code === 'season' ? 'recommended' : ''}"><span class="badge">${escapeHtml(plan.badge)}</span><h2>${escapeHtml(plan.title)}</h2><div class="price">${plan.stars} ⭐</div><p>${escapeHtml(plan.description)}</p><button class="primary buy-plan" data-plan="${plan.code}">Купить на ${plan.days} дней</button></article>`).join('');
+    const label = state.premiumStatus?.active ? 'Продлить' : 'Купить';
+    $('#plans-list').innerHTML = state.plans.map(plan => `<article class="plan ${plan.code === 'season' ? 'recommended' : ''}"><span class="badge">${escapeHtml(plan.badge)}</span><h2>${escapeHtml(plan.title)}</h2><div class="price">${plan.stars} Stars</div><p>${escapeHtml(plan.description)}</p><button class="primary buy-plan" data-plan="${plan.code}">${label} на ${plan.days} дней</button></article>`).join('');
+  }
+
+  function formatRemaining(seconds) {
+    if (seconds == null) return 'Бессрочно';
+    if (seconds <= 0) return 'Истёк';
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    return days ? `${days} д. ${hours} ч.` : `${hours} ч.`;
   }
 
   function updatePremiumStatus() {
-    const chat = state.dashboard?.chat;
-    if (chat?.user_premium && !chat?.chat_premium) $('#premium-status').textContent = 'Доступ открыт через Premium владельца панели';
-    else if (chat?.premium_until) $('#premium-status').textContent = `Premium группы активен до ${new Date(chat.premium_until).toLocaleDateString('ru-RU')}`;
+    const status = state.premiumStatus;
+    if (!status) return;
+    if (status.source === 'owner') $('#premium-status').textContent = 'Группа автоматически получила Premium от создателя';
+    else if (status.active) $('#premium-status').textContent = status.lifetime ? 'Premium группы активен бессрочно' : `Premium группы активен до ${new Date(status.until).toLocaleString('ru-RU')}`;
     else $('#premium-status').textContent = 'Premium не активен';
   }
+
+  function renderPremiumDetails() {
+    const status = state.premiumStatus;
+    if (!status) return;
+    const sourceNames = {owner:'Premium создателя',group:'Premium группы',user:'Premium администратора',none:'Не активен'};
+    $('#premium-details').innerHTML = [
+      ['Статус', status.active ? 'Активен' : 'Неактивен'],
+      ['Источник', sourceNames[status.source] || status.source],
+      ['Осталось', status.active ? formatRemaining(status.remaining_seconds) : '—'],
+    ].map(([label,value]) => `<div class="premium-detail"><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b></div>`).join('');
+    const ownerNote = status.source === 'owner' && status.owner
+      ? `<div class="owner-source-note">Premium действует, пока подписка создателя ${escapeHtml(status.owner.full_name || status.owner.first_name)} активна.</div>` : '';
+    $('#premium-details').insertAdjacentHTML('beforeend', ownerNote);
+    $('#premium-features').innerHTML = (status.features || []).map(feature => `<span>${escapeHtml(feature)}</span>`).join('');
+    renderPlans();
+  }
+
 
   function openAction(name) {
     const action = actionDefinitions.find(item => item.action === name);
@@ -720,6 +789,200 @@
     } catch (error) { notify(error.message, true); }
   }
 
+
+  async function askConfirm(text) {
+    if (tg?.showConfirm) return await new Promise(resolve => tg.showConfirm(text, resolve));
+    return window.confirm(text);
+  }
+
+  async function memberModeration(memberId, action) {
+    const member = state.members.find(item => item.id === Number(memberId));
+    if (!member) return;
+    const verb = action === 'ban' ? 'заблокировать' : 'удалить из группы';
+    if (!await askConfirm(`Действительно ${verb} ${member.full_name || member.first_name}?`)) return;
+    try {
+      const payload = {action, target_id:member.id, reason:'Действие администратора через Mini App'};
+      if (action === 'ban') payload.duration_seconds = 0;
+      await api(`/api/chats/${state.chatId}/actions`, {method:'POST', body:JSON.stringify(payload)});
+      notify(action === 'ban' ? 'Участник заблокирован.' : 'Участник удалён из группы.');
+      await loadChat();
+    } catch (error) { notify(error.message, true); }
+  }
+
+  async function showMemberDetails(memberId) {
+    try {
+      const member = await api(`/api/chats/${state.chatId}/members/${memberId}`);
+      const username = member.username ? `@${member.username}` : 'Юзернейм отсутствует';
+      const date = value => value ? new Date(value).toLocaleString('ru-RU') : 'Нет';
+      $('#member-details').innerHTML = `<article class="member-details-card">
+        ${avatarHtml(member, true)}
+        <h2>${escapeHtml(member.full_name || member.first_name || 'Без имени')}</h2>
+        <p class="muted">ID: ${member.id}</p><p>${escapeHtml(username)}</p>
+        <div class="detail-grid">
+          <div class="detail-item"><small>Роль</small><b>${escapeHtml(member.role)}</b></div>
+          <div class="detail-item"><small>Статус Telegram</small><b>${escapeHtml(member.telegram?.status || 'неизвестен')}</b></div>
+          <div class="detail-item"><small>Предупреждения</small><b>${member.warnings}</b></div>
+          <div class="detail-item"><small>Сообщения</small><b>${member.messages}</b></div>
+          <div class="detail-item"><small>XP</small><b>${member.xp}</b></div>
+          <div class="detail-item"><small>AniCoin</small><b>${member.coins}</b></div>
+          <div class="detail-item"><small>Вступил</small><b>${escapeHtml(date(member.joined_at))}</b></div>
+          <div class="detail-item"><small>Последняя активность</small><b>${escapeHtml(date(member.last_seen_at))}</b></div>
+          <div class="detail-item"><small>Мут до</small><b>${escapeHtml(date(member.muted_until))}</b></div>
+          <div class="detail-item"><small>Карантин до</small><b>${escapeHtml(date(member.quarantined_until))}</b></div>
+        </div>
+        <p class="muted">Активные ограничения: ${escapeHtml((member.active_restrictions || []).join(', ') || 'нет')}</p>
+      </article>`;
+      $('#member-dialog').showModal();
+    } catch (error) { notify(error.message, true); }
+  }
+
+  function showOwnerDetails() {
+    const owner = state.profile?.owner;
+    if (!owner) return notify('Telegram не вернул данные владельца.', true);
+    $('#owner-details').innerHTML = `<article class="member-details-card">${avatarHtml(owner, true)}<h2>${escapeHtml(owner.full_name || owner.first_name || 'Без имени')}</h2><p class="muted">ID: ${owner.id}</p><p>${owner.username ? '@' + escapeHtml(owner.username) : 'Юзернейм отсутствует'}</p><div class="owner-source-note">Создатель Telegram-группы. Premium этого аккаунта автоматически распространяется на группу до окончания подписки.</div></article>`;
+    $('#owner-dialog').showModal();
+  }
+
+  function openBasicEditor(key) {
+    if (!premiumAvailable()) return openPremiumDialog('Редактор основных команд доступен только с AniGuard Premium.');
+    const command = state.basicCommands.find(item => item.key === key);
+    if (!command) return;
+    state.editingBasicKey = key;
+    $('#basic-command-title').textContent = `Редактирование: ${command.name}`;
+    $('#basic-command-trigger').value = command.trigger;
+    $('#basic-command-response').value = command.response;
+    $('#basic-command-dialog').showModal();
+  }
+
+  async function saveBasicCommand() {
+    const trigger = $('#basic-command-trigger').value.trim();
+    const response = $('#basic-command-response').value.trim();
+    if (!trigger || !response) return notify('Введите вызов команды и текст ответа.', true);
+    try {
+      await api(`/api/chats/${state.chatId}/basic-commands/${state.editingBasicKey}`, {method:'PUT', body:JSON.stringify({trigger,response})});
+      $('#basic-command-dialog').close();
+      notify('Основная команда обновлена в боте.');
+      await loadChat();
+    } catch (error) { notify(error.message, true); }
+  }
+
+  function updateRulesPreview() {
+    const rules = $('#group-rules-text').value.split('\n').map(item => item.trim()).filter(Boolean);
+    $('#group-rules-preview').innerHTML = rules.map((rule,index) => `<div class="rule-preview-item"><span>${index + 1}</span><div>${escapeHtml(rule)}</div></div>`).join('') || '<p class="muted">Правила не добавлены.</p>';
+  }
+
+  function openRulesDialog() {
+    $('#group-rules-text').value = (state.rulesConfig?.rules || []).join('\n');
+    updateRulesPreview();
+    $('#rules-dialog').showModal();
+  }
+
+  async function saveGroupRules() {
+    const rules = $('#group-rules-text').value.split('\n').map(item => item.trim()).filter(Boolean);
+    try {
+      state.rulesConfig = await api(`/api/chats/${state.chatId}/group-rules`, {method:'PUT', body:JSON.stringify({rules})});
+      $('#rules-dialog').close();
+      notify('Правила группы сохранены и подключены к команде бота.');
+      renderProfile();
+    } catch (error) { notify(error.message, true); }
+  }
+
+  function renderWelcomePhoto() {
+    const image = $('#welcome-photo-preview');
+    if (state.welcome?.photo_url) {
+      image.src = state.welcome.photo_url;
+      image.classList.remove('hidden');
+    } else {
+      image.removeAttribute('src');
+      image.classList.add('hidden');
+    }
+  }
+
+  function openWelcomeDialog() {
+    $('#welcome-enabled').checked = Boolean(state.welcome?.enabled);
+    $('#welcome-after-captcha').checked = Boolean(state.welcome?.after_captcha);
+    $('#welcome-text').value = state.welcome?.text || '';
+    $('#welcome-photo').value = '';
+    renderWelcomePhoto();
+    $('#welcome-dialog').showModal();
+  }
+
+  async function saveWelcome() {
+    try {
+      state.welcome = await api(`/api/chats/${state.chatId}/welcome`, {method:'PUT', body:JSON.stringify({enabled:$('#welcome-enabled').checked,text:$('#welcome-text').value,after_captcha:$('#welcome-after-captcha').checked})});
+      $('#welcome-dialog').close();
+      notify('Приветственное сообщение подключено к боту.');
+      renderProfile();
+    } catch (error) { notify(error.message, true); }
+  }
+
+  async function uploadWelcomePhoto() {
+    const file = $('#welcome-photo').files?.[0];
+    if (!file) return notify('Сначала выберите фотографию.', true);
+    const form = new FormData();
+    form.append('photo', file);
+    try {
+      const result = await api(`/api/chats/${state.chatId}/welcome/photo`, {method:'POST', body:form});
+      state.welcome = {...state.welcome, ...result};
+      renderWelcomePhoto();
+      renderProfile();
+      notify('Фотография загружена на сервер бота.');
+    } catch (error) { notify(error.message, true); }
+  }
+
+  async function deleteWelcomePhoto() {
+    try {
+      await api(`/api/chats/${state.chatId}/welcome/photo`, {method:'DELETE'});
+      state.welcome = {...state.welcome, photo_name:'', photo_url:null};
+      renderWelcomePhoto();
+      renderProfile();
+      notify('Фотография удалена.');
+    } catch (error) { notify(error.message, true); }
+  }
+
+  function openCaptchaDialog() {
+    const value = state.captcha || {};
+    $('#captcha-enabled').checked = Boolean(value.enabled);
+    $('#captcha-timeout').value = String(value.timeout_seconds || 60);
+    $('#captcha-attempts').value = String(value.attempts || 3);
+    $('#captcha-failure').value = value.failure_action || 'kick';
+    $('#captcha-image-set').value = value.image_set || 'random';
+    $('#captcha-message').value = value.message || '';
+    $('#captcha-preview').classList.add('hidden');
+    $('#captcha-dialog').showModal();
+  }
+
+  async function saveCaptcha() {
+    try {
+      state.captcha = await api(`/api/chats/${state.chatId}/captcha`, {method:'PUT', body:JSON.stringify({enabled:$('#captcha-enabled').checked,timeout_seconds:Number($('#captcha-timeout').value),attempts:Number($('#captcha-attempts').value),failure_action:$('#captcha-failure').value,image_set:$('#captcha-image-set').value,message:$('#captcha-message').value})});
+      state.settings.captcha_enabled = state.captcha.enabled;
+      $('#captcha-dialog').close();
+      renderProfile();
+      renderAutomodValues();
+      notify('CAPTCHA сохранена и работает для новых участников.');
+    } catch (error) { notify(error.message, true); }
+  }
+
+  async function previewCaptcha() {
+    try {
+      const preview = await api(`/api/chats/${state.chatId}/captcha/preview?image_set=${encodeURIComponent($('#captcha-image-set').value)}`);
+      state.captchaPreviewAnswer = preview.answer;
+      $('#captcha-preview-image').src = preview.image_url;
+      $('#captcha-result').textContent = 'Выберите ответ.';
+      $('#captcha-options').innerHTML = preview.options.map(option => `<button type="button" data-captcha-option="${escapeHtml(option)}">${escapeHtml(option)}</button>`).join('');
+      $('#captcha-preview').classList.remove('hidden');
+    } catch (error) { notify(error.message, true); }
+  }
+
+  function handleProfileAction(action) {
+    if (action === 'members') setView('members');
+    else if (action === 'owner') showOwnerDetails();
+    else if (action === 'premium') setView('premium');
+    else if (action === 'rules') openRulesDialog();
+    else if (action === 'welcome') openWelcomeDialog();
+    else if (action === 'captcha') openCaptchaDialog();
+  }
+
   async function loadAdmin() {
     if (!state.user?.is_bot_admin) return;
     try {
@@ -797,8 +1060,28 @@
       const buy = event.target.closest('.buy-plan');
       if (buy) buyPlan(buy.dataset.plan);
 
-      const info = event.target.closest('[data-profile-info]');
-      if (info) notify(info.dataset.profileInfo);
+      const profileAction = event.target.closest('[data-profile-action]');
+      if (profileAction) handleProfileAction(profileAction.dataset.profileAction);
+
+      const memberCard = event.target.closest('[data-member-id]');
+      if (memberCard && event.target.closest('.member-info')) await showMemberDetails(memberCard.dataset.memberId);
+      if (memberCard && event.target.closest('.member-ban')) await memberModeration(memberCard.dataset.memberId, 'ban');
+      if (memberCard && event.target.closest('.member-kick')) await memberModeration(memberCard.dataset.memberId, 'kick');
+
+      const basicCard = event.target.closest('[data-basic-key]');
+      if (basicCard && event.target.closest('.basic-edit')) openBasicEditor(basicCard.dataset.basicKey);
+      if (basicCard && event.target.closest('.basic-run')) {
+        const command = state.basicCommands.find(item => item.key === basicCard.dataset.basicKey);
+        if (command) openAction(command.action);
+      }
+
+      const captchaOption = event.target.closest('[data-captcha-option]');
+      if (captchaOption) {
+        const correct = captchaOption.dataset.captchaOption === state.captchaPreviewAnswer;
+        if (correct) captchaOption.classList.add('correct');
+        $('#captcha-result').textContent = correct ? 'Верный ответ. Пользователь получит доступ к беседе.' : 'Неверный ответ. Попытка будет уменьшена.';
+        tg?.HapticFeedback?.notificationOccurred(correct ? 'success' : 'error');
+      }
 
       const cardReport = event.target.closest('[data-report-id]');
       const decision = event.target.closest('.report-decision');
@@ -919,6 +1202,22 @@
       if (url.includes('t.me/')) tg?.openTelegramLink ? tg.openTelegramLink(url) : window.open(url, '_blank', 'noopener');
       else tg?.openLink ? tg.openLink(url) : window.open(url, '_blank', 'noopener');
     });
+
+    $('#close-member-dialog').addEventListener('click', () => $('#member-dialog').close());
+    $('#close-owner-dialog').addEventListener('click', () => $('#owner-dialog').close());
+    $('#close-basic-command').addEventListener('click', () => $('#basic-command-dialog').close());
+    $('#save-basic-command').addEventListener('click', saveBasicCommand);
+    $('#close-rules-dialog').addEventListener('click', () => $('#rules-dialog').close());
+    $('#group-rules-text').addEventListener('input', updateRulesPreview);
+    $('#save-group-rules').addEventListener('click', saveGroupRules);
+    $('#close-welcome-dialog').addEventListener('click', () => $('#welcome-dialog').close());
+    $('#save-welcome').addEventListener('click', saveWelcome);
+    $('#upload-welcome-photo').addEventListener('click', uploadWelcomePhoto);
+    $('#delete-welcome-photo').addEventListener('click', deleteWelcomePhoto);
+    $('#close-captcha-dialog').addEventListener('click', () => $('#captcha-dialog').close());
+    $('#save-captcha').addEventListener('click', saveCaptcha);
+    $('#preview-captcha').addEventListener('click', previewCaptcha);
+    $('#members-search').addEventListener('input', event => renderMembers(event.target.value));
 
     $('#close-action').addEventListener('click', () => $('#action-dialog').close());
     $('#execute-action').addEventListener('click', executeAction);

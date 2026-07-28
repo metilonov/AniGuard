@@ -19,6 +19,7 @@ from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram import BaseMiddleware
 from aiogram.types import (
     BotCommand,
+    BotCommandScopeChat,
     CallbackQuery,
     ChatPermissions,
     InlineKeyboardButton,
@@ -42,6 +43,10 @@ from app.models import (
     CustomCommand,
     GameCommand,
     Membership,
+    PromoCode,
+    PromoRedemption,
+    SystemSetting,
+    UserWallet,
     ModerationLog,
     ModerationRule,
     Report,
@@ -64,6 +69,7 @@ from app.services import (
     get_chat_or_raise,
     get_merged_settings,
     grant_premium,
+    set_entity_premium,
     has_premium_access,
     is_premium,
     muted_permissions,
@@ -92,12 +98,26 @@ class AccessMiddleware(BaseMiddleware):
         data: dict[str, Any],
     ) -> Any:
         from_user = getattr(event, "from_user", None)
+        message_obj = event if isinstance(event, Message) else getattr(event, "message", None)
+        command_token = (((message_obj.text or "").split(maxsplit=1) or [""])[0].split("@", 1)[0].lower()) if message_obj else ""
+        if from_user and command_token == "/admin" and from_user.id not in settings.admin_ids:
+            return None
         if from_user and from_user.id in settings.admin_ids:
             return await handler(event, data)
         chat_obj = getattr(event, "chat", None)
         if chat_obj is None and getattr(event, "message", None):
             chat_obj = event.message.chat
         async with SessionFactory() as session:
+            system_row = await session.get(SystemSetting, "admin_panel")
+            maintenance = bool(system_row and isinstance(system_row.value, dict) and system_row.value.get("maintenance"))
+            if maintenance:
+                message_obj = event if isinstance(event, Message) else getattr(event, "message", None)
+                if message_obj and message_obj.chat.type == ChatType.PRIVATE:
+                    try:
+                        await message_obj.answer("AniGuard временно находится на техническом обслуживании.")
+                    except Exception:
+                        pass
+                return None
             if from_user:
                 blocked_user = await get_block_record(session, "user", from_user.id)
                 if blocked_user:
@@ -157,6 +177,17 @@ def panel_keyboard() -> InlineKeyboardMarkup:
             [InlineKeyboardButton(text="Открыть AniGuard", web_app=WebAppInfo(url=settings.webapp_url))],
             [InlineKeyboardButton(text="Premium", callback_data="premium:choose")],
         ]
+    )
+
+
+def admin_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[[
+            InlineKeyboardButton(
+                text="Открыть админ-панель",
+                web_app=WebAppInfo(url=settings.admin_url),
+            )
+        ]]
     )
 
 
@@ -363,6 +394,24 @@ async def start_handler(message: Message, command: CommandObject) -> None:
             await send_premium_plans(message, chat_id)
         except ValueError:
             pass
+    elif command.args == "admin" and message.from_user and message.from_user.id in settings.admin_ids:
+        await message.answer("Панель владельца AniGuard:", reply_markup=admin_keyboard())
+
+
+@router.message(Command("admin"))
+async def admin_handler(message: Message) -> None:
+    if not message.from_user or message.from_user.id not in settings.admin_ids:
+        return
+    if message.chat.type != ChatType.PRIVATE:
+        me = await bot.get_me()
+        await message.answer(
+            "Админ-панель открывается в личном чате с ботом.",
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text="Открыть личный чат", url=f"https://t.me/{me.username}?start=admin")]]
+            ),
+        )
+        return
+    await message.answer("Панель владельца AniGuard:", reply_markup=admin_keyboard())
 
 
 @router.message(Command("panel"))
@@ -423,6 +472,54 @@ async def send_premium_plans(message: Message, chat_id: int | None = None) -> No
         "<b>AniGuard Premium</b>\nPremium приобретается для выбранной беседы.",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=rows),
     )
+
+
+@router.message(Command("promo"))
+async def promo_handler(message: Message, command: CommandObject) -> None:
+    code = (command.args or "").strip().upper()
+    if not code:
+        await message.answer("Использование: <code>/promo КОД</code>")
+        return
+    async with SessionFactory() as session:
+        await upsert_user(session, message.from_user)
+        promo = await session.get(PromoCode, code)
+        if not promo or not promo.active:
+            await message.answer("Промокод не найден или отключён.")
+            return
+        if promo.uses >= promo.max_uses:
+            await message.answer("Лимит активаций промокода исчерпан.")
+            return
+        redeemed = await session.scalar(
+            select(PromoRedemption).where(
+                PromoRedemption.code == code, PromoRedemption.user_id == message.from_user.id
+            )
+        )
+        if redeemed:
+            await message.answer("Вы уже активировали этот промокод.")
+            return
+        if promo.reward_type == "premium":
+            await set_entity_premium(
+                session,
+                entity_type="user",
+                entity_id=message.from_user.id,
+                days=promo.reward_value,
+                admin_id=promo.created_by,
+                permanent=False,
+                plan="promo",
+                note=f"Промокод {code}",
+            )
+            reward_text = f"Premium на {promo.reward_value} дней"
+        else:
+            wallet = await session.get(UserWallet, message.from_user.id)
+            if not wallet:
+                wallet = UserWallet(user_id=message.from_user.id, balance=0)
+                session.add(wallet)
+            wallet.balance += promo.reward_value
+            reward_text = f"{promo.reward_value:,} AniCoin".replace(",", " ")
+        session.add(PromoRedemption(code=code, user_id=message.from_user.id))
+        promo.uses += 1
+        await session.commit()
+    await message.answer(f"Промокод активирован. Начислено: <b>{reward_text}</b>.")
 
 
 @router.message(Command("premium"))
@@ -2303,6 +2400,7 @@ async def configure_bot() -> None:
         BotCommand(command="panel", description="Открыть Mini App"),
         BotCommand(command="help", description="Список команд"),
         BotCommand(command="premium", description="Купить Premium"),
+        BotCommand(command="promo", description="Активировать промокод"),
         BotCommand(command="warn", description="Предупредить пользователя"),
         BotCommand(command="mute", description="Выдать мут"),
         BotCommand(command="ban", description="Заблокировать пользователя"),
@@ -2317,6 +2415,12 @@ async def configure_bot() -> None:
         BotCommand(command="anime", description="Аниме-режим on/off"),
     ]
     await bot.set_my_commands(commands)
+    admin_commands = [BotCommand(command="admin", description="Панель владельца")] + commands
+    for admin_id in settings.admin_ids:
+        try:
+            await bot.set_my_commands(admin_commands, scope=BotCommandScopeChat(chat_id=admin_id))
+        except Exception:
+            pass
     if settings.webapp_url.startswith("https://"):
         await bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp(

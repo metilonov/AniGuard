@@ -8,5 +8,4 @@ venv/
 .idea/
 .vscode/
 uploads/
-*.sqlite
-*.sqlite3
+*.pyc

@@ -178,3 +178,54 @@ class CaptchaSettingsUpdate(BaseModel):
     failure_action: Literal["kick", "ban", "quarantine", "notify"] = "kick"
     image_set: Literal["random", "nature", "food", "objects", "animals"] = "random"
     message: str = Field(default="", max_length=2000)
+
+
+class AdminCoinRequest(BaseModel):
+    user_id: int
+    operation: Literal["add", "subtract", "set"] = "add"
+    amount: int = Field(ge=0, le=1_000_000_000)
+    note: str = Field(default="", max_length=500)
+
+
+class AdminChatStateRequest(BaseModel):
+    active: bool
+
+
+class AdminChatSettingsRequest(BaseModel):
+    captcha: bool | None = None
+    automod: bool | None = None
+
+
+class AdminBroadcastRequest(BaseModel):
+    audience: Literal["users", "active_users", "premium_users", "chat_owners", "all"] = "users"
+    text: str = Field(min_length=1, max_length=4096)
+    button_text: str | None = Field(default=None, max_length=64)
+    button_url: str | None = Field(default=None, max_length=500)
+
+
+class AdminPromoCreateRequest(BaseModel):
+    reward_type: Literal["coins", "premium"]
+    reward_value: int = Field(ge=1, le=1_000_000_000)
+    max_uses: int = Field(default=100, ge=1, le=1_000_000)
+    code: str | None = Field(default=None, min_length=4, max_length=32)
+
+
+class AdminPromoToggleRequest(BaseModel):
+    active: bool
+
+
+class AdminSystemSettingsRequest(BaseModel):
+    settings: dict[str, bool]
+
+
+class AdminReportCloseRequest(BaseModel):
+    status: Literal["closed", "in_progress", "new"] = "closed"
+
+
+class AdminDirectMessageRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=4096)
+
+
+class AdminBulkPremiumRequest(BaseModel):
+    category: Literal["premium_users", "expiring_users", "premium_chats"]
+    days: int = Field(default=7, ge=1, le=3650)

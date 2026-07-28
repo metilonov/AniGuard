@@ -257,3 +257,59 @@ class AdminActionLog(Base):
     entity_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
     details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class UserWallet(Base):
+    __tablename__ = "user_wallets"
+
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    balance: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class PromoCode(Base):
+    __tablename__ = "promo_codes"
+
+    code: Mapped[str] = mapped_column(String(32), primary_key=True)
+    reward_type: Mapped[str] = mapped_column(String(16), default="coins")
+    reward_value: Mapped[int] = mapped_column(Integer, default=0)
+    max_uses: Mapped[int] = mapped_column(Integer, default=100)
+    uses: Mapped[int] = mapped_column(Integer, default=0)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_by: Mapped[int] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class PromoRedemption(Base):
+    __tablename__ = "promo_redemptions"
+    __table_args__ = (UniqueConstraint("code", "user_id", name="uq_promo_user"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(32), ForeignKey("promo_codes.code", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    redeemed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    updated_by: Mapped[int | None] = mapped_column(BigInteger)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class BroadcastJob(Base):
+    __tablename__ = "broadcast_jobs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    audience: Mapped[str] = mapped_column(String(32), default="users")
+    text: Mapped[str] = mapped_column(Text)
+    button_text: Mapped[str | None] = mapped_column(String(64))
+    button_url: Mapped[str | None] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(24), default="queued", index=True)
+    sent_count: Mapped[int] = mapped_column(Integer, default=0)
+    failed_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_by: Mapped[int] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

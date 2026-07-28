@@ -260,3 +260,12 @@ python -m compileall -q app tests
 PYTHONPATH=. pytest -q
 node --check app/static/app.js
 ```
+
+## Новые маршруты панели
+
+Проект теперь обслуживает два интерфейса на основном домене:
+
+- `/panel` — панель управления беседами;
+- `/admin` — закрытая панель владельца AniGuard.
+
+Корневой маршрут `/` перенаправляет на `/panel`. Для запуска на Bothost используйте значения `WEBAPP_URL=https://aniguard.bothost.tech/panel` и `ADMIN_URL=https://aniguard.bothost.tech/admin`. Полная инструкция находится в `DEPLOY_BOTHOST.md`.

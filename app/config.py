@@ -11,7 +11,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 class Settings(BaseSettings):
     bot_token: str = Field(alias="BOT_TOKEN")
-    webapp_url: str = Field(default="https://example.com", alias="WEBAPP_URL")
+    webapp_url: str = Field(default="https://aniguard.bothost.tech/panel", alias="WEBAPP_URL")
+    admin_url: str = Field(default="https://aniguard.bothost.tech/admin", alias="ADMIN_URL")
     database_url: str = Field(
         default=f"sqlite+aiosqlite:///{BASE_DIR / 'aniguard.db'}",
         alias="DATABASE_URL",
@@ -46,9 +47,9 @@ class Settings(BaseSettings):
             return {int(item) for item in value}
         raise ValueError("ADMIN_IDS должен содержать один или несколько Telegram ID")
 
-    @field_validator("webapp_url")
+    @field_validator("webapp_url", "admin_url")
     @classmethod
-    def strip_webapp_url(cls, value: str) -> str:
+    def strip_public_url(cls, value: str) -> str:
         return value.rstrip("/")
 
 

@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import json
+import os
+import secrets
 from datetime import timedelta
 from io import BytesIO
 from pathlib import Path
@@ -24,6 +28,12 @@ from app.models import (
     GameCommand,
     Membership,
     ModerationLog,
+    Payment,
+    PromoCode,
+    PromoRedemption,
+    BroadcastJob,
+    SystemSetting,
+    UserWallet,
     ModerationRule,
     Report,
     RPCommand,
@@ -50,6 +60,16 @@ from app.schemas import (
     CaptchaSettingsUpdate,
     GroupRulesUpdate,
     WelcomeSettingsUpdate,
+    AdminCoinRequest,
+    AdminChatStateRequest,
+    AdminChatSettingsRequest,
+    AdminBroadcastRequest,
+    AdminPromoCreateRequest,
+    AdminPromoToggleRequest,
+    AdminSystemSettingsRequest,
+    AdminReportCloseRequest,
+    AdminDirectMessageRequest,
+    AdminBulkPremiumRequest,
 )
 from app.security import TelegramUser, current_telegram_user
 from app.services import (
@@ -1661,3 +1681,695 @@ async def get_premium_status(
             "Расширенная статистика и журналирование",
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# Full owner dashboard API used by /admin
+# ---------------------------------------------------------------------------
+
+_ADMIN_SETTING_DEFAULTS: dict[str, bool] = {
+    "maintenance": False,
+    "registration": True,
+    "premiumInheritance": True,
+    "paymentNotify": True,
+    "autoReports": True,
+    "themeAuto": False,
+    "backupAlerts": True,
+}
+
+
+def _iso(value: Any) -> str | None:
+    return value.isoformat() if value else None
+
+
+async def _admin_setting_values(session: AsyncSession) -> dict[str, bool]:
+    row = await session.get(SystemSetting, "admin_panel")
+    values = dict(_ADMIN_SETTING_DEFAULTS)
+    if row and isinstance(row.value, dict):
+        values.update({key: bool(value) for key, value in row.value.items() if key in values})
+    return values
+
+
+async def _write_admin_log(
+    session: AsyncSession,
+    *,
+    admin_id: int,
+    action: str,
+    entity_type: str | None = None,
+    entity_id: int | None = None,
+    details: dict[str, Any] | None = None,
+) -> None:
+    session.add(
+        AdminActionLog(
+            admin_id=admin_id,
+            action=action,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            details=details or {},
+        )
+    )
+
+
+@router.get("/admin/dashboard")
+async def admin_dashboard(
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    now = utcnow()
+    day_ago = now - timedelta(days=1)
+    week_ago = now - timedelta(days=7)
+
+    user_count = int(await session.scalar(select(func.count()).select_from(User)) or 0)
+    chat_count = int(await session.scalar(select(func.count()).select_from(Chat)) or 0)
+    active_24 = int(
+        await session.scalar(
+            select(func.count(func.distinct(Membership.user_id))).where(Membership.last_seen_at >= day_ago)
+        )
+        or 0
+    )
+    active_7 = int(
+        await session.scalar(
+            select(func.count(func.distinct(Membership.user_id))).where(Membership.last_seen_at >= week_ago)
+        )
+        or 0
+    )
+    revenue = int(await session.scalar(select(func.coalesce(func.sum(Payment.stars), 0))) or 0)
+    ani_coin = int(await session.scalar(select(func.coalesce(func.sum(UserWallet.balance), 0))) or 0)
+    if not ani_coin:
+        ani_coin = int(await session.scalar(select(func.coalesce(func.sum(Membership.coins), 0))) or 0)
+
+    grants = (await session.scalars(select(EntityAccessGrant))).all()
+    premium_users = 0
+    premium_chats = 0
+    expiring_premium = 0
+    for grant in grants:
+        active = bool(grant.is_lifetime or (as_utc(grant.premium_until) and as_utc(grant.premium_until) > now))
+        if not active:
+            continue
+        if grant.entity_type == "user":
+            premium_users += 1
+        elif grant.entity_type == "chat":
+            premium_chats += 1
+        until = as_utc(grant.premium_until)
+        if until and now < until <= now + timedelta(days=7):
+            expiring_premium += 1
+    paid_chats = (await session.scalars(select(Chat).where(Chat.premium_until.is_not(None)))).all()
+    premium_chat_ids = {
+        row.entity_id
+        for row in grants
+        if row.entity_type == "chat"
+        and (row.is_lifetime or (as_utc(row.premium_until) and as_utc(row.premium_until) > now))
+    }
+    premium_chat_ids.update(
+        row.id for row in paid_chats if as_utc(row.premium_until) and as_utc(row.premium_until) > now
+    )
+    premium_chats = len(premium_chat_ids)
+
+    users_rows = (await session.scalars(select(User).order_by(User.updated_at.desc()).limit(200))).all()
+    users_payload: list[dict[str, Any]] = []
+    for row in users_rows:
+        grant = await session.scalar(
+            select(EntityAccessGrant).where(
+                EntityAccessGrant.entity_type == "user", EntityAccessGrant.entity_id == row.id
+            )
+        )
+        premium = bool(
+            grant
+            and (grant.is_lifetime or (as_utc(grant.premium_until) and as_utc(grant.premium_until) > now))
+        )
+        wallet = await session.get(UserWallet, row.id)
+        last_seen = await session.scalar(
+            select(func.max(Membership.last_seen_at)).where(Membership.user_id == row.id)
+        )
+        chats_for_user = int(
+            await session.scalar(select(func.count()).select_from(Membership).where(Membership.user_id == row.id))
+            or 0
+        )
+        spent = int(
+            await session.scalar(
+                select(func.coalesce(func.sum(Payment.stars), 0)).where(Payment.user_id == row.id)
+            )
+            or 0
+        )
+        block = await get_block_record(session, "user", row.id)
+        full_name = " ".join(filter(None, [row.first_name, row.last_name]))
+        users_payload.append(
+            {
+                "id": row.id,
+                "name": full_name or row.first_name or "User",
+                "username": row.username or "",
+                "joined": _iso(row.created_at),
+                "last": _iso(last_seen or row.updated_at),
+                "premium": premium,
+                "premiumUntil": "Навсегда" if grant and grant.is_lifetime else _iso(grant.premium_until) if grant else None,
+                "active24": bool(last_seen and as_utc(last_seen) and as_utc(last_seen) >= day_ago),
+                "active7": bool(last_seen and as_utc(last_seen) and as_utc(last_seen) >= week_ago),
+                "aniCoin": int(wallet.balance if wallet else 0),
+                "spent": spent,
+                "referrals": 0,
+                "blocked": block is not None,
+                "status": "Заблокирован" if block else "Активен" if last_seen and as_utc(last_seen) and as_utc(last_seen) >= week_ago else "Неактивен",
+                "chats": chats_for_user,
+            }
+        )
+
+    chat_rows = (await session.scalars(select(Chat).order_by(Chat.updated_at.desc()).limit(200))).all()
+    chats_payload: list[dict[str, Any]] = []
+    for row in chat_rows:
+        member_count = int(
+            await session.scalar(select(func.count()).select_from(Membership).where(Membership.chat_id == row.id))
+            or 0
+        )
+        active_members = int(
+            await session.scalar(
+                select(func.count()).select_from(Membership).where(
+                    Membership.chat_id == row.id, Membership.last_seen_at >= week_ago
+                )
+            )
+            or 0
+        )
+        actions = int(
+            await session.scalar(
+                select(func.count()).select_from(ModerationLog).where(ModerationLog.chat_id == row.id)
+            )
+            or 0
+        )
+        details = await premium_access_details(session, chat_id=row.id, user_id=user.id)
+        settings_data = await get_merged_settings(session, row.id)
+        owner_id = int(settings_data.get("owner_user_id") or 0)
+        automod_keys = [key for key, value in settings_data.items() if key.endswith("_enabled") and value]
+        chats_payload.append(
+            {
+                "id": row.id,
+                "name": row.title,
+                "username": row.username or "",
+                "ownerId": owner_id,
+                "members": member_count,
+                "activeMembers": active_members,
+                "premium": bool(details["active"]),
+                "premiumType": details.get("source") or "Нет",
+                "premiumUntil": _iso(details.get("until")),
+                "botStatus": "Активен" if row.is_active else "Приостановлен",
+                "automod": len(automod_keys),
+                "captcha": bool(settings_data.get("captcha_enabled", False)),
+                "actions": actions,
+            }
+        )
+
+    payment_rows = (
+        await session.scalars(select(Payment).order_by(Payment.id.desc()).limit(200))
+    ).all()
+    payments_payload = [
+        {
+            "id": f"PAY-{row.id}",
+            "userId": row.user_id,
+            "chatId": row.chat_id,
+            "item": f"Premium {row.plan_code}",
+            "amount": row.stars,
+            "date": _iso(row.created_at),
+            "status": "Оплачено",
+        }
+        for row in payment_rows
+    ]
+
+    report_rows = (await session.scalars(select(Report).order_by(Report.id.desc()).limit(200))).all()
+    reports_payload = [
+        {
+            "id": f"REP-{row.id}",
+            "rawId": row.id,
+            "type": "Жалоба",
+            "text": row.reason,
+            "status": {"new": "Новая", "in_progress": "В работе", "closed": "Решено"}.get(row.status, row.status),
+            "chatId": row.chat_id,
+            "userId": row.reporter_id,
+            "targetId": row.target_id,
+            "date": _iso(row.created_at),
+        }
+        for row in report_rows
+    ]
+    tickets_payload = [
+        {
+            "id": f"AG-{row.id}",
+            "rawId": row.id,
+            "userId": row.reporter_id,
+            "title": f"Жалоба в беседе {row.chat_id}",
+            "status": {"new": "Открыт", "in_progress": "В работе", "closed": "Решён"}.get(row.status, row.status),
+            "date": _iso(row.created_at),
+            "text": row.reason,
+        }
+        for row in report_rows
+    ]
+
+    promo_rows = (await session.scalars(select(PromoCode).order_by(PromoCode.created_at.desc()))).all()
+    promos_payload = [
+        {
+            "code": row.code,
+            "reward": f"Premium {row.reward_value} дней" if row.reward_type == "premium" else f"{row.reward_value} AniCoin",
+            "rewardType": row.reward_type,
+            "rewardValue": row.reward_value,
+            "uses": row.uses,
+            "limit": row.max_uses,
+            "active": row.active,
+        }
+        for row in promo_rows
+    ]
+
+    log_rows = (
+        await session.scalars(select(AdminActionLog).order_by(AdminActionLog.id.desc()).limit(200))
+    ).all()
+    logs_payload = [
+        {
+            "id": row.id,
+            "entity_id": row.entity_id,
+            "entity_type": row.entity_type,
+            "time": _iso(row.created_at),
+            "text": f"{row.action}" + (f" · {row.entity_type} {row.entity_id}" if row.entity_id is not None else ""),
+            "tag": "premium" if "premium" in row.action else "chat" if row.entity_type == "chat" else "admin",
+            "details": row.details,
+        }
+        for row in log_rows
+    ]
+
+    open_reports = sum(1 for row in report_rows if row.status != "closed")
+    return {
+        "admin": {
+            "id": user.id,
+            "name": " ".join(filter(None, [user.first_name, user.last_name])) or "AniGuard Admin",
+            "username": user.username,
+        },
+        "stats": {
+            "users": user_count,
+            "active24": active_24,
+            "active7": active_7,
+            "chats": chat_count,
+            "premiumUsers": premium_users,
+            "premiumChats": premium_chats,
+            "expiringPremium": expiring_premium,
+            "revenue": revenue,
+            "aniCoin": ani_coin,
+            "reports": open_reports,
+        },
+        "users": users_payload,
+        "chats": chats_payload,
+        "payments": payments_payload,
+        "reports": reports_payload,
+        "tickets": tickets_payload,
+        "promos": promos_payload,
+        "logs": logs_payload,
+        "settings": await _admin_setting_values(session),
+    }
+
+
+@router.post("/admin/coins")
+async def admin_update_coins(
+    payload: AdminCoinRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    target = await session.get(User, payload.user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    wallet = await session.get(UserWallet, payload.user_id)
+    if not wallet:
+        wallet = UserWallet(user_id=payload.user_id, balance=0)
+        session.add(wallet)
+    if payload.operation == "add":
+        wallet.balance += payload.amount
+    elif payload.operation == "subtract":
+        wallet.balance = max(0, wallet.balance - payload.amount)
+    else:
+        wallet.balance = payload.amount
+    await _write_admin_log(
+        session,
+        admin_id=user.id,
+        action="coins_update",
+        entity_type="user",
+        entity_id=payload.user_id,
+        details={"operation": payload.operation, "amount": payload.amount, "balance": wallet.balance, "note": payload.note},
+    )
+    await session.commit()
+    return {"user_id": payload.user_id, "balance": wallet.balance}
+
+
+@router.post("/admin/chats/{chat_id}/state")
+async def admin_chat_state(
+    chat_id: int,
+    payload: AdminChatStateRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    chat = await session.get(Chat, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Беседа не найдена")
+    chat.is_active = payload.active
+    await _write_admin_log(
+        session,
+        admin_id=user.id,
+        action="chat_started" if payload.active else "chat_paused",
+        entity_type="chat",
+        entity_id=chat_id,
+    )
+    await session.commit()
+    return {"chat_id": chat_id, "active": chat.is_active}
+
+
+@router.post("/admin/chats/{chat_id}/settings")
+async def admin_chat_quick_settings(
+    chat_id: int,
+    payload: AdminChatSettingsRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    chat = await session.get(Chat, chat_id)
+    if not chat:
+        raise HTTPException(status_code=404, detail="Беседа не найдена")
+    current = await get_merged_settings(session, chat_id)
+    if payload.captcha is not None:
+        current["captcha_enabled"] = payload.captcha
+    if payload.automod is not None:
+        for key in list(current):
+            if key.endswith("_enabled") and key != "captcha_enabled":
+                current[key] = payload.automod
+    chat.settings = current
+    await _write_admin_log(
+        session,
+        admin_id=user.id,
+        action="chat_settings_update",
+        entity_type="chat",
+        entity_id=chat_id,
+        details=payload.model_dump(exclude_none=True),
+    )
+    await session.commit()
+    return {"chat_id": chat_id, "settings": current}
+
+
+async def _run_broadcast(job_id: int) -> None:
+    async with SessionFactory() as session:
+        job = await session.get(BroadcastJob, job_id)
+        if not job:
+            return
+        job.status = "running"
+        await session.commit()
+
+        user_ids: set[int] = set()
+        if job.audience in {"users", "all"}:
+            user_ids.update(int(value) for value in (await session.scalars(select(User.id))).all())
+        if job.audience == "active_users":
+            cutoff = utcnow() - timedelta(days=7)
+            user_ids.update(
+                int(value)
+                for value in (
+                    await session.scalars(
+                        select(Membership.user_id).where(Membership.last_seen_at >= cutoff).distinct()
+                    )
+                ).all()
+            )
+        if job.audience in {"premium_users", "all"}:
+            grants = (
+                await session.scalars(
+                    select(EntityAccessGrant).where(EntityAccessGrant.entity_type == "user")
+                )
+            ).all()
+            now = utcnow()
+            user_ids.update(
+                row.entity_id
+                for row in grants
+                if row.is_lifetime or (as_utc(row.premium_until) and as_utc(row.premium_until) > now)
+            )
+        if job.audience in {"chat_owners", "all"}:
+            chats = (await session.scalars(select(Chat))).all()
+            for chat in chats:
+                owner_id = (chat.settings or {}).get("owner_user_id")
+                if owner_id:
+                    user_ids.add(int(owner_id))
+
+        markup = None
+        if job.button_text and job.button_url:
+            from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+
+            markup = InlineKeyboardMarkup(
+                inline_keyboard=[[InlineKeyboardButton(text=job.button_text, url=job.button_url)]]
+            )
+        sent = 0
+        failed = 0
+        for recipient_id in user_ids:
+            try:
+                await bot.send_message(recipient_id, job.text, reply_markup=markup)
+                sent += 1
+            except Exception:
+                failed += 1
+            if (sent + failed) % 25 == 0:
+                job.sent_count = sent
+                job.failed_count = failed
+                await session.commit()
+            await asyncio.sleep(0.04)
+        job.status = "finished"
+        job.sent_count = sent
+        job.failed_count = failed
+        job.finished_at = utcnow()
+        await session.commit()
+
+
+@router.post("/admin/broadcast")
+async def admin_broadcast(
+    payload: AdminBroadcastRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    if bool(payload.button_text) != bool(payload.button_url):
+        raise HTTPException(status_code=400, detail="Для кнопки укажите и текст, и ссылку")
+    job = BroadcastJob(created_by=user.id, **payload.model_dump())
+    session.add(job)
+    await session.flush()
+    await _write_admin_log(
+        session,
+        admin_id=user.id,
+        action="broadcast_created",
+        details={"job_id": job.id, "audience": payload.audience},
+    )
+    await session.commit()
+    asyncio.create_task(_run_broadcast(job.id), name=f"broadcast-{job.id}")
+    return {"job_id": job.id, "status": job.status}
+
+
+@router.get("/admin/payments")
+async def admin_payments(
+    limit: int = Query(default=200, ge=1, le=1000),
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[dict[str, Any]]:
+    ensure_bot_admin(user)
+    rows = (await session.scalars(select(Payment).order_by(Payment.id.desc()).limit(limit))).all()
+    return [
+        {
+            "id": row.id,
+            "user_id": row.user_id,
+            "chat_id": row.chat_id,
+            "plan_code": row.plan_code,
+            "stars": row.stars,
+            "created_at": _iso(row.created_at),
+        }
+        for row in rows
+    ]
+
+
+@router.post("/admin/promos")
+async def admin_create_promo(
+    payload: AdminPromoCreateRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    code = (payload.code or f"AG{secrets.token_hex(4)}").upper().replace(" ", "")
+    if not code.isalnum():
+        raise HTTPException(status_code=400, detail="Промокод может содержать только буквы и цифры")
+    if await session.get(PromoCode, code):
+        raise HTTPException(status_code=409, detail="Такой промокод уже существует")
+    row = PromoCode(
+        code=code,
+        reward_type=payload.reward_type,
+        reward_value=payload.reward_value,
+        max_uses=payload.max_uses,
+        created_by=user.id,
+    )
+    session.add(row)
+    await _write_admin_log(session, admin_id=user.id, action="promo_created", details={"code": code})
+    await session.commit()
+    return {"code": row.code, "active": row.active}
+
+
+@router.post("/admin/promos/{code}/toggle")
+async def admin_toggle_promo(
+    code: str,
+    payload: AdminPromoToggleRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    row = await session.get(PromoCode, code.upper())
+    if not row:
+        raise HTTPException(status_code=404, detail="Промокод не найден")
+    row.active = payload.active
+    await _write_admin_log(
+        session, admin_id=user.id, action="promo_toggled", details={"code": row.code, "active": row.active}
+    )
+    await session.commit()
+    return {"code": row.code, "active": row.active}
+
+
+@router.post("/admin/reports/{report_id}/status")
+async def admin_report_status(
+    report_id: int,
+    payload: AdminReportCloseRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    row = await session.get(Report, report_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Жалоба не найдена")
+    row.status = payload.status
+    row.assigned_to = user.id
+    row.closed_at = utcnow() if payload.status == "closed" else None
+    await _write_admin_log(
+        session,
+        admin_id=user.id,
+        action="report_status",
+        entity_type="chat",
+        entity_id=row.chat_id,
+        details={"report_id": row.id, "status": payload.status},
+    )
+    await session.commit()
+    return {"report_id": row.id, "status": row.status}
+
+
+@router.get("/admin/export")
+async def admin_export(
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    ensure_bot_admin(user)
+    dashboard = await admin_dashboard(user=user, session=session)
+    payload = json.dumps(dashboard, ensure_ascii=False, indent=2, default=str).encode("utf-8")
+    await _write_admin_log(session, admin_id=user.id, action="data_export")
+    await session.commit()
+    return Response(
+        content=payload,
+        media_type="application/json; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="aniguard_export.json"'},
+    )
+
+
+@router.post("/admin/system/settings")
+async def admin_system_settings(
+    payload: AdminSystemSettingsRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    values = await _admin_setting_values(session)
+    values.update({key: bool(value) for key, value in payload.settings.items() if key in values})
+    row = await session.get(SystemSetting, "admin_panel")
+    if not row:
+        row = SystemSetting(key="admin_panel", value=values, updated_by=user.id)
+        session.add(row)
+    else:
+        row.value = values
+        row.updated_by = user.id
+    await _write_admin_log(session, admin_id=user.id, action="system_settings", details=payload.settings)
+    await session.commit()
+    return {"settings": values}
+
+
+@router.post("/admin/system/action/{action}")
+async def admin_system_action(
+    action: str,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    if action not in {"clear_cache", "restart", "maintenance", "backup"}:
+        raise HTTPException(status_code=404, detail="Неизвестное системное действие")
+    if action == "maintenance":
+        values = await _admin_setting_values(session)
+        values["maintenance"] = True
+        row = await session.get(SystemSetting, "admin_panel")
+        if not row:
+            session.add(SystemSetting(key="admin_panel", value=values, updated_by=user.id))
+        else:
+            row.value = values
+            row.updated_by = user.id
+    await _write_admin_log(session, admin_id=user.id, action=f"system_{action}")
+    await session.commit()
+    if action == "restart":
+        asyncio.get_running_loop().call_later(1.0, os._exit, 0)
+    return {"action": action, "ok": True}
+
+
+@router.post("/admin/users/{user_id}/message")
+async def admin_direct_message(
+    user_id: int,
+    payload: AdminDirectMessageRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    if not await session.get(User, user_id):
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    try:
+        await bot.send_message(user_id, payload.text)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Не удалось отправить сообщение: {exc}") from exc
+    await _write_admin_log(
+        session, admin_id=user.id, action="direct_message", entity_type="user", entity_id=user_id
+    )
+    await session.commit()
+    return {"user_id": user_id, "sent": True}
+
+
+@router.post("/admin/premium/bulk")
+async def admin_bulk_premium(
+    payload: AdminBulkPremiumRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    now = utcnow()
+    entity_type = "chat" if payload.category == "premium_chats" else "user"
+    grants = (
+        await session.scalars(
+            select(EntityAccessGrant).where(EntityAccessGrant.entity_type == entity_type)
+        )
+    ).all()
+    target_ids: list[int] = []
+    for grant in grants:
+        if grant.is_lifetime:
+            continue
+        until = as_utc(grant.premium_until)
+        if not until or until <= now:
+            continue
+        if payload.category == "expiring_users" and until > now + timedelta(days=7):
+            continue
+        target_ids.append(grant.entity_id)
+    if entity_type == "chat":
+        paid = (await session.scalars(select(Chat).where(Chat.premium_until.is_not(None)))).all()
+        target_ids.extend(
+            row.id for row in paid if as_utc(row.premium_until) and as_utc(row.premium_until) > now
+        )
+    target_ids = sorted(set(target_ids))
+    for entity_id in target_ids:
+        await set_entity_premium(
+            session, entity_type=entity_type, entity_id=entity_id, days=payload.days,
+            admin_id=user.id, permanent=False, plan="admin_bulk", note="Массовое продление"
+        )
+    await _write_admin_log(
+        session, admin_id=user.id, action="premium_bulk", entity_type=entity_type,
+        details={"category": payload.category, "days": payload.days, "count": len(target_ids)}
+    )
+    await session.commit()
+    return {"count": len(target_ids), "days": payload.days, "category": payload.category}

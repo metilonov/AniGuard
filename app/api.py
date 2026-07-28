@@ -94,14 +94,34 @@ from app.services import (
     ensure_membership,
     premium_access_details,
     upsert_user,
+    upsert_chat,
+    sync_chat_from_telegram,
+    chat_avatar_url,
 )
 
 
 router = APIRouter(prefix="/api")
 settings = get_settings()
-UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
+UPLOAD_DIR = settings.data_dir / "uploads"
 WELCOME_DIR = UPLOAD_DIR / "welcome"
+ADMIN_AVATAR_DIR = UPLOAD_DIR / "admin"
 WELCOME_DIR.mkdir(parents=True, exist_ok=True)
+ADMIN_AVATAR_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _admin_avatar_file() -> Path | None:
+    for suffix in (".webp", ".png", ".jpg", ".jpeg"):
+        candidate = ADMIN_AVATAR_DIR / f"avatar{suffix}"
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _admin_avatar_url() -> str | None:
+    file = _admin_avatar_file()
+    if file is None:
+        return None
+    return f"/api/admin/avatar?v={int(file.stat().st_mtime)}"
 
 
 def http_error(exc: Exception) -> HTTPException:
@@ -166,6 +186,11 @@ async def get_chats(
         ).all()
         result: list[dict[str, Any]] = []
         for row in rows:
+            try:
+                telegram_chat = await bot.get_chat(row.id)
+                row = await upsert_chat(session, telegram_chat)
+            except Exception:
+                pass
             details = await premium_access_details(session, chat_id=row.id, user_id=user.id)
             result.append({
                 "id": row.id,
@@ -176,10 +201,14 @@ async def get_chats(
                 "premium_plan": details["plan"],
                 "premium_source": details["source"],
                 "owner_id": details["owner_id"],
+                "avatar_url": chat_avatar_url(row),
             })
+        await session.commit()
         return result
     await ensure_entity_available(session, user_id=user.id)
-    return await list_admin_chats(session, bot, user.id)
+    result = await list_admin_chats(session, bot, user.id)
+    await session.commit()
+    return result
 
 
 @router.get("/chats/{chat_id}/dashboard")
@@ -228,6 +257,7 @@ async def get_chat_profile(
         "members": db_members,
         "owner": None,
         "administrators": [],
+        "avatar_url": chat_avatar_url(chat),
     }
     try:
         telegram_chat = await bot.get_chat(chat_id)
@@ -237,6 +267,8 @@ async def get_chat_profile(
         result["invite_link"] = telegram_chat.invite_link
         chat.title = result["title"]
         chat.username = result["username"]
+        await upsert_chat(session, telegram_chat)
+        result["avatar_url"] = chat_avatar_url(chat)
     except Exception:
         pass
     try:
@@ -1124,6 +1156,59 @@ async def delete_game_command(
 # Global AniGuard owner panel
 # ---------------------------------------------------------------------------
 
+
+@router.get("/admin/avatar", include_in_schema=False)
+async def admin_avatar() -> FileResponse:
+    file = _admin_avatar_file()
+    if file is None:
+        raise HTTPException(status_code=404, detail="Аватар администратора не настроен")
+    return FileResponse(file, headers={"Cache-Control": "public, max-age=3600"})
+
+
+@router.post("/admin/profile/avatar")
+async def upload_admin_avatar(
+    avatar: UploadFile = File(...),
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    allowed = {
+        "image/jpeg": ".jpg",
+        "image/png": ".png",
+        "image/webp": ".webp",
+    }
+    suffix = allowed.get(avatar.content_type or "")
+    if suffix is None:
+        raise HTTPException(status_code=400, detail="Поддерживаются JPG, PNG и WEBP")
+    content = await avatar.read()
+    if not content or len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Размер изображения должен быть от 1 байта до 5 МБ")
+    for existing in ADMIN_AVATAR_DIR.glob("avatar.*"):
+        existing.unlink(missing_ok=True)
+    target = ADMIN_AVATAR_DIR / f"avatar{suffix}"
+    target.write_bytes(content)
+    await _write_admin_log(
+        session,
+        admin_id=user.id,
+        action="admin_avatar_updated",
+        details={"filename": Path(avatar.filename or target.name).name},
+    )
+    await session.commit()
+    return {"avatar_url": _admin_avatar_url()}
+
+
+@router.delete("/admin/profile/avatar", status_code=204)
+async def delete_admin_avatar(
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    ensure_bot_admin(user)
+    for existing in ADMIN_AVATAR_DIR.glob("avatar.*"):
+        existing.unlink(missing_ok=True)
+    await _write_admin_log(session, admin_id=user.id, action="admin_avatar_deleted")
+    await session.commit()
+    return Response(status_code=204)
+
 @router.get("/admin/overview")
 async def admin_overview(
     user: TelegramUser = Depends(current_telegram_user),
@@ -1333,6 +1418,36 @@ async def get_avatar(user_id: int) -> Response:
         raise
     except Exception as exc:
         raise HTTPException(status_code=404, detail="Аватар недоступен") from exc
+
+
+@router.get("/chat-avatars/{chat_id}", include_in_schema=False)
+async def get_chat_avatar(chat_id: int) -> Response:
+    """Proxy the current Telegram group photo without exposing the bot token."""
+    try:
+        async with SessionFactory() as session:
+            chat = await session.get(Chat, chat_id)
+            if chat is None or not (chat.photo_big_file_id or chat.photo_small_file_id):
+                chat = await sync_chat_from_telegram(
+                    session, bot, chat_id, sync_administrators=False
+                )
+                await session.commit()
+            file_id = chat.photo_big_file_id or chat.photo_small_file_id
+        if not file_id:
+            raise HTTPException(status_code=404, detail="У группы нет аватара")
+        telegram_file = await bot.get_file(file_id)
+        if not telegram_file.file_path:
+            raise HTTPException(status_code=404, detail="Аватар группы недоступен")
+        buffer = BytesIO()
+        await bot.download_file(telegram_file.file_path, destination=buffer)
+        return Response(
+            content=buffer.getvalue(),
+            media_type="image/jpeg",
+            headers={"Cache-Control": "public, max-age=3600"},
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail="Аватар группы недоступен") from exc
 
 
 @router.get("/media/welcome/{chat_id}", include_in_schema=False)
@@ -1874,6 +1989,7 @@ async def admin_dashboard(
                 "automod": len(automod_keys),
                 "captcha": bool(settings_data.get("captcha_enabled", False)),
                 "actions": actions,
+                "avatar_url": chat_avatar_url(row),
             }
         )
 
@@ -1957,6 +2073,7 @@ async def admin_dashboard(
             "id": user.id,
             "name": " ".join(filter(None, [user.first_name, user.last_name])) or "AniGuard Admin",
             "username": user.username,
+            "avatar_url": _admin_avatar_url(),
         },
         "stats": {
             "users": user_count,

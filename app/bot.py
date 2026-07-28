@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import html
+import logging
 import random
 import re
 import time
@@ -28,6 +29,7 @@ from aiogram.types import (
     LabeledPrice,
     MenuButtonWebApp,
     Message,
+    ChatMemberUpdated,
     PreCheckoutQuery,
     WebAppInfo,
 )
@@ -78,12 +80,14 @@ from app.services import (
     quarantine_permissions,
     require_chat_admin,
     upsert_chat,
+    sync_chat_from_telegram,
     upsert_user,
     utcnow,
 )
 
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
 bot = Bot(settings.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 router = Router(name="aniguard")
@@ -372,6 +376,49 @@ async def member_role(chat_id: int, user_id: int) -> str:
         if row and row.role == "moderator":
             return "moderator"
     return "member"
+
+
+@router.my_chat_member()
+async def bot_membership_changed(event: ChatMemberUpdated) -> None:
+    """Register groups immediately when AniGuard is added or promoted.
+
+    Telegram sends this update specifically for the bot's own membership, so
+    group discovery no longer depends on somebody sending /panel afterwards.
+    """
+    if event.chat.type not in {ChatType.GROUP, ChatType.SUPERGROUP}:
+        return
+    status_value = getattr(event.new_chat_member.status, "value", str(event.new_chat_member.status))
+    async with SessionFactory() as session:
+        if status_value in {"left", "kicked"}:
+            chat = await session.get(Chat, event.chat.id)
+            if chat is not None:
+                chat.is_active = False
+            await session.commit()
+            return
+        try:
+            await sync_chat_from_telegram(session, bot, event.chat.id)
+        except Exception:
+            # The update object is still enough to create the registry row if
+            # Telegram briefly rejects getChat during a permission transition.
+            await upsert_chat(session, event.chat)
+        await session.commit()
+
+
+async def synchronize_registered_chats() -> None:
+    """Refresh all persistent groups before Mini App requests arrive."""
+    async with SessionFactory() as session:
+        stored_ids = set(
+            int(value)
+            for value in (await session.scalars(select(Chat.id).where(Chat.is_active.is_(True)))).all()
+        )
+        chat_ids = stored_ids | set(settings.recovery_chat_ids)
+        for chat_id in sorted(chat_ids):
+            try:
+                await sync_chat_from_telegram(session, bot, chat_id)
+            except Exception as exc:
+                # Do not erase a valid chat on a temporary Telegram/API error.
+                logger.warning("Could not refresh Telegram chat %s: %s", chat_id, exc)
+        await session.commit()
 
 
 @router.message(CommandStart())
@@ -2433,6 +2480,7 @@ async def configure_bot() -> None:
 async def start_polling() -> None:
     global _captcha_worker_task
     await configure_bot()
+    await synchronize_registered_chats()
     _captcha_worker_task = asyncio.create_task(captcha_expiry_worker(), name="aniguard-captcha-expiry")
     try:
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())

@@ -8,4 +8,7 @@ venv/
 .idea/
 .vscode/
 uploads/
+data/
+*.db-wal
+*.db-shm
 *.pyc

@@ -68,6 +68,16 @@ Telegram-бот для модерации со встроенной Mini App, г
 
 Владелец AniGuard может открывать панели всех зарегистрированных групп.
 
+
+### Постоянный реестр групп
+
+- база SQLite находится в `/app/data/aniguard.db` и не удаляется при обновлении Bothost;
+- существующая старая база из корня автоматически переносится в постоянное хранилище, если ещё доступна;
+- при запуске бот повторно синхронизирует зарегистрированные группы, владельцев, названия и аватары;
+- новые группы регистрируются через событие Telegram `my_chat_member`;
+- в Mini App отображаются реальные аватары групп, а при их отсутствии — инициалы;
+- аватар владельца админ-панели загружается из профиля `/admin` и сохраняется в `/app/data`.
+
 ### Панель управления группой
 
 - все основные действия модерации;
@@ -181,8 +191,10 @@ cp .env.example .env
 ```env
 BOT_TOKEN=токен_от_BotFather
 WEBAPP_URL=https://aniguard.example.com
-DATABASE_URL=sqlite+aiosqlite:///./aniguard.db
+DATA_DIR=/app/data
+DATABASE_URL=sqlite+aiosqlite:////app/data/aniguard.db
 ADMIN_IDS=[123456789]
+RECOVERY_CHAT_IDS=[]
 DEV_MODE=false
 INIT_DATA_MAX_AGE=3600
 HOST=0.0.0.0

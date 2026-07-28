@@ -411,6 +411,24 @@ async def upsert_user(session: AsyncSession, user: TgUser | Any) -> User:
     return db_user
 
 
+def _apply_chat_photo(chat: Chat, chat_obj: Any) -> None:
+    """Copy Telegram group photo identifiers when the object contains them."""
+    if not hasattr(chat_obj, "photo"):
+        return
+    photo = getattr(chat_obj, "photo", None)
+    if photo is None:
+        chat.photo_small_file_id = None
+        chat.photo_big_file_id = None
+        chat.photo_unique_id = None
+        return
+    chat.photo_small_file_id = getattr(photo, "small_file_id", None)
+    chat.photo_big_file_id = getattr(photo, "big_file_id", None)
+    chat.photo_unique_id = (
+        getattr(photo, "big_file_unique_id", None)
+        or getattr(photo, "small_file_unique_id", None)
+    )
+
+
 async def upsert_chat(session: AsyncSession, chat_obj: Any) -> Chat:
     chat_id = int(chat_obj.id)
     title = getattr(chat_obj, "title", None) or getattr(chat_obj, "full_name", None) or "Telegram chat"
@@ -422,6 +440,7 @@ async def upsert_chat(session: AsyncSession, chat_obj: Any) -> Chat:
             username=getattr(chat_obj, "username", None),
             settings=default_chat_settings(),
         )
+        _apply_chat_photo(candidate, chat_obj)
         try:
             async with session.begin_nested():
                 session.add(candidate)
@@ -433,9 +452,58 @@ async def upsert_chat(session: AsyncSession, chat_obj: Any) -> Chat:
                 raise
     chat.title = title
     chat.username = getattr(chat_obj, "username", None)
+    _apply_chat_photo(chat, chat_obj)
     chat.is_active = True
     await session.flush()
     return chat
+
+
+async def sync_chat_from_telegram(
+    session: AsyncSession,
+    bot: Bot,
+    chat_id: int,
+    *,
+    sync_administrators: bool = True,
+) -> Chat:
+    """Refresh a registered group and its creator from Telegram.
+
+    This function is used on startup and for ``my_chat_member`` updates, so a
+    restart does not require another /panel command.
+    """
+    telegram_chat = await bot.get_chat(chat_id)
+    chat = await upsert_chat(session, telegram_chat)
+
+    me = await bot.get_me()
+    bot_member = await bot.get_chat_member(chat_id, me.id)
+    bot_status = getattr(bot_member.status, "value", str(bot_member.status))
+    chat.is_active = bot_status not in {"left", "kicked"}
+    if not chat.is_active or not sync_administrators:
+        await session.flush()
+        return chat
+
+    try:
+        admins = await bot.get_chat_administrators(chat_id)
+    except Exception:
+        admins = []
+    merged = default_chat_settings()
+    merged.update(chat.settings or {})
+    for admin in admins:
+        admin_user = admin.user
+        await upsert_user(session, admin_user)
+        role = "owner" if admin.status == ChatMemberStatus.CREATOR else "admin"
+        await ensure_membership(session, chat_id, admin_user.id, role)
+        if role == "owner":
+            merged["owner_user_id"] = admin_user.id
+    chat.settings = merged
+    await session.flush()
+    return chat
+
+
+def chat_avatar_url(chat: Chat) -> str | None:
+    if not (chat.photo_big_file_id or chat.photo_small_file_id):
+        return None
+    version = chat.photo_unique_id or "1"
+    return f"/api/chat-avatars/{chat.id}?v={version}"
 
 
 async def ensure_membership(
@@ -527,6 +595,13 @@ async def list_admin_chats(
     result: list[dict[str, Any]] = []
     for chat in chats:
         try:
+            # Telegram is the source of truth for title, username and photo.
+            # A temporary getChat failure must not hide a persisted group.
+            try:
+                telegram_chat = await bot.get_chat(chat.id)
+                chat = await upsert_chat(session, telegram_chat)
+            except Exception:
+                pass
             member = await bot.get_chat_member(chat.id, user_id)
             if member.status not in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}:
                 continue
@@ -547,6 +622,7 @@ async def list_admin_chats(
                     "premium_plan": details["plan"],
                     "premium_source": details["source"],
                     "owner_id": details["owner_id"],
+                    "avatar_url": chat_avatar_url(chat),
                 }
             )
         except Exception:

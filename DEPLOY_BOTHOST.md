@@ -19,8 +19,10 @@
 BOT_TOKEN=токен_из_BotFather
 WEBAPP_URL=https://aniguard.bothost.tech/panel
 ADMIN_URL=https://aniguard.bothost.tech/admin
-DATABASE_URL=sqlite+aiosqlite:///./aniguard.db
+DATA_DIR=/app/data
+DATABASE_URL=sqlite+aiosqlite:////app/data/aniguard.db
 ADMIN_IDS=[ВАШ_TELEGRAM_ID]
+RECOVERY_CHAT_IDS=[]
 DEV_MODE=false
 INIT_DATA_MAX_AGE=3600
 HOST=0.0.0.0
@@ -48,3 +50,12 @@ LOG_LEVEL=INFO
 ## Безопасность админ-панели
 
 В HTML нет постоянного логина и пароля. Панель отправляет Telegram `initData` в API, сервер проверяет подпись токеном бота и затем сверяет Telegram ID с `ADMIN_IDS`.
+
+
+## Постоянное сохранение групп и настроек
+
+AniGuard хранит SQLite-базу и загруженные изображения в `/app/data`. Эта папка сохраняется Bothost между обновлениями и перезапусками. Не меняйте `DATABASE_URL` обратно на `./aniguard.db`.
+
+После первого деплоя исправления один раз отправьте `/panel` в каждой уже существующей группе. После этого группы, настройки, Premium и аватары будут восстанавливаться автоматически при каждом запуске. Если старая база уже потеряна, можно временно указать ID групп в `RECOVERY_CHAT_IDS`, например `[-1001111111111,-1002222222222]`.
+
+Бот также обрабатывает Telegram-событие `my_chat_member`: новые группы регистрируются сразу при добавлении или выдаче прав администратора, без дополнительной команды.

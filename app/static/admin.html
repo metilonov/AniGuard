@@ -112,6 +112,8 @@ svg{display:block}
 }
 .avatar small{position:absolute;right:4px;bottom:4px;width:18px;height:18px;border-radius:50%;background:#0d1320;color:#fff;display:grid;place-items:center;font-size:10px;border:1px solid rgba(255,255,255,.18)}
 .avatar.admin svg{width:28px;height:28px}
+.avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit;z-index:2}
+.avatar img + small{z-index:3}
 .admin-title{font-size:20px;font-weight:800;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .admin-sub{margin-top:3px;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .search-wrap{
@@ -537,6 +539,23 @@ svg{display:block}
   const icon = (id) => `<svg viewBox="0 0 24 24"><use href="#${id}"></use></svg>`;
   const fmt = (n) => Number(n).toLocaleString('ru-RU');
   const initials = (name) => (name || '').split(/\s+/).slice(0,2).map(v => v[0] || '').join('').toUpperCase();
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+
+  function avatarMarkup(name, avatarUrl='', admin=false){
+    const fallback = admin
+      ? `${icon('shield-star')}<small>AG</small>`
+      : escapeHtml(initials(name));
+    const image = avatarUrl
+      ? `<img src="${escapeHtml(avatarUrl)}" alt="Аватар ${escapeHtml(name || 'AniGuard')}" loading="lazy" onerror="this.remove()">`
+      : '';
+    return `<div class="avatar${admin ? ' admin' : ''}">${fallback}${image}</div>`;
+  }
+
+  function updateAdminHeaderAvatar(){
+    const node = $('#adminChip .avatar.admin');
+    if (!node) return;
+    node.outerHTML = avatarMarkup(data.admin.name || 'AniGuard Admin', data.admin.avatar_url || '', true);
+  }
 
   const data = {
     admin: {name:'AniGuard Admin'},
@@ -602,6 +621,7 @@ svg{display:block}
     data.settings = {...data.settings, ...(payload.settings || {})};
     const name = data.admin.name || 'AniGuard Admin';
     $$('.admin-title').forEach(node => node.textContent = name);
+    updateAdminHeaderAvatar();
   }
 
   async function loadRemoteData(){
@@ -846,7 +866,7 @@ svg{display:block}
         ${list.map(c => `
           <div class="chat-card">
             <div class="chat-top">
-              <div class="avatar">${initials(c.name)}</div>
+              ${avatarMarkup(c.name, c.avatar_url || '')}
               <div class="chat-meta">
                 <div class="chat-name">${c.name}</div>
                 <span class="chat-id">ID беседы: ${c.id}</span>
@@ -1053,7 +1073,7 @@ svg{display:block}
     const owner = ownerOf(chat);
     openSheet('Информация о беседе', 'Подробная карточка беседы', `
       <div class="profile-hero">
-        <div class="avatar">${initials(chat.name)}</div>
+        ${avatarMarkup(chat.name, chat.avatar_url || '')}
         <div style="min-width:0">
           <div class="profile-name">${chat.name}</div>
           <span class="profile-id">ID беседы: ${chat.id}</span>
@@ -1090,7 +1110,7 @@ svg{display:block}
   function chatSettingsSheet(chat){
     openSheet('Настройки беседы', 'Быстрое управление параметрами бота', `
       <div class="profile-hero">
-        <div class="avatar">${initials(chat.name)}</div>
+        ${avatarMarkup(chat.name, chat.avatar_url || '')}
         <div style="min-width:0">
           <div class="profile-name">${chat.name}</div>
           <span class="profile-id">ID: ${chat.id}</span>
@@ -1540,12 +1560,20 @@ svg{display:block}
     $('#adminChip').addEventListener('click', () => {
       openSheet('AniGuard Admin', 'Профиль администратора', `
         <div class="profile-hero">
-          <div class="avatar admin"><svg viewBox="0 0 24 24"><use href="#shield-star"></use></svg><small>AG</small></div>
+          ${avatarMarkup(data.admin.name || 'AniGuard Admin', data.admin.avatar_url || '', true)}
           <div style="min-width:0">
             <div class="profile-name">${data.admin.name || 'AniGuard Admin'}</div>
             <span class="profile-id">Telegram ID: ${data.admin.id || '—'}</span>
             <span class="profile-username">@${data.admin.username || 'без_username'} · маршрут /admin</span>
           </div>
+        </div>
+        <div class="form" style="margin-top:14px">
+          <div class="field">
+            <label for="adminAvatarInput">Аватар администратора</label>
+            <input id="adminAvatarInput" type="file" accept="image/jpeg,image/png,image/webp">
+          </div>
+          <button class="primary" id="uploadAdminAvatarBtn">Сохранить аватар</button>
+          ${data.admin.avatar_url ? '<button class="danger" id="deleteAdminAvatarBtn">Удалить аватар</button>' : ''}
         </div>
         <button class="secondary" id="profileThemeBtn" style="margin-top:14px">Сменить тему</button>
         <button class="danger" data-action="logout" style="margin-top:10px">Закрыть панель</button>
@@ -1695,6 +1723,18 @@ svg{display:block}
           const categoryMap = {'Все Premium-пользователи':'premium_users','Истекают за 7 дней':'expiring_users','Premium бесед':'premium_chats'};
           const result = await post('/api/admin/premium/bulk', {category:categoryMap[category] || 'premium_users', days});
           closeSheet(); await reloadRemoteData(`Продлено подписок: ${result.count}`);
+        }
+        if (e.target.id === 'uploadAdminAvatarBtn') {
+          const file = $('#adminAvatarInput')?.files?.[0];
+          if (!file) throw new Error('Выберите JPG, PNG или WEBP');
+          const form = new FormData();
+          form.append('avatar', file);
+          await api('/api/admin/profile/avatar', {method:'POST', body:form});
+          closeSheet(); await reloadRemoteData('Аватар администратора сохранён');
+        }
+        if (e.target.id === 'deleteAdminAvatarBtn') {
+          await api('/api/admin/profile/avatar', {method:'DELETE'});
+          closeSheet(); await reloadRemoteData('Аватар администратора удалён');
         }
         if (e.target.id === 'profileThemeBtn') { toggleTheme(); closeSheet(); }
       } catch (err) { showToast(err.message || 'Ошибка'); }

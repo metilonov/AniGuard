@@ -268,6 +268,19 @@
     return parts.slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'AG';
   }
 
+  function chatAvatarHtml(chat, className = 'chat-avatar') {
+    const title = chat?.title || 'AniGuard';
+    const image = chat?.avatar_url
+      ? `<img src="${escapeHtml(chat.avatar_url)}" alt="Аватар ${escapeHtml(title)}" loading="lazy" onerror="this.remove()">`
+      : '';
+    return `<span class="${className}"><span>${escapeHtml(chatInitials(title))}</span>${image}</span>`;
+  }
+
+  function setChatAvatar(node, chat) {
+    if (!node || !chat) return;
+    node.innerHTML = `<span>${escapeHtml(chatInitials(chat.title))}</span>${chat.avatar_url ? `<img src="${escapeHtml(chat.avatar_url)}" alt="Аватар ${escapeHtml(chat.title || '')}" onerror="this.remove()">` : ''}`;
+  }
+
   function renderChatSelect() {
     $('#chat-select').innerHTML = state.chats.length
       ? state.chats.map(chat => `<option value="${chat.id}">${escapeHtml(chat.title)}${chat.premium ? ' · Premium' : ''}</option>`).join('')
@@ -276,14 +289,14 @@
     if (options) {
       options.innerHTML = state.chats.length ? state.chats.map(chat => `
         <button class="group-option pressable" type="button" data-chat-id="${chat.id}">
-          <span class="chat-avatar">${escapeHtml(chatInitials(chat.title))}</span>
+          ${chatAvatarHtml(chat)}
           <span><b>${escapeHtml(chat.title)}</b><small>${chat.username ? '@' + escapeHtml(chat.username) + ' · ' : ''}${chat.premium ? 'Premium активен' : 'Обычный доступ'}</small></span>
           <span class="check">${chat.id === state.chatId ? '✓' : ''}</span>
         </button>`).join('') : '<p class="muted">Доступных групп нет.</p>';
     }
     const chat = currentChat();
     if (chat) {
-      $('#current-chat-avatar').textContent = chatInitials(chat.title);
+      setChatAvatar($('#current-chat-avatar'), chat);
       $('#current-chat-name').textContent = chat.title;
       const members = state.profile?.members ?? state.dashboard?.metrics?.members;
       $('#current-chat-meta').textContent = `${members ?? '—'} участников${premiumAvailable() ? ' · Premium' : ''}`;
@@ -442,7 +455,7 @@
   function renderProfile() {
     if (!state.profile) return;
     const profile = state.profile;
-    $('#profile-avatar').textContent = chatInitials(profile.title);
+    setChatAvatar($('#profile-avatar'), {...profile, avatar_url: profile.avatar_url || currentChat()?.avatar_url});
     $('#profile-title').textContent = profile.title;
     $('#profile-username').textContent = profile.username ? `@${profile.username} · Telegram-группа` : `ID: ${profile.id}`;
     const owner = profile.owner;

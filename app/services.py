@@ -12,6 +12,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.game_action_catalog import GAME_ACTIONS
 from app.models import (
     ActiveRestriction,
     AdminActionLog,
@@ -1038,7 +1039,7 @@ async def dashboard_data(session: AsyncSession, chat_id: int) -> dict[str, Any]:
             "open_reports": reports or 0,
             "rp_commands": rp_count or 0,
             "custom_commands": custom_count or 0,
-            "game_commands": game_count or 0,
+            "game_commands": (game_count or 0) + len(GAME_ACTIONS),
             "rules": rule_count or 0,
         },
         "settings": await get_merged_settings(session, chat_id),

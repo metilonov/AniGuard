@@ -3,69 +3,11 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
+from app.command_catalog import BUILTIN_COMMANDS, default_builtin_commands
 
-BASIC_MODERATION_COMMANDS: dict[str, dict[str, Any]] = {
-    "warn": {
-        "name": "Предупреждение",
-        "trigger": "варн",
-        "action": "warn",
-        "response": "{admin} выдал предупреждение пользователю {user}. Причина: {reason}.",
-    },
-    "unwarn": {
-        "name": "Снять предупреждение",
-        "trigger": "снять варн",
-        "action": "unwarn",
-        "response": "{admin} снял предупреждение с пользователя {user}.",
-    },
-    "mute": {
-        "name": "Мут",
-        "trigger": "мут",
-        "action": "mute",
-        "response": "{admin} ограничил сообщения пользователя {user} на {duration}. Причина: {reason}.",
-    },
-    "unmute": {
-        "name": "Снять мут",
-        "trigger": "размут",
-        "action": "unmute",
-        "response": "{admin} снял ограничения с пользователя {user}.",
-    },
-    "ban": {
-        "name": "Бан",
-        "trigger": "бан",
-        "action": "ban",
-        "response": "{admin} заблокировал пользователя {user}. Причина: {reason}.",
-    },
-    "unban": {
-        "name": "Разбан",
-        "trigger": "разбан",
-        "action": "unban",
-        "response": "{admin} разблокировал пользователя {user}.",
-    },
-    "kick": {
-        "name": "Удалить участника",
-        "trigger": "кик",
-        "action": "kick",
-        "response": "{admin} удалил пользователя {user} из группы. Причина: {reason}.",
-    },
-    "quarantine": {
-        "name": "Карантин",
-        "trigger": "карантин",
-        "action": "quarantine",
-        "response": "{user} помещён в карантин на {duration}. Причина: {reason}.",
-    },
-    "unquarantine": {
-        "name": "Снять карантин",
-        "trigger": "снять карантин",
-        "action": "unquarantine",
-        "response": "{admin} снял карантин с пользователя {user}.",
-    },
-    "purge": {
-        "name": "Очистить сообщения",
-        "trigger": "очистить",
-        "action": "purge",
-        "response": "{admin} очистил последние сообщения в группе {group}.",
-    },
-}
+
+BASIC_MODERATION_COMMANDS: dict[str, dict[str, Any]] = {}
+
 
 
 PREMIUM_SETTING_KEYS: set[str] = {
@@ -103,8 +45,11 @@ PREMIUM_SETTING_KEYS: set[str] = {
 }
 
 
+BASIC_MODERATION_COMMANDS = BUILTIN_COMMANDS
+
+
 def default_basic_commands() -> dict[str, dict[str, Any]]:
-    return deepcopy(BASIC_MODERATION_COMMANDS)
+    return default_builtin_commands()
 
 
 def default_chat_settings() -> dict[str, Any]:
@@ -251,6 +196,10 @@ def default_chat_settings() -> dict[str, Any]:
         "reports_enabled": True,
         "report_hide_threshold": 3,
         "chat_locked": False,
+        "auto_ban_newcomers": False,
+        "whitelist_user_ids": [],
+        "dangerous_user_ids": [],
+        "mute_immunity_user_ids": [],
 
         # Game and RP modules.
         "rp_enabled": True,

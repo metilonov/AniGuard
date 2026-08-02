@@ -36,6 +36,8 @@ from aiogram.types import (
 from sqlalchemy import delete, func, select
 
 from app.captcha import captcha_by_key, select_captcha
+from app.command_catalog import match_builtin_command
+from app.game_action_catalog import is_moderation_collision, match_game_action
 from app.config import get_settings
 from app.defaults import default_basic_commands
 from app.db import SessionFactory
@@ -73,6 +75,7 @@ from app.services import (
     get_merged_settings,
     grant_premium,
     set_entity_premium,
+    set_entity_block,
     has_premium_access,
     is_premium,
     muted_permissions,
@@ -81,6 +84,7 @@ from app.services import (
     quarantine_permissions,
     require_chat_admin,
     upsert_chat,
+    update_chat_settings,
     sync_chat_from_telegram,
     upsert_user,
     utcnow,
@@ -163,6 +167,7 @@ _slow_buckets: dict[tuple[int, int], float] = {}
 _rp_cooldowns: dict[tuple[int, int, int], float] = {}
 _custom_cooldowns: dict[tuple[int, int, int], float] = {}
 _game_cooldowns: dict[tuple[int, int, int], float] = {}
+_builtin_game_action_cooldowns: dict[tuple[int, int, str], float] = {}
 _duplicate_buckets: dict[tuple[int, int], deque[tuple[float, str]]] = defaultdict(deque)
 _join_buckets: dict[int, deque[float]] = defaultdict(deque)
 _threat_buckets: dict[int, deque[float]] = defaultdict(deque)
@@ -319,15 +324,15 @@ def moderation_response(
     show_duration: bool = True,
     show_reason: bool = True,
 ) -> str:
-    actor = profile_link(actor_id, "Admin")
     target = profile_link(target_id, "User")
     title = html.escape(ACTION_TITLES.get(action, action))
-    lines = [f"{actor} применил {title} к {target}."]
+    parts = [f"<b>{title}:</b> {target}"]
     if show_duration and action in TIMED_ACTIONS:
-        lines.extend(["", f"<b>Срок:</b> {html.escape(format_duration_ru(duration_seconds))}"])
-    if show_reason:
-        lines.append(f"<b>Причина:</b> {html.escape(reason or 'Причина не указана')}")
-    return "\n".join(lines)
+        parts.append(html.escape(format_duration_ru(duration_seconds)))
+    clean = (reason or "").strip()
+    if show_reason and clean and clean.casefold() != "причина не указана":
+        parts.append(html.escape(clean))
+    return " · ".join(parts)
 
 
 def render_custom_template(
@@ -485,19 +490,16 @@ async def panel_handler(message: Message) -> None:
 @router.message(Command("help"))
 async def help_handler(message: Message) -> None:
     await message.answer(
-        "<b>Команды AniGuard</b>\n\n"
-        "<b>Модерация обычным текстом:</b>\n"
-        "<code>Мут @username 30 секунд флуд</code>\n"
-        "<code>Бан @username 7 дней реклама</code>\n"
-        "<code>Бан @username\nфлуд</code>\n"
-        "<code>Мут</code> — ответом на сообщение; без срока используется значение из настроек (изначально 7 дней).\n\n"
-        "Поддерживаются секунды, минуты, часы, дни, недели, месяцы и «навсегда». "
-        "Тем же способом работают карантин, запрет медиа, ссылок и команд.\n\n"
-        "/panel — Mini App и настройки\n"
-        "/premium — Premium\n"
-        "/report — жалоба ответом\n"
-        "/profile, /top — профиль и рейтинг\n"
-        "/rules, /rplist, /logs, /reports — управление и журнал"
+        "<b>Команды AniGuard</b>\n"
+        "<code>/ban</code> = <code>ban</code> = <code>бан</code>\n"
+        "<code>/mute</code> = <code>mute</code> = <code>мут</code>\n"
+        "<code>/warn</code> = <code>warn</code> = <code>варн</code>\n\n"
+        "У Naruto-команд символы <code>/</code> и <code>_</code> необязательны:\n"
+        "<code>/катон_гокаку</code> = <code>катон гокаку</code>.\n\n"
+        "Игровые действия работают ответом на сообщение или с @username. "
+        "Для названий, совпадающих с модерацией, игровую версию можно вызвать так: "
+        "<code>игра расен сюрикен @user</code>.\n\n"
+        "Полный список разделён на обычные и Premium-команды в Mini App."
     )
 
 
@@ -1486,6 +1488,35 @@ async def new_members_handler(message: Message) -> None:
                 continue
             await upsert_user(session, member)
             await ensure_membership(session, chat.id, member.id)
+            mute_on_rejoin = {
+                int(value)
+                for value in chat_settings.get("mute_on_rejoin_user_ids", [])
+                if str(value).lstrip("-").isdigit()
+            }
+            if member.id in mute_on_rejoin:
+                try:
+                    await bot.restrict_chat_member(chat.id, member.id, muted_permissions())
+                    await add_log(
+                        session,
+                        chat.id,
+                        "mute_on_rejoin",
+                        actor_id=None,
+                        target_id=member.id,
+                        reason="Повторный вход после команды «Ура Ренге»",
+                    )
+                    await message.answer(
+                        f"{profile_link(member.id, member.full_name or 'Пользователь')} повторно вошёл и был ограничен."
+                    )
+                except Exception:
+                    logger.exception("Could not mute returning member %s in %s", member.id, chat.id)
+                continue
+            if chat_settings.get("auto_ban_newcomers", False):
+                try:
+                    await bot.ban_chat_member(chat.id, member.id)
+                    await add_log(session, chat.id, "auto_ban_newcomer", actor_id=None, target_id=member.id, reason="Режим мудреца")
+                except Exception:
+                    logger.exception("Could not auto-ban newcomer %s in %s", member.id, chat.id)
+                continue
             if not chat_settings.get("captcha_enabled", True):
                 await send_welcome_message(chat, member, chat_settings)
                 continue
@@ -1995,10 +2026,662 @@ def role_allows(required: str, role: str) -> bool:
     return True
 
 
+async def _delete_recent_messages(chat_id: int, from_message_id: int, amount: int) -> int:
+    deleted = 0
+    for message_id in range(from_message_id, max(0, from_message_id - max(1, min(amount, 100))), -1):
+        try:
+            await bot.delete_message(chat_id, message_id)
+            deleted += 1
+        except Exception:
+            continue
+    return deleted
+
+
+async def _send_compact_command_result(
+    message: Message,
+    *,
+    command: dict[str, Any],
+    target_id: int | None = None,
+    duration_seconds: int | None = None,
+    reason: str = "",
+    chat_title: str = "",
+) -> None:
+    response = str(command.get("response") or "Готово.")
+    if target_id is None:
+        text = html.escape(response).replace("{command}", html.escape(str(command.get("name") or "команда")))
+        text = text.replace("{reason}", html.escape(reason or ""))
+        await message.answer(text)
+        return
+    await message.answer(render_custom_template(
+        response,
+        actor_id=message.from_user.id,
+        target_id=target_id,
+        command_name=str(command.get("name") or "команда"),
+        duration_seconds=duration_seconds,
+        reason=reason,
+        chat_title=chat_title,
+    ))
+
+
+async def _unlock_chat_later(chat_id: int, seconds: int) -> None:
+    await asyncio.sleep(max(1, seconds))
+    async with SessionFactory() as session:
+        try:
+            await perform_action(session, bot, chat_id=chat_id, actor_id=bot.id, action="unlock", reason="Таймер завершён", premium_override=True)
+            await session.commit()
+            await bot.send_message(chat_id, "Чат открыт.")
+        except Exception:
+            logger.exception("Could not unlock chat %s after timer", chat_id)
+
+
+async def _remind_later(chat_id: int, text: str, seconds: int = 600) -> None:
+    await asyncio.sleep(max(1, seconds))
+    try:
+        await bot.send_message(chat_id, f"Напоминание: {html.escape(text or 'время вышло')}" )
+    except Exception:
+        logger.exception("Could not send reminder to %s", chat_id)
+
+
+async def _ban_later(chat_id: int, target_id: int, actor_id: int, seconds: int = 60) -> None:
+    await asyncio.sleep(max(1, seconds))
+    async with SessionFactory() as session:
+        try:
+            await perform_action(
+                session,
+                bot,
+                chat_id=chat_id,
+                actor_id=actor_id,
+                action="ban",
+                target_id=target_id,
+                duration_seconds=0,
+                reason="Таймер ультиматума завершён",
+                premium_override=True,
+            )
+            await session.commit()
+            await bot.send_message(chat_id, f"Пользователь {target_id} заблокирован после ультиматума.")
+        except Exception:
+            logger.exception("Could not ban user %s in chat %s after timer", target_id, chat_id)
+
+
+async def _execute_builtin_special(
+    message: Message,
+    chat: Chat,
+    session: Any,
+    command: dict[str, Any],
+    remainder: str,
+    target_id: int | None,
+    role: str,
+) -> tuple[bool, str]:
+    special = str(command.get("special") or "")
+    if not special:
+        return False, ""
+
+    if special == "ban_purge":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        await ensure_target_can_be_moderated(chat.id, target_id)
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="ban", target_id=target_id, duration_seconds=0, reason="Расен-сюрикен", premium_override=True)
+        deleted = await _delete_recent_messages(chat.id, message.message_id, int(command.get("fixed_amount") or 100))
+        return True, f"Бан выполнен. Удалено: {deleted}."
+
+    if special == "vote_ban":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        await bot.send_poll(chat.id, f"Забанить пользователя {target_id}?", ["Да", "Нет"], is_anonymous=False)
+        return True, "Голосование создано."
+
+    if special == "undo_last":
+        last = await session.scalar(select(ModerationLog).where(ModerationLog.chat_id == chat.id).order_by(ModerationLog.id.desc()))
+        if not last or not last.target_id:
+            return True, "Нет действия для отмены."
+        inverse = {"warn":"unwarn", "mute":"unmute", "ban":"unban", "quarantine":"unquarantine", "restrict_media":"unrestrict_media", "restrict_links":"unrestrict_links", "restrict_commands":"unrestrict_commands"}.get(last.action)
+        if not inverse:
+            return True, "Последнее действие нельзя отменить."
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action=inverse, target_id=last.target_id, reason="Изанаги", premium_override=True)
+        return True, "Последнее действие отменено."
+
+    if special == "settings_patch":
+        patch = dict(command.get("settings_patch") or {})
+        if not patch:
+            return True, "Режим не изменил настройки."
+        await update_chat_settings(session, chat.id, patch)
+        return True, f"Режим включён: {command.get('name')}."
+
+    if special == "unmute_all":
+        rows = (await session.scalars(select(Membership).where(Membership.chat_id == chat.id))).all()
+        count = 0
+        for row in rows:
+            if row.muted_until:
+                try:
+                    await bot.restrict_chat_member(chat.id, row.user_id, full_permissions())
+                    row.muted_until = None
+                    count += 1
+                except Exception:
+                    continue
+        return True, f"Муты сняты: {count}."
+
+    if special == "pin_reply":
+        if not message.reply_to_message:
+            raise ValueError("Ответьте на сообщение")
+        await bot.pin_chat_message(chat.id, message.reply_to_message.message_id, disable_notification=True)
+        return True, "Сообщение закреплено."
+
+    if special == "reset_newcomer":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        row = await ensure_membership(session, chat.id, target_id, "member")
+        row.role = "member"
+        row.joined_at = utcnow()
+        row.warnings = 0
+        return True, "Статус новичка восстановлен."
+
+    if special == "announce":
+        text = remainder.strip()
+        if not text:
+            raise ValueError("Добавьте текст объявления")
+        await bot.send_message(chat.id, f"<b>Объявление:</b>\n{html.escape(text)}")
+        return True, "Объявление отправлено."
+
+    if special == "reports_summary":
+        rows = (await session.scalars(select(Report).where(Report.chat_id == chat.id, Report.status == "new").order_by(Report.id.desc()).limit(10))).all()
+        if not rows:
+            return True, "Открытых жалоб нет."
+        lines = [f"#{row.id}: {row.target_id} — {row.reason[:80]}" for row in rows]
+        await message.answer("<b>Жалобы:</b>\n" + "\n".join(html.escape(line) for line in lines))
+        return True, ""
+
+    if special in {"logs_summary", "search_logs"}:
+        query = select(ModerationLog).where(ModerationLog.chat_id == chat.id)
+        if special == "search_logs" and remainder.strip():
+            term = remainder.strip().casefold()
+            all_rows = (await session.scalars(query.order_by(ModerationLog.id.desc()).limit(100))).all()
+            rows = [row for row in all_rows if term in f"{row.action} {row.reason or ''} {row.target_id or ''}".casefold()][:15]
+        else:
+            rows = (await session.scalars(query.order_by(ModerationLog.id.desc()).limit(15))).all()
+        if not rows:
+            return True, "Логи не найдены."
+        lines = [f"#{row.id} {row.action} → {row.target_id or 'чат'}" for row in rows]
+        await message.answer("<b>Логи:</b>\n" + "\n".join(lines))
+        return True, ""
+
+    if special == "add_blocked_words":
+        words = [word.strip().casefold() for word in re.split(r"[,\s]+", remainder) if word.strip()]
+        if not words:
+            raise ValueError("Добавьте слово")
+        settings_data = await get_merged_settings(session, chat.id)
+        blocked = list(dict.fromkeys([*(settings_data.get("blocked_words") or []), *words]))
+        await update_chat_settings(session, chat.id, {"blocked_words": blocked, "word_filter_enabled": True})
+        return True, f"Добавлено слов: {len(words)}."
+
+    if special == "delete_reply":
+        if not message.reply_to_message:
+            raise ValueError("Ответьте на сообщение")
+        await bot.delete_message(chat.id, message.reply_to_message.message_id)
+        try:
+            await message.delete()
+        except Exception:
+            pass
+        return True, "Сообщение удалено."
+
+    if special == "delete_warn":
+        if not message.reply_to_message or not message.reply_to_message.from_user:
+            raise ValueError("Ответьте на сообщение")
+        target_id = message.reply_to_message.from_user.id
+        await ensure_target_can_be_moderated(chat.id, target_id)
+        await bot.delete_message(chat.id, message.reply_to_message.message_id)
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="warn", target_id=target_id, reason="Взрывная печать", premium_override=True)
+        return True, "Сообщение удалено. Варн выдан."
+
+    if special == "reject_report":
+        match = re.search(r"\d+", remainder)
+        if not match:
+            raise ValueError("Укажите ID жалобы")
+        report = await session.get(Report, int(match.group()))
+        if not report or report.chat_id != chat.id:
+            return True, "Жалоба не найдена."
+        report.status = "rejected"
+        report.closed_at = utcnow()
+        report.assigned_to = message.from_user.id
+        return True, f"Жалоба #{report.id} отклонена."
+
+    if special in {"add_whitelist", "mark_dangerous"}:
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        settings_data = await get_merged_settings(session, chat.id)
+        key = "whitelist_user_ids" if special == "add_whitelist" else "dangerous_user_ids"
+        values = [int(value) for value in settings_data.get(key, []) if str(value).lstrip('-').isdigit()]
+        if target_id not in values:
+            values.append(target_id)
+        await update_chat_settings(session, chat.id, {key: values})
+        return True, "Белый список обновлён." if special == "add_whitelist" else "Пользователь помечен."
+
+    if special == "call_moderators":
+        admins = await bot.get_chat_administrators(chat.id)
+        mentions = [profile_link(item.user.id, item.user.full_name or "Модератор") for item in admins if not item.user.is_bot]
+        await message.answer("Модераторы: " + ", ".join(mentions[:20]))
+        return True, ""
+
+    if special == "unsupported_alts":
+        return True, "Telegram не раскрывает альтернативные аккаунты."
+
+    if special == "user_history":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        rows = (await session.scalars(select(ModerationLog).where(ModerationLog.chat_id == chat.id, ModerationLog.target_id == target_id).order_by(ModerationLog.id.desc()).limit(15))).all()
+        if not rows:
+            return True, "Нарушений не найдено."
+        await message.answer("<b>История:</b>\n" + "\n".join(f"#{row.id} {html.escape(row.action)}" for row in rows))
+        return True, ""
+
+    if special == "global_block":
+        if role not in {"owner", "admin"}:
+            raise PermissionError("Нужны права администратора")
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        await ensure_target_can_be_moderated(chat.id, target_id)
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="ban", target_id=target_id, duration_seconds=0, reason="Глобальный список AniGuard", premium_override=True)
+        await set_entity_block(session, entity_type="user", entity_id=target_id, blocked=True, admin_id=message.from_user.id, reason="Глобальный список AniGuard")
+        return True, "Пользователь заблокирован в AniGuard."
+
+    if special in {"top_offenders", "violation_stats"}:
+        rows = (await session.scalars(select(Membership).where(Membership.chat_id == chat.id).order_by(Membership.warnings.desc(), Membership.penalty_points.desc()).limit(10))).all()
+        if special == "violation_stats":
+            logs_count = int(await session.scalar(select(func.count()).select_from(ModerationLog).where(ModerationLog.chat_id == chat.id)) or 0)
+            warnings = sum(row.warnings for row in rows)
+            return True, f"Действий: {logs_count}. Варнов в топе: {warnings}."
+        if not rows:
+            return True, "Данных нет."
+        await message.answer("<b>Топ нарушителей:</b>\n" + "\n".join(f"{index}. {profile_link(row.user_id, 'User')} — {row.warnings}" for index, row in enumerate(rows, 1)))
+        return True, ""
+
+    if special == "moderator_stats":
+        rows = (await session.execute(select(ModerationLog.actor_id, func.count(ModerationLog.id)).where(ModerationLog.chat_id == chat.id).group_by(ModerationLog.actor_id).order_by(func.count(ModerationLog.id).desc()).limit(10))).all()
+        if not rows:
+            return True, "Данных нет."
+        await message.answer("<b>Модераторы:</b>\n" + "\n".join(f"{profile_link(actor or 0, 'Admin')} — {count}" for actor, count in rows))
+        return True, ""
+
+    if special == "weekly_report":
+        since = utcnow() - timedelta(days=7)
+        logs = int(await session.scalar(select(func.count()).select_from(ModerationLog).where(ModerationLog.chat_id == chat.id, ModerationLog.created_at >= since)) or 0)
+        reports = int(await session.scalar(select(func.count()).select_from(Report).where(Report.chat_id == chat.id, Report.created_at >= since)) or 0)
+        messages = int(await session.scalar(select(func.sum(Membership.message_count)).where(Membership.chat_id == chat.id)) or 0)
+        return True, f"7 дней: действий {logs}, жалоб {reports}, сообщений {messages}."
+
+    if special == "activity_stats":
+        rows = (await session.scalars(select(Membership).where(Membership.chat_id == chat.id).order_by(Membership.message_count.desc()).limit(10))).all()
+        if not rows:
+            return True, "Данных нет."
+        await message.answer("<b>Активность:</b>\n" + "\n".join(f"{index}. {profile_link(row.user_id, 'User')} — {row.message_count}" for index, row in enumerate(rows, 1)))
+        return True, ""
+
+    if special == "bot_check":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        member = await bot.get_chat_member(chat.id, target_id)
+        return True, "Это бот." if member.user.is_bot else "Это пользователь."
+
+    if special == "ping_members":
+        rows = (await session.scalars(select(Membership).where(Membership.chat_id == chat.id).order_by(Membership.last_seen_at.desc()).limit(20))).all()
+        mentions = [profile_link(row.user_id, "忍") for row in rows]
+        await message.answer("Даттебайо! " + " ".join(mentions))
+        return True, ""
+
+    if special == "random_mute":
+        rows = (await session.scalars(select(Membership).where(Membership.chat_id == chat.id, Membership.role == "member"))).all()
+        if not rows:
+            return True, "Нет доступных участников."
+        chosen = random.choice(rows)
+        await ensure_target_can_be_moderated(chat.id, chosen.user_id)
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="mute", target_id=chosen.user_id, duration_seconds=300, reason="Расенган-рулетка", premium_override=True)
+        return True, f"Мут 5 минут: {chosen.user_id}."
+
+    if special in {"quiz_poll", "anonymous_poll"}:
+        question = remainder.strip() or ("Экзамен на выживание" if special == "quiz_poll" else "Теневой клон: ваш выбор?")
+        await bot.send_poll(chat.id, question[:300], ["Да", "Нет"], is_anonymous=True, type="quiz" if special == "quiz_poll" else "regular", correct_option_id=0 if special == "quiz_poll" else None)
+        return True, "Опрос создан."
+
+    if special == "reminder":
+        text = remainder.strip() or "Призыв жабы"
+        asyncio.create_task(_remind_later(chat.id, text), name=f"aniguard-reminder-{chat.id}-{message.message_id}")
+        return True, "Напоминание создано на 10 минут."
+
+    if special == "lock_timed":
+        seconds = int(command.get("fixed_duration_seconds") or 3600)
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="lock", reason=str(command.get("name") or "Таймер"), premium_override=True)
+        asyncio.create_task(_unlock_chat_later(chat.id, seconds), name=f"aniguard-unlock-{chat.id}-{message.message_id}")
+        return True, f"Чат закрыт на {format_duration_ru(seconds)}."
+
+    if special == "random_decision":
+        return True, random.choice(["Решение: варн.", "Решение: мут.", "Решение: без наказания."])
+
+    if special == "random_unmute":
+        rows = (await session.scalars(select(Membership).where(Membership.chat_id == chat.id, Membership.muted_until.is_not(None)))).all()
+        if not rows:
+            return True, "Активных мутов нет."
+        chosen = random.choice(rows)
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="unmute", target_id=chosen.user_id, reason="Печать удачи", premium_override=True)
+        return True, f"Мут снят: {chosen.user_id}."
+
+    if special == "motivation":
+        await message.answer("Огонь воли не гаснет. Продолжайте двигаться вперёд.")
+        return True, ""
+
+    if special == "kick_all":
+        if role != "owner":
+            raise PermissionError("Команда доступна владельцу")
+        if "подтвердить" not in remainder.casefold():
+            return True, "Повторите команду со словом «подтвердить»."
+        rows = (await session.scalars(select(Membership).where(Membership.chat_id == chat.id, Membership.role == "member").limit(100))).all()
+        count = 0
+        for row in rows:
+            try:
+                await bot.ban_chat_member(chat.id, row.user_id)
+                await bot.unban_chat_member(chat.id, row.user_id, only_if_banned=True)
+                count += 1
+            except Exception:
+                continue
+        return True, f"Удалено участников: {count}."
+
+    if special == "auto_ban_newcomers":
+        await update_chat_settings(session, chat.id, {"auto_ban_newcomers": True})
+        return True, "Автобан новичков включён."
+
+    if special == "reset_restrictions":
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="unlock", reason="Восемь врат", premium_override=True)
+        rows = (await session.scalars(select(Membership).where(Membership.chat_id == chat.id))).all()
+        for row in rows:
+            if row.muted_until or row.quarantined_until:
+                try:
+                    await bot.restrict_chat_member(chat.id, row.user_id, full_permissions())
+                except Exception:
+                    pass
+                row.muted_until = None
+                row.quarantined_until = None
+        return True, "Ограничения сняты."
+
+    if special == "unsupported_recreate":
+        return True, "Telegram API не позволяет удалить и пересоздать чат."
+
+    if special == "reset_moderation":
+        from app.defaults import default_chat_settings
+        current = await get_merged_settings(session, chat.id)
+        owner_id = current.get("owner_user_id")
+        reset = default_chat_settings()
+        reset["owner_user_id"] = owner_id
+        chat.settings = reset
+        return True, "Настройки модерации сброшены."
+
+    if special == "unsupported_mass_tag":
+        return True, "Telegram не позволяет получить и заблокировать всех участников по произвольному тегу."
+
+    if special == "mass_ban_list":
+        if role not in {"owner", "admin"}:
+            raise PermissionError("Нужны права администратора")
+        if "подтвердить" not in remainder.casefold():
+            return True, "Укажите ID пользователей и добавьте слово «подтвердить»."
+        user_ids = [int(value) for value in re.findall(r"-?\d{4,}", remainder)]
+        user_ids = list(dict.fromkeys(user_ids))[:20]
+        if not user_ids:
+            raise ValueError("Добавьте ID пользователей")
+        count = 0
+        for user_id in user_ids:
+            try:
+                await ensure_target_can_be_moderated(chat.id, user_id)
+                await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="ban", target_id=user_id, duration_seconds=0, reason="Муген Цукуёми", premium_override=True)
+                count += 1
+            except Exception:
+                continue
+        return True, f"Заблокировано пользователей: {count}."
+
+    if special == "kick_warn":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        await ensure_target_can_be_moderated(chat.id, target_id)
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="warn", target_id=target_id, reason="Листок-ураган", premium_override=True)
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="kick", target_id=target_id, reason="Листок-ураган", premium_override=True)
+        return True, "Предупреждение выдано. Пользователь удалён."
+
+    if special == "kick_delete":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        if message.reply_to_message:
+            try:
+                await bot.delete_message(chat.id, message.reply_to_message.message_id)
+            except Exception:
+                pass
+        await ensure_target_can_be_moderated(chat.id, target_id)
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="kick", target_id=target_id, reason="Омотэ Ренге", premium_override=True)
+        return True, "Последнее сообщение удалено. Пользователь исключён."
+
+    if special == "kick_reentry_mute":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        await ensure_target_can_be_moderated(chat.id, target_id)
+        settings_data = await get_merged_settings(session, chat.id)
+        values = [int(value) for value in settings_data.get("mute_on_rejoin_user_ids", []) if str(value).lstrip('-').isdigit()]
+        if target_id not in values:
+            values.append(target_id)
+        await update_chat_settings(session, chat.id, {"mute_on_rejoin_user_ids": values})
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="kick", target_id=target_id, reason="Ура Ренге", premium_override=True)
+        return True, "Пользователь исключён. При повторном входе будет ограничен."
+
+    if special == "warn_ban_timer":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        await ensure_target_can_be_moderated(chat.id, target_id)
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="warn", target_id=target_id, reason="Ультиматум Хокаге", premium_override=True)
+        asyncio.create_task(_ban_later(chat.id, target_id, message.from_user.id, 60), name=f"aniguard-ban-timer-{chat.id}-{target_id}")
+        return True, "Предупреждение выдано. Бан будет применён через 1 минуту."
+
+    if special == "warns_summary":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        member = await ensure_membership(session, chat.id, target_id)
+        rows = (await session.scalars(select(ModerationLog).where(ModerationLog.chat_id == chat.id, ModerationLog.target_id == target_id, ModerationLog.action == "warn").order_by(ModerationLog.id.desc()).limit(10))).all()
+        return True, f"Предупреждений: {member.warnings}. Записей в журнале: {len(rows)}."
+
+    if special == "reset_target_restrictions":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        member = await ensure_membership(session, chat.id, target_id)
+        try:
+            await bot.restrict_chat_member(chat.id, target_id, full_permissions())
+        except Exception:
+            pass
+        member.muted_until = None
+        member.quarantined_until = None
+        for kind in ("media", "links", "commands"):
+            try:
+                from app.services import clear_restriction
+                await clear_restriction(session, chat_id=chat.id, user_id=target_id, kind=kind)
+            except Exception:
+                pass
+        return True, "Все ограничения пользователя сняты."
+
+    if special == "unwarn_all":
+        rows = (await session.scalars(select(Membership).where(Membership.chat_id == chat.id))).all()
+        changed = 0
+        for row in rows:
+            if row.warnings:
+                row.warnings = 0
+                changed += 1
+        return True, f"Предупреждения обнулены у {changed} участников."
+
+    if special == "clear_user_history":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        member = await ensure_membership(session, chat.id, target_id)
+        member.warnings = 0
+        member.penalty_points = 0
+        return True, "Счётчики нарушений пользователя обнулены. Журнал аудита сохранён."
+
+    if special in {"profile_summary", "role_summary", "presence_summary", "active_penalties", "serious_violations"}:
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        member = await ensure_membership(session, chat.id, target_id)
+        settings_data = await get_merged_settings(session, chat.id)
+        rank_labels = settings_data.get("rank_labels") or {}
+        rank = rank_labels.get(str(target_id)) or member.role
+        if special == "profile_summary":
+            return True, f"ID: {target_id}. Роль: {rank}. Варны: {member.warnings}. Сообщения: {member.message_count}. XP: {member.xp}."
+        if special == "role_summary":
+            return True, f"Роль AniGuard: {rank}. Системная роль: {member.role}."
+        if special == "presence_summary":
+            seen = member.last_seen_at.isoformat() if member.last_seen_at else "нет данных"
+            return True, f"Последняя известная активность: {seen}. Telegram не предоставляет точный онлайн-статус боту."
+        if special == "active_penalties":
+            active = []
+            if member.warnings: active.append(f"варны: {member.warnings}")
+            if member.muted_until: active.append("мут")
+            if member.quarantined_until: active.append("карантин")
+            return True, "Активные наказания: " + (", ".join(active) if active else "нет") + "."
+        rows = (await session.scalars(select(ModerationLog).where(ModerationLog.chat_id == chat.id, ModerationLog.target_id == target_id).order_by(ModerationLog.id.desc()).limit(10))).all()
+        serious = [row for row in rows if row.action in {"ban", "mute", "quarantine"}]
+        return True, f"Серьёзных нарушений в последних записях: {len(serious)}."
+
+    if special == "rules_summary":
+        settings_data = await get_merged_settings(session, chat.id)
+        rules = [str(item).strip() for item in settings_data.get("group_rules", []) if str(item).strip()]
+        if not rules:
+            return True, "Правила беседы пока не заполнены."
+        await message.answer("<b>Правила:</b>\n" + "\n".join(f"{index}. {html.escape(rule)}" for index, rule in enumerate(rules, 1)))
+        return True, ""
+
+    if special == "members_summary":
+        rows = (await session.scalars(select(Membership).where(Membership.chat_id == chat.id).order_by(Membership.message_count.desc()).limit(30))).all()
+        if not rows:
+            return True, "Участники не найдены."
+        await message.answer("<b>Участники:</b>\n" + "\n".join(f"{index}. {profile_link(row.user_id, 'User')} — {row.role}" for index, row in enumerate(rows, 1)))
+        return True, ""
+
+    if special == "set_role":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        patch = dict(command.get("settings_patch") or {})
+        if patch.get("owner_only") and role != "owner":
+            raise PermissionError("Команда доступна владельцу")
+        member = await ensure_membership(session, chat.id, target_id)
+        member.role = str(patch.get("role") or "member")
+        settings_data = await get_merged_settings(session, chat.id)
+        labels = dict(settings_data.get("rank_labels") or {})
+        labels[str(target_id)] = str(patch.get("rank_label") or member.role)
+        update = {"rank_labels": labels}
+        if patch.get("whitelist"):
+            values = [int(value) for value in settings_data.get("whitelist_user_ids", []) if str(value).lstrip('-').isdigit()]
+            if target_id not in values: values.append(target_id)
+            update["whitelist_user_ids"] = values
+        if patch.get("dangerous"):
+            values = [int(value) for value in settings_data.get("dangerous_user_ids", []) if str(value).lstrip('-').isdigit()]
+            if target_id not in values: values.append(target_id)
+            update["dangerous_user_ids"] = values
+        await update_chat_settings(session, chat.id, update)
+        return True, f"Назначен ранг: {labels[str(target_id)]}."
+
+    if special == "remove_role":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        member = await ensure_membership(session, chat.id, target_id)
+        member.role = "member"
+        settings_data = await get_merged_settings(session, chat.id)
+        labels = dict(settings_data.get("rank_labels") or {})
+        labels.pop(str(target_id), None)
+        await update_chat_settings(session, chat.id, {"rank_labels": labels})
+        return True, "Ранг AniGuard снят."
+
+    if special == "promote_activity":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        member = await ensure_membership(session, chat.id, target_id)
+        if member.message_count < 100 and member.xp < 500:
+            return True, "Недостаточно активности для повышения. Нужно 100 сообщений или 500 XP."
+        settings_data = await get_merged_settings(session, chat.id)
+        labels = dict(settings_data.get("rank_labels") or {})
+        labels[str(target_id)] = "Чунин"
+        await update_chat_settings(session, chat.id, {"rank_labels": labels})
+        return True, "Экзамен пройден. Назначен ранг Чунин."
+
+    if special == "chat_media_lock":
+        await bot.set_chat_permissions(chat.id, ChatPermissions(can_send_messages=True, can_send_audios=False, can_send_documents=False, can_send_photos=False, can_send_videos=False, can_send_video_notes=False, can_send_voice_notes=False, can_send_polls=False, can_send_other_messages=False, can_add_web_page_previews=False))
+        return True, "Отправка медиа в чате запрещена."
+
+    if special == "chat_media_unlock":
+        await bot.set_chat_permissions(chat.id, full_permissions())
+        return True, "Отправка медиа разрешена."
+
+    if special == "unsupported_nickname_lock":
+        return True, "Telegram Bot API не позволяет запретить конкретному пользователю менять имя."
+
+    if special == "captcha_each_message":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        settings_data = await get_merged_settings(session, chat.id)
+        values = [int(value) for value in settings_data.get("captcha_each_message_user_ids", []) if str(value).lstrip('-').isdigit()]
+        if target_id not in values: values.append(target_id)
+        await update_chat_settings(session, chat.id, {"captcha_each_message_user_ids": values, "captcha_enabled": True})
+        return True, "Усиленная CAPTCHA для пользователя включена."
+
+    if special == "restrict_rate":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        settings_data = await get_merged_settings(session, chat.id)
+        limits = dict(settings_data.get("per_user_rate_limits") or {})
+        limits[str(target_id)] = {"messages": 3, "seconds": 60}
+        await update_chat_settings(session, chat.id, {"per_user_rate_limits": limits})
+        return True, "Лимит установлен: 3 сообщения в минуту."
+
+    if special == "unsupported_hide_user":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        await ensure_target_can_be_moderated(chat.id, target_id)
+        await perform_action(
+            session,
+            bot,
+            chat_id=chat.id,
+            actor_id=message.from_user.id,
+            action="mute",
+            target_id=target_id,
+            duration_seconds=0,
+            reason="Печать забвения",
+            premium_override=True,
+        )
+        return True, "Telegram не умеет скрывать сообщения только от остальных. Вместо этого применён бессрочный мут."
+
+    if special == "ping_target":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        await message.answer("Призыв: " + profile_link(target_id, "пользователь"))
+        return True, ""
+
+    if special == "birthday_message":
+        if target_id is None:
+            raise ValueError("Укажите пользователя")
+        await message.answer(f"🎉 {profile_link(target_id, 'Ниндзя')}, с днём рождения! Желаем силы, чакры и удачных миссий!")
+        return True, ""
+
+    if special == "night_mode":
+        seconds = int(command.get("fixed_duration_seconds") or 28800)
+        await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="lock", reason="Ночной режим", premium_override=True)
+        asyncio.create_task(_unlock_chat_later(chat.id, seconds), name=f"aniguard-night-mode-{chat.id}-{message.message_id}")
+        return True, f"Ночной режим включён на {format_duration_ru(seconds)}."
+
+    if special == "owner_control_summary":
+        if role != "owner":
+            raise PermissionError("Команда доступна владельцу")
+        settings_data = await get_merged_settings(session, chat.id)
+        return True, f"Полный контроль владельца активен. Варнов до автомата: {settings_data.get('warn_threshold', 3)}. Антифлуд: {'включён' if settings_data.get('anti_flood_enabled') else 'выключен'}."
+
+    return True, "Команда зарегистрирована, но действие недоступно."
+
+
 async def try_basic_moderation_command(message: Message, chat: Chat, membership: Membership) -> bool:
-    """Execute the configurable built-in moderation commands from ordinary group text."""
+    """Execute ordinary and Naruto-styled built-in commands.
+
+    Syntax is flexible: slash is optional, underscores and spaces are
+    interchangeable, and Russian/English aliases share the same action.
+    """
     text = (message.text or "").strip()
-    if not text or text.startswith("/") or not message.from_user:
+    if not text or not message.from_user:
         return False
 
     async with SessionFactory() as session:
@@ -2008,95 +2691,84 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
         if isinstance(stored, dict):
             for key, value in stored.items():
                 if key in configured and isinstance(value, dict):
-                    configured[key].update(value)
+                    configured[key].update({field: field_value for field, field_value in value.items() if field in {"name", "trigger", "action", "response"}})
 
-        lowered = text.casefold()
-        matched_key: str | None = None
-        remainder = ""
-        for key, config in sorted(configured.items(), key=lambda pair: len(str(pair[1].get("trigger", ""))), reverse=True):
-            trigger = str(config.get("trigger") or "").strip()
-            trigger_lower = trigger.casefold()
-            if not trigger_lower:
-                continue
-            if lowered == trigger_lower:
-                matched_key = key
-                remainder = ""
-                break
-            if lowered.startswith(trigger_lower + " ") or lowered.startswith(trigger_lower + "\n"):
-                matched_key = key
-                remainder = text[len(trigger):].strip()
-                break
-        if matched_key is None:
+        matched = match_builtin_command(text, configured)
+        if matched is None:
             return False
+        matched_key, config, remainder = matched
 
         role = await member_role(chat.id, message.from_user.id)
         if role not in {"owner", "admin", "moderator"}:
-            await message.reply("Эта команда доступна администраторам и модераторам AniGuard.")
+            await message.reply("Команда доступна модераторам.")
             return True
         restrictions = await active_restrictions(session, chat_id=chat.id, user_id=message.from_user.id)
         if "commands" in restrictions:
-            await message.reply("Для вас временно заблокировано использование команд.")
+            await message.reply("Команды временно недоступны.")
             return True
 
-        config = configured[matched_key]
+        premium = await has_premium_access(session, chat_id=chat.id, user_id=message.from_user.id)
+        if bool(config.get("premium")) and not premium:
+            await message.reply("Нужен AniGuard Premium.")
+            return True
+
         action = str(config.get("action") or matched_key)
         name = str(config.get("name") or matched_key)
-        response = str(config.get("response") or "Действие выполнено.")
-
-        if action == "purge":
-            amount_match = re.match(r"^(\d{1,3})", remainder)
-            amount = max(1, min(int(amount_match.group(1)) if amount_match else 10, 100))
-            deleted = 0
-            for message_id in range(message.message_id, max(0, message.message_id - amount), -1):
-                try:
-                    await bot.delete_message(chat.id, message_id)
-                    deleted += 1
-                except Exception:
-                    continue
-            await perform_action(
-                session,
-                bot,
-                chat_id=chat.id,
-                actor_id=message.from_user.id,
-                action="purge",
-                amount=amount,
-                reason=f"Удалено сообщений: {deleted}",
-                premium_override=True,
-            )
-            await session.commit()
-            await bot.send_message(
-                chat.id,
-                render_custom_template(
-                    response,
-                    actor_id=message.from_user.id,
-                    target_id=message.from_user.id,
-                    command_name=name,
-                    duration_seconds=None,
-                    reason=f"Удалено сообщений: {deleted}",
-                    chat_title=chat.title,
-                ),
-            )
-            return True
+        response = str(config.get("response") or "Готово.")
+        target_required = config.get("target_required")
+        if target_required is None:
+            target_required = action in {"warn", "unwarn", "mute", "unmute", "ban", "unban", "kick", "quarantine", "unquarantine", "restrict_media", "unrestrict_media", "restrict_links", "unrestrict_links", "restrict_commands", "unrestrict_commands"}
 
         default_duration = int(settings_data.get(DEFAULT_DURATION_KEYS.get(action, "default_mute_seconds"), 604800))
         parsed = parse_moderation_command(
             remainder,
             default_duration_seconds=default_duration,
-            forced_action=action,
+            forced_action=action if action in TIMED_ACTIONS | {"warn", "unwarn", "unmute", "unban", "unquarantine", "kick", "restrict_media", "unrestrict_media", "restrict_links", "unrestrict_links", "restrict_commands", "unrestrict_commands", "purge", "slow", "lock", "unlock"} else "warn",
             forced_trigger=str(config.get("trigger") or action),
         )
-        if parsed is None:
-            await message.reply("Не удалось разобрать параметры команды.")
+        target_token = parsed.target_token if parsed else None
+        if target_token is None and target_required:
+            target_match = re.match(r"^\s*(@[A-Za-z0-9_]{5,}|-?\d{4,})\b", remainder)
+            if target_match:
+                target_token = target_match.group(1)
+                remainder = remainder[target_match.end():].strip()
+        target_id = await resolve_target(message, target_token)
+        if target_required and target_id is None:
+            await message.reply("Ответьте пользователю или укажите @username/ID.")
             return True
-        target_id = await resolve_target(message, parsed.target_token)
-        if target_id is None:
-            await message.reply("Ответьте на сообщение пользователя или укажите его @username либо ID.")
+        if target_id == message.from_user.id and action not in {"unmute", "unwarn", "unban"}:
+            await message.reply("Нельзя применить команду к себе.")
             return True
-        if target_id == message.from_user.id:
-            await message.reply("Нельзя применить команду к самому себе.")
+
+        special_handled, special_result = await _execute_builtin_special(message, chat, session, config, remainder, target_id, role)
+        if special_handled:
+            await session.commit()
+            if special_result:
+                await message.answer(html.escape(special_result))
             return True
-        await ensure_target_can_be_moderated(chat.id, target_id)
-        reason = parsed.reason or str(settings_data.get("default_reason") or "Причина не указана")
+
+        if action == "purge":
+            amount_match = re.match(r"^(\d{1,3})", remainder)
+            amount = int(config.get("fixed_amount") or (amount_match.group(1) if amount_match else 10))
+            deleted = await _delete_recent_messages(chat.id, message.message_id, amount)
+            await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="purge", amount=max(1, min(amount, 100)), reason=f"Удалено: {deleted}", premium_override=True)
+            await session.commit()
+            await message.answer(f"Удалено: {deleted}.")
+            return True
+
+        if action in {"slow", "lock", "unlock"}:
+            amount = int(config.get("fixed_amount") or 15) if action == "slow" else None
+            await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action=action, amount=amount, reason=name, premium_override=premium)
+            await session.commit()
+            await _send_compact_command_result(message, command=config, reason=name, chat_title=chat.title)
+            return True
+
+        if target_id is not None and action not in {"unwarn", "unmute", "unban", "unquarantine", "unrestrict_media", "unrestrict_links", "unrestrict_commands"}:
+            await ensure_target_can_be_moderated(chat.id, target_id)
+        duration = config.get("fixed_duration_seconds")
+        if duration is None and parsed:
+            duration = parsed.duration_seconds
+        reason = (parsed.reason if parsed else "") or str(settings_data.get("default_reason") or "Причина не указана")
         result = await perform_action(
             session,
             bot,
@@ -2104,22 +2776,18 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
             actor_id=message.from_user.id,
             action=action,
             target_id=target_id,
-            duration_seconds=parsed.duration_seconds,
+            duration_seconds=duration,
             reason=reason,
-            premium_override=True,
+            premium_override=premium,
         )
         await session.commit()
-        await bot.send_message(
-            chat.id,
-            render_custom_template(
-                response,
-                actor_id=message.from_user.id,
-                target_id=target_id,
-                command_name=name,
-                duration_seconds=result.get("duration_seconds"),
-                reason=reason,
-                chat_title=chat.title,
-            ),
+        await _send_compact_command_result(
+            message,
+            command={**config, "response": response},
+            target_id=target_id,
+            duration_seconds=result.get("duration_seconds"),
+            reason=reason,
+            chat_title=chat.title,
         )
         return True
 
@@ -2233,6 +2901,72 @@ async def try_custom_command(message: Message, chat: Chat, membership: Membershi
         return True
 
 
+
+async def try_builtin_game_action(message: Message, chat: Chat, membership: Membership) -> bool:
+    """Run one of the built-in Naruto game actions.
+
+    Slash is optional, underscores/spaces are interchangeable. For names shared
+    with moderation commands, moderators receive moderation by default and can
+    force the game version with `игра <команда>` or `/игра_<команда>`.
+    """
+    text = (message.text or "").strip()
+    if not text or not message.from_user:
+        return False
+    matched = match_game_action(text)
+    if matched is None:
+        return False
+    key, command, remainder, forced = matched
+
+    role = await member_role(chat.id, membership.user_id)
+    if not forced and is_moderation_collision(str(command.get("trigger") or "")) and role in {"owner", "admin", "moderator"}:
+        return False
+
+    async with SessionFactory() as session:
+        restrictions = await active_restrictions(session, chat_id=chat.id, user_id=membership.user_id)
+        if "commands" in restrictions:
+            await message.reply("Команды временно недоступны.")
+            return True
+        if bool(command.get("premium")) and not await has_premium_access(session, chat_id=chat.id, user_id=membership.user_id):
+            await message.reply("Для этой игровой техники нужен AniGuard Premium.")
+            return True
+
+        target_id, target_name = await resolve_rp_target(message, remainder)
+        if bool(command.get("target_required")) and target_id is None and target_name == "себя":
+            await message.reply("Ответьте на сообщение пользователя или укажите @username.")
+            return True
+
+        now_mono = time.monotonic()
+        cooldown_key = (chat.id, membership.user_id, key)
+        cooldown = int(command.get("cooldown_seconds") or 0)
+        remaining = cooldown - (now_mono - _builtin_game_action_cooldowns.get(cooldown_key, 0))
+        if remaining > 0:
+            await message.reply(f"Техника будет доступна через {int(remaining) + 1} сек.")
+            return True
+
+        actor = profile_link(message.from_user.id, message.from_user.first_name)
+        target = profile_link(target_id, target_name) if target_id else html.escape(target_name)
+        response = html.escape(str(command.get("response") or ""))
+        response = response.replace("{actor}", actor).replace("{user}", actor).replace("{target}", target)
+
+        db_member = await session.scalar(
+            select(Membership).where(Membership.chat_id == chat.id, Membership.user_id == membership.user_id)
+        )
+        if db_member:
+            db_member.xp += int(command.get("reward_xp") or 0)
+            db_member.coins += int(command.get("reward_coins") or 0)
+        if target_id and int(command.get("number") or 0) == 96:
+            target_member = await session.scalar(
+                select(Membership).where(Membership.chat_id == chat.id, Membership.user_id == target_id)
+            )
+            if target_member:
+                target_member.xp += 100
+
+        _builtin_game_action_cooldowns[cooldown_key] = now_mono
+        await session.commit()
+        await message.answer(response)
+        return True
+
+
 async def try_game_command(message: Message, chat: Chat, membership: Membership) -> bool:
     text = (message.text or "").strip()
     if not text or text.startswith("/"):
@@ -2323,6 +3057,7 @@ async def resolve_rp_target(message: Message, remainder: str) -> tuple[int | Non
             user = await session.scalar(select(User).where(func.lower(User.username) == username))
             if user:
                 return user.id, user.first_name
+        return None, f"@{username}"
     return None, "себя"
 
 
@@ -2445,6 +3180,8 @@ async def group_message_pipeline(message: Message) -> None:
             return
 
     try:
+        if await try_builtin_game_action(message, chat, membership):
+            return
         if await try_basic_moderation_command(message, chat, membership):
             return
         if await try_custom_command(message, chat, membership):
@@ -2490,8 +3227,17 @@ async def configure_bot() -> None:
         BotCommand(command="premium", description="Купить Premium"),
         BotCommand(command="promo", description="Активировать промокод"),
         BotCommand(command="warn", description="Предупредить пользователя"),
+        BotCommand(command="unwarn", description="Снять предупреждение"),
         BotCommand(command="mute", description="Выдать мут"),
+        BotCommand(command="unmute", description="Снять мут"),
         BotCommand(command="ban", description="Заблокировать пользователя"),
+        BotCommand(command="unban", description="Снять бан"),
+        BotCommand(command="kick", description="Удалить пользователя"),
+        BotCommand(command="quarantine", description="Поместить в карантин"),
+        BotCommand(command="unquarantine", description="Снять карантин"),
+        BotCommand(command="purge", description="Очистить сообщения"),
+        BotCommand(command="lock", description="Закрыть чат"),
+        BotCommand(command="unlock", description="Открыть чат"),
         BotCommand(command="report", description="Пожаловаться на сообщение"),
         BotCommand(command="profile", description="Профиль участника"),
         BotCommand(command="top", description="Топ участников"),

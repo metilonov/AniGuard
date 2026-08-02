@@ -16,6 +16,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import bot, moderation_response, render_custom_template
+from app.game_action_catalog import default_game_actions
 from app.defaults import BASIC_MODERATION_COMMANDS, PREMIUM_SETTING_KEYS, default_basic_commands
 from app.config import get_settings
 from app.db import SessionFactory, get_session
@@ -1096,6 +1097,26 @@ async def delete_custom_command(
 # ---------------------------------------------------------------------------
 # Game commands
 # ---------------------------------------------------------------------------
+
+
+@router.get("/chats/{chat_id}/game-actions")
+async def get_builtin_game_actions(
+    chat_id: int,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    premium = await premium_access_details(session, chat_id=chat_id, user_id=user.id)
+    actions = default_game_actions()
+    return {
+        "commands": [{"key": key, **value} for key, value in actions.items()],
+        "premium": premium["active"],
+        "syntax": {
+            "slash_optional": True,
+            "underscore_optional": True,
+            "force_game_prefix": ["игра", "game"],
+        },
+    }
 
 @router.get("/chats/{chat_id}/game-commands")
 async def list_game_commands(

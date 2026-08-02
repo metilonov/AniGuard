@@ -53,6 +53,12 @@ class Membership(Base):
     chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id", ondelete="CASCADE"), index=True)
     user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True)
     role: Mapped[str] = mapped_column(String(32), default="member")
+    penalty_status: Mapped[str] = mapped_column(String(32), default="none")
+    penalty_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    role_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    previous_role: Mapped[str | None] = mapped_column(String(32))
+    role_assigned_by: Mapped[int | None] = mapped_column(BigInteger)
+    role_assigned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     warnings: Mapped[int] = mapped_column(Integer, default=0)
     penalty_points: Mapped[int] = mapped_column(Integer, default=0)
     message_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -62,6 +68,23 @@ class Membership(Base):
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     muted_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     quarantined_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class RoleAssignmentHistory(Base):
+    __tablename__ = "role_assignment_history"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    actor_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    old_role: Mapped[str] = mapped_column(String(32))
+    new_role: Mapped[str] = mapped_column(String(32))
+    temporary_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reason: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(String(32), default="bot")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    reverted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reverted_by: Mapped[int | None] = mapped_column(BigInteger)
 
 
 class ModerationRule(Base):

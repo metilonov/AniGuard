@@ -153,7 +153,18 @@ class AdminBlockRequest(BaseModel):
 
 
 class MemberRoleUpdate(BaseModel):
-    role: Literal["member", "moderator"]
+    role: Literal[
+        "creator", "senior_admin", "admin", "junior_admin",
+        "senior_moderator", "moderator", "junior_moderator", "member",
+    ]
+    duration_seconds: int | None = Field(default=None, ge=0, le=31_536_000)
+    reason: str = Field(default="", max_length=500)
+
+
+class PenaltyStatusUpdate(BaseModel):
+    status: Literal["none", "violator", "severe_violator"]
+    duration_seconds: int | None = Field(default=None, ge=0, le=31_536_000)
+    reason: str = Field(default="", max_length=500)
 
 
 class BasicCommandUpdate(BaseModel):

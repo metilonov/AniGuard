@@ -75,6 +75,15 @@ _CHAT_COLUMNS: dict[str, str] = {
     "photo_unique_id": "VARCHAR(255)",
 }
 
+_MEMBERSHIP_COLUMNS: dict[str, str] = {
+    "penalty_status": "VARCHAR(32) DEFAULT 'none'",
+    "penalty_until": "TIMESTAMP",
+    "role_expires_at": "TIMESTAMP",
+    "previous_role": "VARCHAR(32)",
+    "role_assigned_by": "BIGINT",
+    "role_assigned_at": "TIMESTAMP",
+}
+
 
 def _missing_columns(sync_connection, table_name: str, expected: dict[str, str]) -> list[tuple[str, str]]:
     inspector = inspect(sync_connection)
@@ -94,8 +103,16 @@ async def init_db() -> None:
         chat_missing = await connection.run_sync(
             lambda sync_connection: _missing_columns(sync_connection, "chats", _CHAT_COLUMNS)
         )
-        for name, sql_type in [*captcha_missing, *chat_missing]:
-            table = "captcha_challenges" if name in _CAPTCHA_COLUMNS else "chats"
+        membership_missing = await connection.run_sync(
+            lambda sync_connection: _missing_columns(sync_connection, "memberships", _MEMBERSHIP_COLUMNS)
+        )
+        for name, sql_type in [*captcha_missing, *chat_missing, *membership_missing]:
+            if name in _CAPTCHA_COLUMNS:
+                table = "captcha_challenges"
+            elif name in _CHAT_COLUMNS:
+                table = "chats"
+            else:
+                table = "memberships"
             await connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}"))
 
 

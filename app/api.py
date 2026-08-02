@@ -38,6 +38,7 @@ from app.models import (
     UserWallet,
     ModerationRule,
     Report,
+    RoleAssignmentHistory,
     RPCommand,
     User,
 )
@@ -51,6 +52,7 @@ from app.schemas import (
     GameCommandCreate,
     GameCommandUpdate,
     MemberRoleUpdate,
+    PenaltyStatusUpdate,
     PremiumInvoiceRequest,
     ReportDecision,
     RPCommandCreate,
@@ -74,6 +76,17 @@ from app.schemas import (
     AdminBulkPremiumRequest,
 )
 from app.security import TelegramUser, current_telegram_user
+from app.roles import (
+    PENALTY_DEFINITIONS,
+    ROLE_DEFINITIONS,
+    effective_role,
+    is_admin_role,
+    normalize_penalty_status,
+    normalize_role,
+    penalty_name,
+    role_level,
+    role_name,
+)
 from app.services import (
     create_invoice_link,
     dashboard_data,
@@ -94,7 +107,10 @@ from app.services import (
     as_utc,
     utcnow,
     active_restrictions,
+    assign_member_role,
     ensure_membership,
+    refresh_membership_state,
+    set_member_penalty_status,
     premium_access_details,
     upsert_user,
     upsert_chat,
@@ -136,14 +152,23 @@ def http_error(exc: Exception) -> HTTPException:
 
 
 async def ensure_admin(chat_id: int, user: TelegramUser) -> None:
-    """Allow a Telegram chat admin or a global AniGuard owner."""
+    """Allow a Telegram admin, internal AniGuard admin, or global bot owner."""
     if user.id in settings.admin_ids:
         return
     try:
         async with SessionFactory() as session:
             await ensure_entity_available(session, user_id=user.id, chat_id=chat_id)
+            membership = await get_membership(session, chat_id, user.id)
+            penalty_active = normalize_penalty_status(membership.penalty_status) != "none"
+            internal_role = effective_role(membership.role, membership.penalty_status)
             await session.commit()
+            if penalty_active:
+                raise PermissionError("Полномочия временно приостановлены штрафным статусом")
+            if is_admin_role(internal_role):
+                return
         await require_chat_admin(bot, chat_id, user.id)
+    except HTTPException:
+        raise
     except Exception as exc:
         raise http_error(exc) from exc
 
@@ -331,7 +356,7 @@ async def get_chat_profile(
             admin_user = admin.user
             await upsert_user(session, admin_user)
             status_value = getattr(admin.status, "value", str(admin.status))
-            role = "owner" if admin.status == ChatMemberStatus.CREATOR else "admin"
+            role = "creator" if admin.status == ChatMemberStatus.CREATOR else "admin"
             await ensure_membership(session, chat_id, admin_user.id, role)
             row = {
                 "id": admin_user.id,
@@ -447,11 +472,12 @@ async def get_members(
             tg_member = await bot.get_chat_member(chat_id, db_user.id)
             telegram_status = getattr(tg_member.status, "value", str(tg_member.status))
             if tg_member.status == ChatMemberStatus.CREATOR:
-                membership.role = "owner"
-            elif tg_member.status == ChatMemberStatus.ADMINISTRATOR:
+                membership.role = "creator"
+            elif tg_member.status == ChatMemberStatus.ADMINISTRATOR and role_level(membership.role) < 5:
                 membership.role = "admin"
         except Exception:
             pass
+        await refresh_membership_state(session, membership)
         result.append({
             "id": db_user.id,
             "username": db_user.username,
@@ -459,7 +485,17 @@ async def get_members(
             "last_name": db_user.last_name,
             "full_name": " ".join(filter(None, [db_user.first_name, db_user.last_name])),
             "avatar_url": f"/api/avatars/{db_user.id}",
-            "role": membership.role,
+            "role": normalize_role(membership.role),
+            "role_level": role_level(membership.role),
+            "role_name": role_name(membership.role),
+            "role_name_naruto": role_name(membership.role, naruto=True),
+            "role_expires_at": membership.role_expires_at.isoformat() if membership.role_expires_at else None,
+            "role_assigned_by": membership.role_assigned_by,
+            "role_assigned_at": membership.role_assigned_at.isoformat() if membership.role_assigned_at else None,
+            "penalty_status": normalize_penalty_status(membership.penalty_status),
+            "penalty_name": penalty_name(membership.penalty_status),
+            "penalty_name_naruto": penalty_name(membership.penalty_status, naruto=True),
+            "penalty_until": membership.penalty_until.isoformat() if membership.penalty_until else None,
             "telegram_status": telegram_status,
             "warnings": membership.warnings,
             "penalty_points": membership.penalty_points,
@@ -492,6 +528,7 @@ async def get_member_details(
     if not found:
         raise HTTPException(status_code=404, detail="Участник не найден")
     membership, db_user = found
+    await refresh_membership_state(session, membership)
     restrictions = sorted(await active_restrictions(session, chat_id=chat_id, user_id=member_id))
     telegram: dict[str, Any] = {}
     try:
@@ -515,7 +552,17 @@ async def get_member_details(
         "last_name": db_user.last_name,
         "full_name": " ".join(filter(None, [db_user.first_name, db_user.last_name])),
         "avatar_url": f"/api/avatars/{db_user.id}",
-        "role": membership.role,
+        "role": normalize_role(membership.role),
+        "role_level": role_level(membership.role),
+        "role_name": role_name(membership.role),
+        "role_name_naruto": role_name(membership.role, naruto=True),
+        "role_expires_at": membership.role_expires_at.isoformat() if membership.role_expires_at else None,
+        "role_assigned_by": membership.role_assigned_by,
+        "role_assigned_at": membership.role_assigned_at.isoformat() if membership.role_assigned_at else None,
+        "penalty_status": normalize_penalty_status(membership.penalty_status),
+        "penalty_name": penalty_name(membership.penalty_status),
+        "penalty_name_naruto": penalty_name(membership.penalty_status, naruto=True),
+        "penalty_until": membership.penalty_until.isoformat() if membership.penalty_until else None,
         "warnings": membership.warnings,
         "penalty_points": membership.penalty_points,
         "messages": membership.message_count,
@@ -541,20 +588,102 @@ async def update_member_role(
     await ensure_admin(chat_id, user)
     try:
         tg_member = await bot.get_chat_member(chat_id, member_id)
-        if tg_member.status in {ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.CREATOR}:
-            raise PermissionError("Роль администратора Telegram управляется настройками самой группы")
+        if tg_member.status == ChatMemberStatus.CREATOR:
+            raise PermissionError("Роль создателя беседы управляется только в Telegram")
     except PermissionError:
         raise
     except Exception:
         pass
-    membership = await session.scalar(
-        select(Membership).where(Membership.chat_id == chat_id, Membership.user_id == member_id)
-    )
-    if membership is None:
-        raise HTTPException(status_code=404, detail="Участник не найден")
-    membership.role = payload.role
-    await session.commit()
-    return {"user_id": member_id, "role": membership.role}
+    try:
+        membership = await assign_member_role(
+            session,
+            chat_id=chat_id,
+            actor_id=user.id,
+            target_id=member_id,
+            new_role=payload.role,
+            duration_seconds=payload.duration_seconds,
+            reason=payload.reason or "Изменение роли через Mini App",
+            source="mini_app",
+        )
+        await session.commit()
+        return {
+            "user_id": member_id,
+            "role": membership.role,
+            "role_level": role_level(membership.role),
+            "role_name": role_name(membership.role),
+            "role_name_naruto": role_name(membership.role, naruto=True),
+            "role_expires_at": membership.role_expires_at.isoformat() if membership.role_expires_at else None,
+        }
+    except Exception as exc:
+        await session.rollback()
+        raise http_error(exc) from exc
+
+
+@router.patch("/chats/{chat_id}/members/{member_id}/penalty-status")
+async def update_member_penalty_status(
+    chat_id: int,
+    member_id: int,
+    payload: PenaltyStatusUpdate,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    try:
+        membership = await set_member_penalty_status(
+            session,
+            chat_id=chat_id,
+            actor_id=user.id,
+            target_id=member_id,
+            status=payload.status,
+            duration_seconds=payload.duration_seconds,
+            reason=payload.reason or "Изменение штрафного статуса через Mini App",
+            bot=bot,
+        )
+        await session.commit()
+        return {
+            "user_id": member_id,
+            "penalty_status": membership.penalty_status,
+            "penalty_name": penalty_name(membership.penalty_status),
+            "penalty_name_naruto": penalty_name(membership.penalty_status, naruto=True),
+            "penalty_until": membership.penalty_until.isoformat() if membership.penalty_until else None,
+        }
+    except Exception as exc:
+        await session.rollback()
+        raise http_error(exc) from exc
+
+
+@router.get("/chats/{chat_id}/members/{member_id}/role-history")
+async def get_member_role_history(
+    chat_id: int,
+    member_id: int,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> list[dict[str, Any]]:
+    await ensure_admin(chat_id, user)
+    rows = (
+        await session.scalars(
+            select(RoleAssignmentHistory)
+            .where(RoleAssignmentHistory.chat_id == chat_id, RoleAssignmentHistory.user_id == member_id)
+            .order_by(RoleAssignmentHistory.id.desc())
+            .limit(100)
+        )
+    ).all()
+    return [
+        {
+            "id": row.id,
+            "actor_id": row.actor_id,
+            "old_role": row.old_role,
+            "old_role_name": role_name(row.old_role),
+            "new_role": row.new_role,
+            "new_role_name": role_name(row.new_role),
+            "temporary_until": row.temporary_until.isoformat() if row.temporary_until else None,
+            "reason": row.reason,
+            "source": row.source,
+            "created_at": row.created_at.isoformat(),
+            "reverted_at": row.reverted_at.isoformat() if row.reverted_at else None,
+        }
+        for row in rows
+    ]
 
 
 @router.post("/chats/{chat_id}/actions")

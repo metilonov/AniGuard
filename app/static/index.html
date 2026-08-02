@@ -668,6 +668,14 @@ textarea.control { min-height: 88px; resize: vertical; }
 .user-copy small { margin-top:3px; color:var(--hint); }
 .member-buttons { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
 .member-buttons button { min-height:36px; padding:7px 10px; border-radius:11px; }
+.member-role-controls { display:grid; grid-template-columns:minmax(150px,1fr) minmax(150px,1fr); gap:7px; width:min(430px,100%); }
+.member-role-controls .control { min-height:38px; padding:7px 10px; border-radius:11px; font-size:13px; }
+.member-badges { display:flex; flex-wrap:wrap; gap:6px; margin-top:5px; }
+.member-badge { display:inline-flex; align-items:center; min-height:24px; padding:3px 8px; border-radius:999px; background:var(--tertiary-bg); color:var(--hint); font-size:12px; font-weight:700; }
+.member-badge.penalty { color:#b94d5e; background:rgba(185,77,94,.12); }
+.role-history-list { display:grid; gap:8px; margin-top:14px; text-align:left; }
+.role-history-item { padding:10px 12px; border-radius:13px; background:var(--tertiary-bg); }
+.role-history-item small { display:block; color:var(--hint); margin-top:3px; }
 .member-details-card { text-align:center; }
 .member-details-card .user-avatar { width:88px; height:88px; margin:0 auto 12px; font-size:26px; }
 .member-details-card h2 { margin:0; }
@@ -698,6 +706,7 @@ textarea.control { min-height: 88px; resize: vertical; }
 @media (max-width:620px) {
   .member-row { grid-template-columns:1fr; }
   .member-buttons { justify-content:flex-start; padding-left:59px; }
+  .member-role-controls { grid-template-columns:1fr; width:100%; }
   .premium-details { grid-template-columns:1fr; }
   .detail-grid { grid-template-columns:1fr; }
 }
@@ -1950,10 +1959,14 @@ html[data-theme="dark"] {
       coins_per_message:1
     },
     members: [
-      {id:741852963,first_name:'Дмитрий',last_name:'Морозов',full_name:'Дмитрий Морозов',username:'metilonov',role:'owner',warnings:0,messages:6840,xp:27640,coins:3240,joined_at:'2025-03-12T10:00:00Z',last_seen_at:iso(0,-1),muted_until:null,quarantined_until:null,active_restrictions:[],telegram:{status:'creator'},avatar_url:''},
-      {id:502314789,first_name:'Алексей',last_name:'Ветров',full_name:'Алексей Ветров',username:'alex_guard',role:'admin',warnings:0,messages:1203,xp:4880,coins:760,joined_at:'2025-05-20T12:00:00Z',last_seen_at:iso(0,-2),muted_until:null,quarantined_until:null,active_restrictions:[],telegram:{status:'administrator'},avatar_url:''},
-      {id:983214567,first_name:'Максим',last_name:'Рэй',full_name:'Максим Рэй',username:'maxray',role:'member',warnings:1,messages:386,xp:910,coins:125,joined_at:'2026-06-11T08:30:00Z',last_seen_at:iso(0,-4),muted_until:null,quarantined_until:null,active_restrictions:[],telegram:{status:'member'},avatar_url:''}
+      {id:741852963,first_name:'Дмитрий',last_name:'Морозов',full_name:'Дмитрий Морозов',username:'metilonov',role:'creator',role_level:8,role_name:'Создатель беседы',role_name_naruto:'Хокаге',role_expires_at:null,role_assigned_by:null,role_assigned_at:'2025-03-12T10:00:00Z',penalty_status:'none',penalty_name:'Нет',penalty_name_naruto:'Нет',penalty_until:null,warnings:0,messages:6840,xp:27640,coins:3240,joined_at:'2025-03-12T10:00:00Z',last_seen_at:iso(0,-1),muted_until:null,quarantined_until:null,active_restrictions:[],telegram:{status:'creator'},avatar_url:''},
+      {id:502314789,first_name:'Алексей',last_name:'Ветров',full_name:'Алексей Ветров',username:'alex_guard',role:'senior_admin',role_level:7,role_name:'Старший админ',role_name_naruto:'Советник Хокаге',role_expires_at:null,role_assigned_by:741852963,role_assigned_at:'2026-01-18T12:00:00Z',penalty_status:'none',penalty_name:'Нет',penalty_name_naruto:'Нет',penalty_until:null,warnings:0,messages:1203,xp:4880,coins:760,joined_at:'2025-05-20T12:00:00Z',last_seen_at:iso(0,-2),muted_until:null,quarantined_until:null,active_restrictions:[],telegram:{status:'administrator'},avatar_url:''},
+      {id:983214567,first_name:'Максим',last_name:'Рэй',full_name:'Максим Рэй',username:'maxray',role:'member',role_level:1,role_name:'Участник',role_name_naruto:'Житель деревни',role_expires_at:null,role_assigned_by:null,role_assigned_at:null,penalty_status:'violator',penalty_name:'Нарушитель',penalty_name_naruto:'Нукенин',penalty_until:iso(7),warnings:3,messages:386,xp:910,coins:125,joined_at:'2026-06-11T08:30:00Z',last_seen_at:iso(0,-4),muted_until:null,quarantined_until:null,active_restrictions:[],telegram:{status:'member'},avatar_url:''}
     ],
+    roleHistory: {
+      502314789:[{id:1,actor_id:741852963,old_role:'admin',old_role_name:'Админ',new_role:'senior_admin',new_role_name:'Старший админ',temporary_until:null,reason:'Повышение за стабильную работу',source:'telegram_command',created_at:'2026-01-18T12:00:00Z',reverted_at:null}],
+      983214567:[]
+    },
     logs: [
       {id:1,action:'Фильтр ссылок',reason:'Удалено приглашение в сторонний чат',target_id:983214567,created_at:iso(0,-2)},
       {id:2,action:'Предупреждение',reason:'Повторное сообщение',target_id:983214567,created_at:iso(0,-5)},
@@ -1999,6 +2012,20 @@ html[data-theme="dark"] {
     if(/\/dashboard(?:\?|$)/.test(path)) return json({chat:{id:chatId,title:'AniCode | Support',premium:true,premium_until:demo.premium.until},settings:demo.settings,metrics:{members:3,actions_today:3,open_reports:1,custom_commands:demo.custom.length,game_commands:demo.game.length,rules:demo.groupRules.rules.length}});
     if(/\/profile(?:\?|$)/.test(path)) return json({id:chatId,title:'AniCode | Support',username:'anicode_support',members:3,premium:true,invite_link:'https://t.me/anicode_support',avatar_url:'',owner:demo.members[0]});
     if(/\/members\?/.test(path)) return json(demo.members);
+    const roleHistoryMatch=path.match(/\/members\/(\d+)\/role-history/);
+    if(roleHistoryMatch) return json(demo.roleHistory[Number(roleHistoryMatch[1])] || []);
+    const rolePatchMatch=path.match(/\/members\/(\d+)\/role$/);
+    if(rolePatchMatch && method==='PATCH') {
+      const member=demo.members.find(x=>x.id===Number(rolePatchMatch[1])); const body=JSON.parse(init.body||'{}');
+      if(member){member.role=body.role; const map={creator:['Создатель беседы','Хокаге',8],senior_admin:['Старший админ','Советник Хокаге',7],admin:['Админ','Командир АНБУ',6],junior_admin:['Младший админ','Капитан АНБУ',5],senior_moderator:['Старший модератор','Джонин',4],moderator:['Модератор','Чунин',3],junior_moderator:['Младший модератор','Генин',2],member:['Участник','Житель деревни',1]}; [member.role_name,member.role_name_naruto,member.role_level]=map[body.role]||map.member;}
+      return json(member||{});
+    }
+    const penaltyPatchMatch=path.match(/\/members\/(\d+)\/penalty-status$/);
+    if(penaltyPatchMatch && method==='PATCH') {
+      const member=demo.members.find(x=>x.id===Number(penaltyPatchMatch[1])); const body=JSON.parse(init.body||'{}'); const map={none:['Нет','Нет'],violator:['Нарушитель','Нукенин'],severe_violator:['Злостный нарушитель','Преступник S-ранга']};
+      if(member){member.penalty_status=body.status; [member.penalty_name,member.penalty_name_naruto]=map[body.status]||map.none; member.penalty_until=body.status==='none'?null:iso(body.status==='violator'?7:30);}
+      return json(member||{});
+    }
     const memberMatch=path.match(/\/members\/(\d+)(?:\?|$)/); if(memberMatch) return json(demo.members.find(x=>x.id===Number(memberMatch[1]))||demo.members[2]);
     if(/\/logs\?/.test(path)) return json(demo.logs);
     if(/\/reports(?:\?|$)/.test(path) && method==='GET') return json(demo.reports);
@@ -2068,6 +2095,26 @@ html[data-theme="dark"] {
     liveAudience: {channel: 1480, bot: 860, rewarded: 620},
     caseAnimating: false,
   };
+
+  const ROLE_OPTIONS = [
+    ['creator','Создатель беседы','Хокаге',8],
+    ['senior_admin','Старший админ','Советник Хокаге',7],
+    ['admin','Админ','Командир АНБУ',6],
+    ['junior_admin','Младший админ','Капитан АНБУ',5],
+    ['senior_moderator','Старший модератор','Джонин',4],
+    ['moderator','Модератор','Чунин',3],
+    ['junior_moderator','Младший модератор','Генин',2],
+    ['member','Участник','Житель деревни',1],
+  ];
+  const PENALTY_OPTIONS = [
+    ['none','Без штрафного статуса','Нет'],
+    ['violator','Нарушитель','Нукенин'],
+    ['severe_violator','Злостный нарушитель','Преступник S-ранга'],
+  ];
+  const roleMeta = key => ROLE_OPTIONS.find(item => item[0] === key) || ROLE_OPTIONS.at(-1);
+  const penaltyMeta = key => PENALTY_OPTIONS.find(item => item[0] === key) || PENALTY_OPTIONS[0];
+  const roleSelectHtml = user => `<select class="control member-role" aria-label="Роль участника" ${user.role === 'creator' ? 'disabled' : ''}>${ROLE_OPTIONS.map(([key,name,naruto,level]) => `<option value="${key}" ${key===user.role?'selected':''} ${key==='creator'?'disabled':''}>${level}. ${escapeHtml(name)} · ${escapeHtml(naruto)}</option>`).join('')}</select>`;
+  const penaltySelectHtml = user => `<select class="control member-penalty-status" aria-label="Штрафной статус" ${user.role === 'creator' ? 'disabled' : ''}>${PENALTY_OPTIONS.map(([key,name,naruto]) => `<option value="${key}" ${key===(user.penalty_status||'none')?'selected':''}>${escapeHtml(name)} · ${escapeHtml(naruto)}</option>`).join('')}</select>`;
 
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -2667,14 +2714,18 @@ html[data-theme="dark"] {
     const list = $('#members-list');
     if (!list) return;
     const query = String(filter || '').trim().toLowerCase();
-    const rows = state.members.filter(user => !query || `${user.full_name || ''} ${user.id} ${user.username || ''}`.toLowerCase().includes(query));
+    const rows = state.members.filter(user => !query || `${user.full_name || ''} ${user.id} ${user.username || ''} ${user.role_name || ''} ${user.role_name_naruto || ''} ${user.penalty_name || ''}`.toLowerCase().includes(query));
     $('#members-count').textContent = `${rows.length} из ${state.members.length} участников`;
     list.innerHTML = rows.length ? rows.map(user => {
-      const protectedUser = ['owner','admin'].includes(user.role);
+      const meta = roleMeta(user.role);
+      const protectedUser = user.role === 'creator';
       const username = user.username ? `@${escapeHtml(user.username)}` : 'Юзернейм отсутствует';
+      const penalty = user.penalty_status && user.penalty_status !== 'none' ? `<span class="member-badge penalty">${escapeHtml(user.penalty_name || penaltyMeta(user.penalty_status)[1])} · ${escapeHtml(user.penalty_name_naruto || penaltyMeta(user.penalty_status)[2])}</span>` : '';
+      const roleExpiry = user.role_expires_at ? `<span class="member-badge">Временно до ${new Date(user.role_expires_at).toLocaleString('ru-RU')}</span>` : '';
       return `<article class="member-row" data-member-id="${user.id}">
-        <div class="member-identity">${avatarHtml(user)}<div class="user-copy"><b>${escapeHtml(user.full_name || user.first_name || 'Без имени')}</b><small>ID: ${user.id}</small><small>${username}</small></div></div>
+        <div class="member-identity">${avatarHtml(user)}<div class="user-copy"><b>${escapeHtml(user.full_name || user.first_name || 'Без имени')}</b><small>ID: ${user.id}</small><small>${username}</small><div class="member-badges"><span class="member-badge">${user.role_level ?? meta[3]}. ${escapeHtml(user.role_name || meta[1])} · ${escapeHtml(user.role_name_naruto || meta[2])}</span>${penalty}${roleExpiry}</div></div></div>
         <div class="member-buttons">
+          <div class="member-role-controls">${roleSelectHtml(user)}${penaltySelectHtml(user)}</div>
           <button class="danger member-ban" type="button" ${protectedUser ? 'disabled' : ''}>Заблокировать</button>
           <button class="secondary member-kick" type="button" ${protectedUser ? 'disabled' : ''}>Удалить</button>
           <button class="secondary member-info" type="button">Информация</button>
@@ -3256,15 +3307,27 @@ html[data-theme="dark"] {
 
   async function showMemberDetails(memberId) {
     try {
-      const member = await api(`/api/chats/${state.chatId}/members/${memberId}`);
+      const [member, history] = await Promise.all([
+        api(`/api/chats/${state.chatId}/members/${memberId}`),
+        api(`/api/chats/${state.chatId}/members/${memberId}/role-history`).catch(() => []),
+      ]);
       const username = member.username ? `@${member.username}` : 'Юзернейм отсутствует';
       const date = value => value ? new Date(value).toLocaleString('ru-RU') : 'Нет';
+      const role = roleMeta(member.role);
+      const penalty = penaltyMeta(member.penalty_status || 'none');
+      const historyHtml = history.length ? `<div class="role-history-list"><h3>История ролей</h3>${history.slice(0,10).map(item => `<div class="role-history-item"><b>${escapeHtml(item.old_role_name || roleMeta(item.old_role)[1])} → ${escapeHtml(item.new_role_name || roleMeta(item.new_role)[1])}</b><small>${date(item.created_at)} · назначил ID ${item.actor_id || 'система'}</small><small>${escapeHtml(item.reason || 'Без причины')}${item.temporary_until ? ` · до ${date(item.temporary_until)}` : ''}</small></div>`).join('')}</div>` : '<p class="muted">История назначений пока пуста.</p>';
       $('#member-details').innerHTML = `<article class="member-details-card">
         ${avatarHtml(member, true)}
         <h2>${escapeHtml(member.full_name || member.first_name || 'Без имени')}</h2>
         <p class="muted">ID: ${member.id}</p><p>${escapeHtml(username)}</p>
         <div class="detail-grid">
-          <div class="detail-item"><small>Роль</small><b>${escapeHtml(member.role)}</b></div>
+          <div class="detail-item"><small>Роль</small><b>${escapeHtml(member.role_name || role[1])}</b><small>${escapeHtml(member.role_name_naruto || role[2])}</small></div>
+          <div class="detail-item"><small>Уровень власти</small><b>${member.role_level ?? role[3]}</b></div>
+          <div class="detail-item"><small>Штрафной статус</small><b>${escapeHtml(member.penalty_name || penalty[1])}</b><small>${escapeHtml(member.penalty_name_naruto || penalty[2])}</small></div>
+          <div class="detail-item"><small>Статус до</small><b>${escapeHtml(date(member.penalty_until))}</b></div>
+          <div class="detail-item"><small>Роль действует до</small><b>${escapeHtml(date(member.role_expires_at))}</b></div>
+          <div class="detail-item"><small>Роль назначил</small><b>${member.role_assigned_by || 'Telegram/система'}</b></div>
+          <div class="detail-item"><small>Дата назначения</small><b>${escapeHtml(date(member.role_assigned_at))}</b></div>
           <div class="detail-item"><small>Статус Telegram</small><b>${escapeHtml(member.telegram?.status || 'неизвестен')}</b></div>
           <div class="detail-item"><small>Предупреждения</small><b>${member.warnings}</b></div>
           <div class="detail-item"><small>Сообщения</small><b>${member.messages}</b></div>
@@ -3276,6 +3339,7 @@ html[data-theme="dark"] {
           <div class="detail-item"><small>Карантин до</small><b>${escapeHtml(date(member.quarantined_until))}</b></div>
         </div>
         <p class="muted">Активные ограничения: ${escapeHtml((member.active_restrictions || []).join(', ') || 'нет')}</p>
+        ${historyHtml}
       </article>`;
       $('#member-dialog').showModal();
     } catch (error) { notify(error.message, true); }
@@ -4106,10 +4170,22 @@ html[data-theme="dark"] {
       if (roleSelect && !roleSelect.disabled) {
         const card = roleSelect.closest('[data-member-id]');
         try {
-          await api(`/api/chats/${state.chatId}/members/${card.dataset.memberId}/role`, {method:'PATCH', body:JSON.stringify({role:roleSelect.value})});
+          await api(`/api/chats/${state.chatId}/members/${card.dataset.memberId}/role`, {method:'PATCH', body:JSON.stringify({role:roleSelect.value, reason:'Изменение роли через Mini App'})});
           notify('Роль участника обновлена.');
           await loadChat();
-        } catch (error) { notify(error.message, true); }
+        } catch (error) { notify(error.message, true); await loadChat(); }
+        return;
+      }
+
+      const penaltySelect = event.target.closest('.member-penalty-status');
+      if (penaltySelect && !penaltySelect.disabled) {
+        const card = penaltySelect.closest('[data-member-id]');
+        const duration = penaltySelect.value === 'violator' ? 7*86400 : penaltySelect.value === 'severe_violator' ? 30*86400 : null;
+        try {
+          await api(`/api/chats/${state.chatId}/members/${card.dataset.memberId}/penalty-status`, {method:'PATCH', body:JSON.stringify({status:penaltySelect.value, duration_seconds:duration, reason:'Изменение штрафного статуса через Mini App'})});
+          notify('Штрафной статус обновлён.');
+          await loadChat();
+        } catch (error) { notify(error.message, true); await loadChat(); }
         return;
       }
 

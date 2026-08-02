@@ -172,6 +172,12 @@ def default_chat_settings() -> dict[str, Any]:
         "show_moderation_duration": True,
         "show_moderation_reason": True,
         "warnings_expire_days": 30,
+        "penalty_status_auto_enabled": True,
+        "violator_warning_threshold": 3,
+        "severe_violator_warning_threshold": 6,
+        "violator_duration_seconds": 604800,
+        "severe_violator_duration_seconds": 2592000,
+        "violator_slow_mode_seconds": 30,
         "basic_moderation_commands": default_basic_commands(),
 
         # Group rules and welcome message.

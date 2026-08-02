@@ -1864,7 +1864,7 @@ html[data-theme="dark"] {
   <script>
 
 (() => {
-  if (new URLSearchParams(location.search).get('demo') !== '1') return;
+  // Standalone emulator: always use local demo data.
   const now = new Date();
   const iso = (days=0, hours=0) => new Date(now.getTime()+days*86400000+hours*3600000).toISOString();
   const chatId = -1004438078492;

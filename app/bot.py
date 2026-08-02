@@ -54,6 +54,7 @@ from app.models import (
     ModerationLog,
     ModerationRule,
     Report,
+    RoleAssignmentHistory,
     RPCommand,
     User,
 )
@@ -61,14 +62,31 @@ from app.durations import clean_reason, format_duration_ru, parse_duration_prefi
 from app.moderation_parser import TIMED_ACTIONS, detect_action, parse_moderation_command
 from app.pricing import PREMIUM_PLANS, get_plan
 from app.store import complete_store_payment, validate_store_payment
+from app.roles import (
+    PENALTY_DEFINITIONS,
+    ROLE_DEFINITIONS,
+    ROLE_ORDER,
+    is_admin_role,
+    is_staff_role,
+    normalize_penalty_status,
+    normalize_role,
+    penalty_name,
+    role_level,
+    role_name,
+)
 from app.services import (
     active_restrictions,
     add_log,
+    assign_member_role,
     as_utc,
     create_captcha,
     create_report,
     ensure_entity_available,
     ensure_membership,
+    get_membership,
+    refresh_membership_state,
+    set_member_penalty_status,
+    sync_penalty_status_from_warnings,
     full_permissions,
     get_block_record,
     get_chat_or_raise,
@@ -109,7 +127,13 @@ class AccessMiddleware(BaseMiddleware):
         from_user = getattr(event, "from_user", None)
         message_obj = event if isinstance(event, Message) else getattr(event, "message", None)
         command_token = (((message_obj.text or "").split(maxsplit=1) or [""])[0].split("@", 1)[0].lower()) if message_obj else ""
-        if from_user and command_token == "/admin" and from_user.id not in settings.admin_ids:
+        if (
+            from_user
+            and command_token == "/admin"
+            and message_obj
+            and message_obj.chat.type == ChatType.PRIVATE
+            and from_user.id not in settings.admin_ids
+        ):
             return None
         if from_user and from_user.id in settings.admin_ids:
             return await handler(event, data)
@@ -143,7 +167,64 @@ class AccessMiddleware(BaseMiddleware):
                 if blocked_chat:
                     return None
                 message_obj = event if isinstance(event, Message) else getattr(event, "message", None)
-                if from_user and message_obj and (message_obj.text or "").startswith("/"):
+                if from_user and message_obj and isinstance(event, Message):
+                    membership = await session.scalar(
+                        select(Membership).where(
+                            Membership.chat_id == chat_obj.id,
+                            Membership.user_id == from_user.id,
+                        )
+                    )
+                    penalty = "none"
+                    if membership is not None:
+                        await refresh_membership_state(session, membership)
+                        penalty = normalize_penalty_status(membership.penalty_status)
+                    raw_text = (message_obj.text or message_obj.caption or "").strip()
+                    first, separator, remainder = raw_text.partition(" ")
+                    if first.startswith("/"):
+                        first = first.split("@", 1)[0]
+                    normalized_text = _normalize_phrase(f"{first.lstrip('/')} {remainder}" if separator else first.lstrip("/"))
+                    allowed_penalty_prefixes = (
+                        "info", "инфо", "информация", "свиток ниндзя",
+                        "rules", "правила", "appeal", "апелляция",
+                        "support", "поддержка", "admin", "каге",
+                        "совет каге", "совет 5 каге", "совет пяти каге",
+                    )
+                    allowed_penalty_command = any(
+                        normalized_text == prefix or normalized_text.startswith(prefix + " ")
+                        for prefix in allowed_penalty_prefixes
+                    )
+                    management_prefixes = (
+                        "role", "роль", "дать роль", "rank", "ранг", "дать ранг",
+                        "penalty", "статус", "штрафной статус", "role history",
+                        "история ролей", "свиток рангов", "panel", "settings",
+                        "profile", "top", "logs", "reports", "help",
+                    )
+                    looks_like_management = raw_text.startswith("/") or any(
+                        normalized_text == prefix or normalized_text.startswith(prefix + " ")
+                        for prefix in management_prefixes
+                    )
+                    if penalty == "severe_violator" and not allowed_penalty_command:
+                        try:
+                            await message_obj.delete()
+                            await message_obj.answer(
+                                "⛔ При статусе «Злостный нарушитель» доступны только /info, /rules, /appeal, /support и /admin."
+                            )
+                        except Exception:
+                            pass
+                        await session.commit()
+                        return None
+                    if penalty == "violator" and looks_like_management and not allowed_penalty_command:
+                        try:
+                            await message_obj.delete()
+                            await message_obj.answer(
+                                "⚠️ При статусе «Нарушитель» управляющие и игровые команды временно недоступны."
+                            )
+                        except Exception:
+                            pass
+                        await session.commit()
+                        return None
+
+                if from_user and message_obj and isinstance(event, Message) and (message_obj.text or "").startswith("/"):
                     restrictions = await active_restrictions(
                         session, chat_id=chat_obj.id, user_id=from_user.id
                     )
@@ -210,7 +291,7 @@ async def ensure_context(message: Message) -> tuple[Chat, User, Membership | Non
             try:
                 member = await bot.get_chat_member(message.chat.id, message.from_user.id)
                 role = (
-                    "owner"
+                    "creator"
                     if member.status == ChatMemberStatus.CREATOR
                     else "admin"
                     if member.status == ChatMemberStatus.ADMINISTRATOR
@@ -219,7 +300,7 @@ async def ensure_context(message: Message) -> tuple[Chat, User, Membership | Non
             except Exception:
                 role = "member"
             membership = await ensure_membership(session, chat.id, user.id, role)
-            if role == "owner":
+            if role == "creator":
                 merged_settings = await get_merged_settings(session, chat.id)
                 merged_settings["owner_user_id"] = user.id
                 chat.settings = merged_settings
@@ -232,27 +313,42 @@ async def ensure_context(message: Message) -> tuple[Chat, User, Membership | Non
 async def ensure_group_admin(message: Message) -> None:
     if message.chat.type not in {ChatType.GROUP, ChatType.SUPERGROUP}:
         raise ValueError("Эта команда работает только в группе или супергруппе.")
-    await require_chat_admin(bot, message.chat.id, message.from_user.id)
-
-
-async def ensure_group_moderator(message: Message) -> None:
-    if message.chat.type not in {ChatType.GROUP, ChatType.SUPERGROUP}:
-        raise ValueError("Эта команда работает только в группе или супергруппе.")
+    async with SessionFactory() as session:
+        membership = await get_membership(session, message.chat.id, message.from_user.id)
+        penalty = normalize_penalty_status(membership.penalty_status)
+        internal_admin = is_admin_role(membership.role)
+        await session.commit()
+    if penalty != "none":
+        raise PermissionError("Полномочия временно приостановлены штрафным статусом")
     try:
         member = await bot.get_chat_member(message.chat.id, message.from_user.id)
         if member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}:
             return
     except Exception:
         pass
+    if internal_admin:
+        return
+    raise PermissionError("Команда доступна младшему администратору или более высокой роли")
+
+
+async def ensure_group_moderator(message: Message) -> None:
+    if message.chat.type not in {ChatType.GROUP, ChatType.SUPERGROUP}:
+        raise ValueError("Эта команда работает только в группе или супергруппе.")
     async with SessionFactory() as session:
-        membership = await session.scalar(
-            select(Membership).where(
-                Membership.chat_id == message.chat.id,
-                Membership.user_id == message.from_user.id,
-            )
-        )
-        if membership and membership.role == "moderator":
+        membership = await get_membership(session, message.chat.id, message.from_user.id)
+        penalty = normalize_penalty_status(membership.penalty_status)
+        internal_staff = is_staff_role(membership.role)
+        await session.commit()
+    if penalty != "none":
+        raise PermissionError("Полномочия временно приостановлены штрафным статусом")
+    try:
+        member = await bot.get_chat_member(message.chat.id, message.from_user.id)
+        if member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}:
             return
+    except Exception:
+        pass
+    if internal_staff:
+        return
     raise PermissionError("Команда доступна администраторам и модераторам AniGuard")
 
 
@@ -284,6 +380,75 @@ async def send_admin_error(message: Message, exc: Exception) -> None:
 
 def profile_link(user_id: int, label: str) -> str:
     return f'<a href="tg://user?id={int(user_id)}">{html.escape(label)}</a>'
+
+
+def _normalize_phrase(value: str | None) -> str:
+    text = unicodedata.normalize("NFKD", value or "")
+    text = "".join(char for char in text if not unicodedata.combining(char))
+    return " ".join(text.casefold().replace("ё", "е").replace("_", " ").replace("-", " ").split())
+
+
+def _extract_named_value(value: str, aliases: dict[str, str]) -> tuple[str | None, str]:
+    normalized = _normalize_phrase(value)
+    candidates = sorted(aliases.items(), key=lambda item: len(_normalize_phrase(item[0])), reverse=True)
+    for alias, canonical in candidates:
+        candidate = _normalize_phrase(alias)
+        if normalized == candidate:
+            return canonical, ""
+        if normalized.startswith(candidate + " "):
+            return canonical, normalized[len(candidate):].strip()
+    return None, normalized
+
+
+def _role_alias_map() -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for key, definition in ROLE_DEFINITIONS.items():
+        aliases[key] = key
+        aliases[key.replace("_", " ")] = key
+        aliases[definition.ordinary_name] = key
+        aliases[definition.naruto_name] = key
+    return aliases
+
+
+def _penalty_alias_map() -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    for key, definition in PENALTY_DEFINITIONS.items():
+        aliases[key] = key
+        aliases[key.replace("_", " ")] = key
+        aliases[definition.ordinary_name] = key
+        aliases[definition.naruto_name] = key
+    aliases.update({"снять статус": "none", "без статуса": "none"})
+    return aliases
+
+
+async def _target_and_payload(message: Message, raw: str | None) -> tuple[int | None, str]:
+    payload = (raw or "").strip()
+    first, _, rest = payload.partition(" ")
+    if first and (first.startswith("@") or first.lstrip("-").isdigit()):
+        target_id = await resolve_target(message, first)
+        return target_id, rest.strip()
+    return await resolve_target(message), payload
+
+
+def _format_dt(value: Any) -> str:
+    dt = as_utc(value)
+    return dt.strftime("%d.%m.%Y %H:%M") if dt else "не указано"
+
+
+def _membership_age(value: Any) -> str:
+    joined = as_utc(value)
+    if not joined:
+        return "неизвестно"
+    days = max(0, (utcnow() - joined).days)
+    if days < 1:
+        return "меньше дня"
+    if days < 30:
+        return f"{days} дн."
+    months = days // 30
+    if months < 12:
+        return f"{months} мес."
+    years, rest = divmod(months, 12)
+    return f"{years} г. {rest} мес." if rest else f"{years} г."
 
 
 ACTION_TITLES = {
@@ -370,18 +535,16 @@ async def member_role(chat_id: int, user_id: int) -> str:
     try:
         member = await bot.get_chat_member(chat_id, user_id)
         if member.status == ChatMemberStatus.CREATOR:
-            return "owner"
-        if member.status == ChatMemberStatus.ADMINISTRATOR:
-            return "admin"
+            return "creator"
     except Exception:
-        pass
+        member = None
     async with SessionFactory() as session:
-        row = await session.scalar(
-            select(Membership).where(Membership.chat_id == chat_id, Membership.user_id == user_id)
-        )
-        if row and row.role == "moderator":
-            return "moderator"
-    return "member"
+        row = await get_membership(session, chat_id, user_id)
+        if member is not None and member.status == ChatMemberStatus.ADMINISTRATOR and role_level(row.role) < 5:
+            row.role = "admin"
+        effective = "member" if normalize_penalty_status(row.penalty_status) != "none" else normalize_role(row.role)
+        await session.commit()
+        return effective
 
 
 @router.my_chat_member()
@@ -451,20 +614,344 @@ async def start_handler(message: Message, command: CommandObject) -> None:
         await message.answer("Панель владельца AniGuard:", reply_markup=admin_keyboard())
 
 
+async def send_staff_list(message: Message, *, force_naruto: bool | None = None) -> None:
+    if message.chat.type not in {ChatType.GROUP, ChatType.SUPERGROUP}:
+        return
+    async with SessionFactory() as session:
+        try:
+            admins = await bot.get_chat_administrators(message.chat.id)
+            for admin in admins:
+                await upsert_user(session, admin.user)
+                await ensure_membership(
+                    session,
+                    message.chat.id,
+                    admin.user.id,
+                    "creator" if admin.status == ChatMemberStatus.CREATOR else "admin",
+                )
+        except Exception:
+            pass
+        settings_data = await get_merged_settings(session, message.chat.id)
+        rows = (
+            await session.execute(
+                select(Membership, User)
+                .join(User, User.id == Membership.user_id)
+                .where(Membership.chat_id == message.chat.id)
+            )
+        ).all()
+        members: list[tuple[Membership, User]] = []
+        for membership, user in rows:
+            await refresh_membership_state(session, membership)
+            if is_staff_role(membership.role):
+                members.append((membership, user))
+        await session.commit()
+
+    naruto = bool(settings_data.get("anime_replies", True)) if force_naruto is None else force_naruto
+    members.sort(key=lambda item: (-role_level(item[0].role), (item[1].first_name or "").casefold()))
+    if not members:
+        await message.answer("Администрация беседы пока не зарегистрирована в AniGuard.")
+        return
+
+    title = "🍥 <b>Совет Каге</b>" if naruto else "👥 <b>Администрация беседы</b>"
+    lines = [title]
+    for role_key in ROLE_ORDER:
+        group = [(membership, user) for membership, user in members if normalize_role(membership.role) == role_key]
+        if not group:
+            continue
+        lines.append("")
+        lines.append(f"<b>{html.escape(role_name(role_key, naruto=naruto))}:</b>")
+        for membership, user in group:
+            label = " ".join(filter(None, [user.first_name, user.last_name])) or user.username or str(user.id)
+            suffix = f" · до {_format_dt(membership.role_expires_at)}" if membership.role_expires_at else ""
+            penalty = normalize_penalty_status(membership.penalty_status)
+            if penalty != "none":
+                suffix += f" · полномочия приостановлены: {html.escape(penalty_name(penalty, naruto=naruto))}"
+            lines.append(f"• {profile_link(user.id, label)}{suffix}")
+    await message.answer("\n".join(lines))
+
+
 @router.message(Command("admin"))
 async def admin_handler(message: Message) -> None:
+    if message.chat.type in {ChatType.GROUP, ChatType.SUPERGROUP}:
+        await send_staff_list(message)
+        return
     if not message.from_user or message.from_user.id not in settings.admin_ids:
         return
-    if message.chat.type != ChatType.PRIVATE:
-        me = await bot.get_me()
-        await message.answer(
-            "Админ-панель открывается в личном чате с ботом.",
-            reply_markup=InlineKeyboardMarkup(
-                inline_keyboard=[[InlineKeyboardButton(text="Открыть личный чат", url=f"https://t.me/{me.username}?start=admin")]]
-            ),
-        )
-        return
     await message.answer("Панель владельца AniGuard:", reply_markup=admin_keyboard())
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?(?:каге|совет[_\s]+каге|совет[_\s]+5[_\s]+каге|совет[_\s]+пяти[_\s]+каге)\s*$"))
+async def staff_alias_handler(message: Message) -> None:
+    if message.chat.type in {ChatType.GROUP, ChatType.SUPERGROUP}:
+        await send_staff_list(message, force_naruto=True)
+
+
+async def send_member_info(message: Message, raw_target: str | None = None, *, force_naruto: bool = False) -> None:
+    if message.chat.type not in {ChatType.GROUP, ChatType.SUPERGROUP}:
+        await message.answer("Команда работает только в беседе.")
+        return
+    await ensure_context(message)
+    target_id, _ = await _target_and_payload(message, raw_target)
+    if (raw_target or "").strip() and target_id is None:
+        await message.answer("Пользователь не найден. Ответьте на его сообщение или укажите известный @username.")
+        return
+    target_id = target_id or message.from_user.id
+    async with SessionFactory() as session:
+        try:
+            telegram_member = await bot.get_chat_member(message.chat.id, target_id)
+            await upsert_user(session, telegram_member.user)
+            telegram_status = getattr(telegram_member.status, "value", str(telegram_member.status))
+            incoming_role = "creator" if telegram_member.status == ChatMemberStatus.CREATOR else "admin" if telegram_member.status == ChatMemberStatus.ADMINISTRATOR else "member"
+        except Exception:
+            telegram_status = "unknown"
+            incoming_role = "member"
+        membership = await ensure_membership(session, message.chat.id, target_id, incoming_role)
+        user = await session.get(User, target_id)
+        settings_data = await get_merged_settings(session, message.chat.id)
+        await session.commit()
+    if not user:
+        await message.answer("Пользователь пока не найден в базе AniGuard.")
+        return
+    naruto = force_naruto or bool(settings_data.get("anime_replies", True))
+    full_name = " ".join(filter(None, [user.first_name, user.last_name])) or user.username or str(user.id)
+    username = f"@{user.username}" if user.username else "не указан"
+    penalty = normalize_penalty_status(membership.penalty_status)
+    warning_limit = max(1, int(settings_data.get("warn_threshold", 3)))
+    reputation = max(0, min(100, 100 - membership.warnings * 10 - membership.penalty_points * 2))
+    active_label = penalty_name(penalty, naruto=naruto) if penalty != "none" else "активен"
+    role_until = f" до {_format_dt(membership.role_expires_at)}" if membership.role_expires_at else ""
+    penalty_until = f" до {_format_dt(membership.penalty_until)}" if membership.penalty_until else ""
+    if naruto:
+        lines = [
+            "🍥 <b>Свиток ниндзя</b>",
+            "",
+            f"👤 Пользователь: {profile_link(user.id, full_name)}",
+            f"🆔 ID: <code>{user.id}</code>",
+            f"🔗 Username: {html.escape(username)}",
+            "",
+            f"🥷 Роль: <b>{html.escape(role_name(membership.role, naruto=True))}</b>{html.escape(role_until)}",
+            f"⚡ Уровень власти: <b>{role_level(membership.role)}</b>",
+            "🏘 Деревня: Коноха",
+            "",
+            f"⚠️ Предупреждения: {membership.warnings} из {warning_limit}",
+            f"💬 Сообщений: {membership.message_count:,}".replace(",", " "),
+            f"📅 В беседе: {_membership_age(membership.joined_at)}",
+            f"🛡 Репутация: {reputation} из 100",
+        ]
+        if penalty != "none":
+            lines.append(f"🚨 Статус: <b>{html.escape(penalty_name(penalty, naruto=True))}</b>{html.escape(penalty_until)}")
+        lines.extend(["", f"✅ Состояние: {html.escape(active_label)}", f"🕒 Последняя активность: {_format_dt(membership.last_seen_at)}"])
+    else:
+        lines = [
+            "👤 <b>Информация о пользователе</b>",
+            "",
+            f"Имя: {profile_link(user.id, full_name)}",
+            f"ID: <code>{user.id}</code>",
+            f"Username: {html.escape(username)}",
+            "",
+            f"Роль: <b>{html.escape(role_name(membership.role))}</b>{html.escape(role_until)}",
+            f"Уровень власти: <b>{role_level(membership.role)}</b>",
+        ]
+        if penalty != "none":
+            lines.append(f"Штрафной статус: <b>{html.escape(penalty_name(penalty))}</b>{html.escape(penalty_until)}")
+        lines.extend([
+            "",
+            f"Сообщений в беседе: {membership.message_count:,}".replace(",", " "),
+            f"Предупреждений: {membership.warnings} из {warning_limit}",
+            f"Репутация: {reputation} из 100",
+            f"В беседе: {_membership_age(membership.joined_at)}",
+            "",
+            f"Статус: {html.escape(active_label)}",
+            f"Статус Telegram: {html.escape(telegram_status)}",
+            f"Последняя активность: {_format_dt(membership.last_seen_at)}",
+        ])
+    await message.answer("\n".join(lines))
+
+
+@router.message(Command("info"))
+async def info_handler(message: Message, command: CommandObject) -> None:
+    await send_member_info(message, command.args)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?(?:инфо|информация)(?:\s+.*)?$"))
+async def info_alias_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?(?:инфо|информация)\s*", "", message.text or "", count=1)
+    await send_member_info(message, raw)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?свиток[_\s]+ниндзя(?:\s+.*)?$"))
+async def ninja_scroll_info_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?свиток[_\s]+ниндзя\s*", "", message.text or "", count=1)
+    await send_member_info(message, raw, force_naruto=True)
+
+
+async def change_role_from_message(message: Message, raw: str | None, *, naruto: bool = False) -> None:
+    try:
+        await ensure_context(message)
+        target_id, payload = await _target_and_payload(message, raw)
+        if target_id is None:
+            raise ValueError("Ответьте на сообщение пользователя или укажите @username")
+        role_key, trailing = _extract_named_value(payload, _role_alias_map())
+        if role_key is None:
+            raise ValueError("Не указана роль. Пример: /role @user модератор 7 дней")
+        duration = parse_duration_prefix(trailing)
+        reason = clean_reason(trailing[duration.consumed:]) or "Назначение роли командой"
+        try:
+            target_member = await bot.get_chat_member(message.chat.id, target_id)
+            await ensure_target_user_known(target_member.user)
+        except Exception:
+            pass
+        async with SessionFactory() as session:
+            membership = await assign_member_role(
+                session, chat_id=message.chat.id, actor_id=message.from_user.id, target_id=target_id,
+                new_role=role_key, duration_seconds=duration.seconds, reason=reason, source="telegram_command",
+            )
+            await session.commit()
+        label = role_name(membership.role, naruto=naruto)
+        term = f" на {format_duration_ru(duration.seconds)}" if duration.seconds not in (None, 0) else " бессрочно"
+        title = "Ранг назначен" if naruto else "Роль назначена"
+        await message.answer(f"✅ <b>{title}</b>\nПользователь: {profile_link(target_id, 'User')}\n{('Ранг' if naruto else 'Роль')}: <b>{html.escape(label)}</b>{html.escape(term)}")
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+async def ensure_target_user_known(user: Any) -> None:
+    async with SessionFactory() as session:
+        await upsert_user(session, user)
+        await session.commit()
+
+
+@router.message(Command("role"))
+async def role_handler(message: Message, command: CommandObject) -> None:
+    await change_role_from_message(message, command.args)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?(?:роль|дать[_\s]+роль)(?:\s+.*)?$"))
+async def role_alias_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?(?:роль|дать[_\s]+роль)\s*", "", message.text or "", count=1)
+    await change_role_from_message(message, raw)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?(?:дать[_\s]+ранг|ранг)(?:\s+.*)?$"))
+async def rank_alias_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?(?:дать[_\s]+ранг|ранг)\s*", "", message.text or "", count=1)
+    await change_role_from_message(message, raw, naruto=True)
+
+
+async def change_penalty_from_message(message: Message, raw: str | None, *, naruto: bool = False) -> None:
+    try:
+        await ensure_context(message)
+        target_id, payload = await _target_and_payload(message, raw)
+        if target_id is None:
+            raise ValueError("Ответьте на сообщение пользователя или укажите @username")
+        status_key, trailing = _extract_named_value(payload, _penalty_alias_map())
+        if status_key is None:
+            raise ValueError("Не указан статус: нарушитель, злостный нарушитель или снять")
+        duration = parse_duration_prefix(trailing)
+        async with SessionFactory() as session:
+            settings_data = await get_merged_settings(session, message.chat.id)
+            default_duration = None
+            if status_key == "violator":
+                default_duration = int(settings_data.get("violator_duration_seconds", 7 * 86400))
+            elif status_key == "severe_violator":
+                default_duration = int(settings_data.get("severe_violator_duration_seconds", 30 * 86400))
+            seconds = duration.seconds if duration.seconds is not None else default_duration
+            reason = clean_reason(trailing[duration.consumed:]) or "Назначение штрафного статуса"
+            membership = await set_member_penalty_status(
+                session, chat_id=message.chat.id, actor_id=message.from_user.id, target_id=target_id,
+                status=status_key, duration_seconds=seconds, reason=reason, bot=bot,
+            )
+            await session.commit()
+        label = penalty_name(membership.penalty_status, naruto=naruto)
+        term = f" до {_format_dt(membership.penalty_until)}" if membership.penalty_until else ""
+        await message.answer(f"🚨 <b>Штрафной статус обновлён</b>\nПользователь: {profile_link(target_id, 'User')}\nСтатус: <b>{html.escape(label)}</b>{html.escape(term)}")
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+@router.message(Command("penalty"))
+async def penalty_handler(message: Message, command: CommandObject) -> None:
+    await change_penalty_from_message(message, command.args)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?(?:штрафной[_\s]+статус|статус)(?:\s+.*)?$"))
+async def penalty_alias_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?(?:штрафной[_\s]+статус|статус)\s*", "", message.text or "", count=1)
+    await change_penalty_from_message(message, raw)
+
+
+@router.message(Command("role_history"))
+async def role_history_handler(message: Message, command: CommandObject) -> None:
+    await send_role_history(message, command.args)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?(?:история[_\s]+ролей|свиток[_\s]+рангов)(?:\s+.*)?$"))
+async def role_history_alias_handler(message: Message) -> None:
+    naruto = "свиток" in _normalize_phrase(message.text)
+    raw = re.sub(r"(?i)^\s*/?(?:история[_\s]+ролей|свиток[_\s]+рангов)\s*", "", message.text or "", count=1)
+    await send_role_history(message, raw, naruto=naruto)
+
+
+async def send_role_history(message: Message, raw: str | None, *, naruto: bool = False) -> None:
+    try:
+        await ensure_context(message)
+        target_id, _ = await _target_and_payload(message, raw)
+        target_id = target_id or message.from_user.id
+        if target_id != message.from_user.id:
+            await ensure_group_moderator(message)
+        async with SessionFactory() as session:
+            rows = (await session.scalars(
+                select(RoleAssignmentHistory).where(
+                    RoleAssignmentHistory.chat_id == message.chat.id, RoleAssignmentHistory.user_id == target_id
+                ).order_by(RoleAssignmentHistory.id.desc()).limit(10)
+            )).all()
+        title = "📜 <b>Свиток рангов</b>" if naruto else "📋 <b>История ролей</b>"
+        lines = [title, f"Пользователь: {profile_link(target_id, 'User')}"]
+        if not rows:
+            lines.append("История назначений пока пуста.")
+        for row in rows:
+            until = f" до {_format_dt(row.temporary_until)}" if row.temporary_until else ""
+            lines.append(f"\n• {_format_dt(row.created_at)}: {html.escape(role_name(row.old_role, naruto=naruto))} → <b>{html.escape(role_name(row.new_role, naruto=naruto))}</b>{html.escape(until)}\n  Назначил: <code>{row.actor_id or 0}</code> · {html.escape(row.reason or 'Без причины')}")
+        await message.answer("\n".join(lines))
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+async def submit_appeal(message: Message, raw_reason: str | None) -> None:
+    if message.chat.type not in {ChatType.GROUP, ChatType.SUPERGROUP}:
+        await message.answer("Апелляцию нужно отправить в беседе, где действует ограничение.")
+        return
+    reason = clean_reason(raw_reason) or "Пользователь просит пересмотреть ограничение"
+    await ensure_context(message)
+    async with SessionFactory() as session:
+        report = await create_report(
+            session, chat_id=message.chat.id, reporter_id=message.from_user.id, target_id=message.from_user.id,
+            message_id=message.message_id, reason=f"Апелляция: {reason}",
+        )
+        await session.commit()
+    await message.answer(f"✅ Апелляция AG-{report.id} зарегистрирована и передана администрации.")
+
+
+@router.message(Command("appeal"))
+async def appeal_handler(message: Message, command: CommandObject) -> None:
+    await submit_appeal(message, command.args)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?апелляция(?:\s+.*)?$"))
+async def appeal_alias_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?апелляция\s*", "", message.text or "", count=1)
+    await submit_appeal(message, raw)
+
+
+@router.message(Command("support"))
+async def support_handler(message: Message) -> None:
+    await message.answer(
+        "🛟 <b>Поддержка AniGuard</b>\nНапишите в @anicode_support_bot и укажите ID беседы и краткое описание проблемы."
+    )
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?поддержка\s*$"))
+async def support_alias_handler(message: Message) -> None:
+    await support_handler(message)
 
 
 @router.message(Command("panel"))
@@ -499,6 +986,8 @@ async def help_handler(message: Message) -> None:
         "Игровые действия работают ответом на сообщение или с @username. "
         "Для названий, совпадающих с модерацией, игровую версию можно вызвать так: "
         "<code>игра расен сюрикен @user</code>.\n\n"
+        "Роли: <code>/role @user модератор 7 дней</code>. "
+        "Информация: <code>/info @user</code>. Администрация: <code>/admin</code>.\n\n"
         "Полный список разделён на обычные и Premium-команды в Mini App."
     )
 
@@ -1772,6 +2261,11 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
                         db_chat.settings = settings_data
                 except Exception:
                     pass
+            if add_warning:
+                await sync_penalty_status_from_warnings(
+                    session, chat_id=chat.id, actor_id=message.from_user.id,
+                    membership=user_member, settings=settings_data, bot=bot,
+                )
             await add_log(
                 session,
                 chat.id,
@@ -2017,12 +2511,13 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
 
 
 def role_allows(required: str, role: str) -> bool:
+    level = role_level(role)
     if required == "admins":
-        return role in {"owner", "admin"}
+        return level >= 5
     if required == "moderators":
-        return role in {"owner", "admin", "moderator"}
+        return level >= 2
     if required == "verified":
-        return role in {"owner", "admin", "moderator", "verified"}
+        return level >= 2 or normalize_role(role) == "member"
     return True
 
 
@@ -2274,7 +2769,7 @@ async def _execute_builtin_special(
         return True, ""
 
     if special == "global_block":
-        if role not in {"owner", "admin"}:
+        if not is_admin_role(role):
             raise PermissionError("Нужны права администратора")
         if target_id is None:
             raise ValueError("Укажите пользователя")
@@ -2368,7 +2863,7 @@ async def _execute_builtin_special(
         return True, ""
 
     if special == "kick_all":
-        if role != "owner":
+        if normalize_role(role) != "creator":
             raise PermissionError("Команда доступна владельцу")
         if "подтвердить" not in remainder.casefold():
             return True, "Повторите команду со словом «подтвердить»."
@@ -2416,7 +2911,7 @@ async def _execute_builtin_special(
         return True, "Telegram не позволяет получить и заблокировать всех участников по произвольному тегу."
 
     if special == "mass_ban_list":
-        if role not in {"owner", "admin"}:
+        if not is_admin_role(role):
             raise PermissionError("Нужны права администратора")
         if "подтвердить" not in remainder.casefold():
             return True, "Укажите ID пользователей и добавьте слово «подтвердить»."
@@ -2559,7 +3054,7 @@ async def _execute_builtin_special(
         if target_id is None:
             raise ValueError("Укажите пользователя")
         patch = dict(command.get("settings_patch") or {})
-        if patch.get("owner_only") and role != "owner":
+        if patch.get("owner_only") and normalize_role(role) != "creator":
             raise PermissionError("Команда доступна владельцу")
         member = await ensure_membership(session, chat.id, target_id)
         member.role = str(patch.get("role") or "member")
@@ -2666,7 +3161,7 @@ async def _execute_builtin_special(
         return True, f"Ночной режим включён на {format_duration_ru(seconds)}."
 
     if special == "owner_control_summary":
-        if role != "owner":
+        if normalize_role(role) != "creator":
             raise PermissionError("Команда доступна владельцу")
         settings_data = await get_merged_settings(session, chat.id)
         return True, f"Полный контроль владельца активен. Варнов до автомата: {settings_data.get('warn_threshold', 3)}. Антифлуд: {'включён' if settings_data.get('anti_flood_enabled') else 'выключен'}."
@@ -2699,7 +3194,7 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
         matched_key, config, remainder = matched
 
         role = await member_role(chat.id, message.from_user.id)
-        if role not in {"owner", "admin", "moderator"}:
+        if not is_staff_role(role):
             await message.reply("Команда доступна модераторам.")
             return True
         restrictions = await active_restrictions(session, chat_id=chat.id, user_id=message.from_user.id)
@@ -2918,7 +3413,7 @@ async def try_builtin_game_action(message: Message, chat: Chat, membership: Memb
     key, command, remainder, forced = matched
 
     role = await member_role(chat.id, membership.user_id)
-    if not forced and is_moderation_collision(str(command.get("trigger") or "")) and role in {"owner", "admin", "moderator"}:
+    if not forced and is_moderation_collision(str(command.get("trigger") or "")) and is_staff_role(role):
         return False
 
     async with SessionFactory() as session:
@@ -3104,15 +3599,15 @@ async def try_rp_command(message: Message, chat: Chat, membership: Membership) -
             )
         )
         role = membership_db.role if membership_db else "member"
-        if command.access == "admins" and role not in {"owner", "admin"}:
+        if command.access == "admins" and not is_admin_role(role):
             await message.reply("Эта RP-команда доступна только администраторам.")
             return True
-        if command.access == "moderators" and role not in {"owner", "admin", "moderator"}:
+        if command.access == "moderators" and not is_staff_role(role):
             await message.reply("Эта RP-команда доступна только модераторам.")
             return True
         if command.access == "verified" and membership_db:
             joined_at = as_utc(membership_db.joined_at) or utcnow()
-            verified = role in {"owner", "admin", "moderator"} or (utcnow() - joined_at >= timedelta(hours=24) and membership_db.warnings == 0)
+            verified = is_staff_role(role) or (utcnow() - joined_at >= timedelta(hours=24) and membership_db.warnings == 0)
             if not verified:
                 await message.reply("Эта RP-команда доступна только проверенным участникам.")
                 return True
@@ -3141,6 +3636,54 @@ async def try_rp_command(message: Message, chat: Chat, membership: Membership) -
         await session.commit()
         await message.answer(response)
         return True
+
+
+async def enforce_penalty_status_message(message: Message, chat: Chat, membership: Membership) -> bool:
+    async with SessionFactory() as session:
+        current = await get_membership(session, chat.id, membership.user_id)
+        settings_data = await get_merged_settings(session, chat.id)
+        penalty = normalize_penalty_status(current.penalty_status)
+        await session.commit()
+    if penalty == "none":
+        return False
+
+    async def remove() -> None:
+        try:
+            await message.delete()
+        except Exception:
+            pass
+
+    if penalty == "severe_violator":
+        await remove()
+        await message.answer("⛔ Для пользователя со статусом «Злостный нарушитель» доступна только апелляция и просмотр информации.")
+        return True
+
+    text = (message.text or message.caption or "").strip()
+    entities = list(message.entities or []) + list(message.caption_entities or [])
+    mention_count = sum(1 for entity in entities if entity.type in {"mention", "text_mention"})
+    has_link = bool(re.search(r"(?i)(?:https?://|www\.|t\.me/|telegram\.me/)", text))
+    has_media = bool(message.photo or message.video or message.animation or message.document or message.audio or message.voice or message.video_note or message.sticker)
+    looks_like_command = bool(
+        text.startswith("/")
+        or match_game_action(text)
+        or match_builtin_command(text)
+        or detect_action(text)
+        or _normalize_phrase(text).startswith("игра ")
+    )
+    if has_media or has_link or message.poll or mention_count > 1 or looks_like_command:
+        await remove()
+        await message.answer("⚠️ Статус «Нарушитель»: ссылки, медиа, массовые упоминания и игровые команды временно недоступны.")
+        return True
+    slow_seconds = max(1, int(settings_data.get("violator_slow_mode_seconds", 30)))
+    key = (chat.id, membership.user_id)
+    now_value = time.monotonic()
+    previous = _slow_buckets.get(key, 0.0)
+    if now_value - previous < slow_seconds:
+        await remove()
+        await message.answer(f"⏳ Для статуса «Нарушитель» действует интервал {slow_seconds} секунд между сообщениями.")
+        return True
+    _slow_buckets[key] = now_value
+    return False
 
 
 @router.edited_message((F.chat.type == ChatType.GROUP) | (F.chat.type == ChatType.SUPERGROUP))
@@ -3178,6 +3721,9 @@ async def group_message_pipeline(message: Message) -> None:
             await access_session.commit()
         except PermissionError:
             return
+
+    if await enforce_penalty_status_message(message, chat, membership):
+        return
 
     try:
         if await try_builtin_game_action(message, chat, membership):
@@ -3239,6 +3785,13 @@ async def configure_bot() -> None:
         BotCommand(command="lock", description="Закрыть чат"),
         BotCommand(command="unlock", description="Открыть чат"),
         BotCommand(command="report", description="Пожаловаться на сообщение"),
+        BotCommand(command="appeal", description="Подать апелляцию"),
+        BotCommand(command="support", description="Поддержка AniGuard"),
+        BotCommand(command="info", description="Информация об участнике"),
+        BotCommand(command="admin", description="Состав администрации"),
+        BotCommand(command="role", description="Назначить роль"),
+        BotCommand(command="penalty", description="Штрафной статус"),
+        BotCommand(command="role_history", description="История ролей"),
         BotCommand(command="profile", description="Профиль участника"),
         BotCommand(command="top", description="Топ участников"),
         BotCommand(command="rules", description="Правила модерации"),
@@ -3249,7 +3802,10 @@ async def configure_bot() -> None:
         BotCommand(command="anime", description="Аниме-режим on/off"),
     ]
     await bot.set_my_commands(commands)
-    admin_commands = [BotCommand(command="admin", description="Панель владельца")] + commands
+    admin_commands = [
+        BotCommand(command="admin", description="Панель владельца"),
+        *[command for command in commands if command.command != "admin"],
+    ]
     for admin_id in settings.admin_ids:
         try:
             await bot.set_my_commands(admin_commands, scope=BotCommandScopeChat(chat_id=admin_id))

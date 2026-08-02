@@ -281,3 +281,8 @@ node --check app/static/app.js
 - `/admin` — закрытая панель владельца AniGuard.
 
 Корневой маршрут `/` перенаправляет на `/panel`. Для запуска на Bothost используйте значения `WEBAPP_URL=https://aniguard.bothost.tech/panel` и `ADMIN_URL=https://aniguard.bothost.tech/admin`. Полная инструкция находится в `DEPLOY_BOTHOST.md`.
+
+
+## Integrated store and owner panel
+
+The current build includes server-side AniCoin purchases, the Premium case, advertising moderation and a persistent support chat. The owner panel exposes dedicated tools for pending advertising, support tickets, case history and wallet transactions. See `STORE_ADMIN_INTEGRATION.md` for the routes and payment flow.

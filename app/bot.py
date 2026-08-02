@@ -58,6 +58,7 @@ from app.models import (
 from app.durations import clean_reason, format_duration_ru, parse_duration_prefix
 from app.moderation_parser import TIMED_ACTIONS, detect_action, parse_moderation_command
 from app.pricing import PREMIUM_PLANS, get_plan
+from app.store import complete_store_payment, validate_store_payment
 from app.services import (
     active_restrictions,
     add_log,
@@ -611,11 +612,23 @@ async def premium_buy_callback(callback: CallbackQuery) -> None:
 @router.pre_checkout_query()
 async def pre_checkout_handler(query: PreCheckoutQuery) -> None:
     try:
-        chat_id, user_id, plan_code = parse_payment_payload(query.invoice_payload)
-        plan = get_plan(plan_code)
-        if query.from_user.id != user_id or query.currency != "XTR" or query.total_amount != plan.stars:
-            raise ValueError("Параметры платежа не совпадают")
-        await require_chat_admin(bot, chat_id, user_id)
+        if query.invoice_payload.startswith("agp:"):
+            chat_id, user_id, plan_code = parse_payment_payload(query.invoice_payload)
+            plan = get_plan(plan_code)
+            if query.from_user.id != user_id or query.currency != "XTR" or query.total_amount != plan.stars:
+                raise ValueError("Параметры платежа не совпадают")
+            await require_chat_admin(bot, chat_id, user_id)
+        elif query.invoice_payload.startswith(("agc:", "aga:")):
+            async with SessionFactory() as session:
+                await validate_store_payment(
+                    session,
+                    payload=query.invoice_payload,
+                    user_id=query.from_user.id,
+                    total_amount=query.total_amount,
+                    currency=query.currency,
+                )
+        else:
+            raise ValueError("Неизвестный тип счёта")
         await query.answer(ok=True)
     except Exception as exc:
         await query.answer(ok=False, error_message=str(exc)[:200])
@@ -625,22 +638,50 @@ async def pre_checkout_handler(query: PreCheckoutQuery) -> None:
 async def successful_payment_handler(message: Message) -> None:
     payment = message.successful_payment
     try:
-        chat_id, user_id, plan_code = parse_payment_payload(payment.invoice_payload)
-        async with SessionFactory() as session:
-            chat = await grant_premium(
-                session,
-                user_id=user_id,
-                chat_id=chat_id,
-                plan_code=plan_code,
-                stars=payment.total_amount,
-                payload=payment.invoice_payload,
-                charge_id=payment.telegram_payment_charge_id,
+        if payment.invoice_payload.startswith("agp:"):
+            chat_id, user_id, plan_code = parse_payment_payload(payment.invoice_payload)
+            async with SessionFactory() as session:
+                chat = await grant_premium(
+                    session,
+                    user_id=user_id,
+                    chat_id=chat_id,
+                    plan_code=plan_code,
+                    stars=payment.total_amount,
+                    payload=payment.invoice_payload,
+                    charge_id=payment.telegram_payment_charge_id,
+                )
+                await session.commit()
+            await message.answer(
+                f"<b>Premium активирован.</b>\nБеседа: {html.escape(chat.title)}\n"
+                f"Активен до: {chat.premium_until.strftime('%d.%m.%Y %H:%M UTC')}"
             )
-            await session.commit()
-        await message.answer(
-            f"<b>Premium активирован.</b>\nБеседа: {html.escape(chat.title)}\n"
-            f"Активен до: {chat.premium_until.strftime('%d.%m.%Y %H:%M UTC')}"
-        )
+            return
+
+        if payment.invoice_payload.startswith(("agc:", "aga:")):
+            async with SessionFactory() as session:
+                result = await complete_store_payment(
+                    session,
+                    payload=payment.invoice_payload,
+                    user_id=message.from_user.id,
+                    total_amount=payment.total_amount,
+                    currency=payment.currency,
+                    charge_id=payment.telegram_payment_charge_id,
+                )
+                await session.commit()
+            if result["kind"] == "coins":
+                text = (
+                    f"<b>AniCoin зачислены.</b>\n"
+                    f"Получено: {int(result.get('coins', 0)):,} AniCoin\n"
+                    f"Баланс: {int(result.get('balance', 0)):,} AniCoin"
+                ).replace(",", " ")
+                await message.answer(text)
+            else:
+                await message.answer(
+                    f"<b>Рекламный заказ оплачен.</b>\nЗаказ #{result.get('order_id')} передан на запуск."
+                )
+            return
+
+        raise ValueError("Неизвестный тип платежа")
     except Exception as exc:
         await message.answer(f"Платёж получен, но активация не завершена: {html.escape(str(exc))}")
 

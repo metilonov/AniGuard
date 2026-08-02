@@ -6,7 +6,6 @@
   <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#ffffff">
   <title>AniGuard</title>
-  <meta name="aniguard-build" content="integrated-store-admin-v12">
   <style>
 :root {
   --bg: var(--tg-theme-bg-color, #f2f3f5);
@@ -430,10 +429,10 @@ textarea.control { min-height: 88px; resize: vertical; }
   left: 50%;
   bottom: calc(9px + var(--safe-bottom));
   z-index: 50;
-  width: min(720px, calc(100% - 16px));
+  width: min(520px, calc(100% - 22px));
   display: grid;
-  grid-template-columns: repeat(6,minmax(0,1fr));
-  gap: 2px;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 3px;
   padding: 6px;
   border: 1px solid var(--separator);
   border-radius: 29px;
@@ -445,104 +444,22 @@ textarea.control { min-height: 88px; resize: vertical; }
 }
 .bottom-nav .nav {
   min-width: 0;
-  min-height: 62px;
+  min-height: 64px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 7px 2px;
+  gap: 3px;
+  padding: 7px 3px;
   border: 0;
-  border-radius: 21px;
+  border-radius: 23px;
   color: var(--hint);
   background: transparent;
-  font-size: 9.5px;
+  font-size: 11px;
   font-weight: 650;
 }
-.bottom-nav .nav svg { width: 24px; height: 24px; }
+.bottom-nav .nav svg { width: 27px; height: 27px; }
 .bottom-nav .nav.active { color: var(--button); background: var(--premium-bg); }
-
-
-.bottom-nav .nav span {
-  max-width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.shop-hero {
-  position: relative;
-  overflow: hidden;
-  padding: 20px;
-  border: 1px solid var(--separator);
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at 90% 8%, color-mix(in srgb, var(--button) 20%, transparent), transparent 34%),
-    linear-gradient(145deg, color-mix(in srgb, var(--premium-bg) 78%, var(--secondary-bg)), var(--secondary-bg));
-}
-.shop-hero h1 { margin: 0; font-size: 25px; }
-.shop-hero p { margin: 8px 0 0; color: var(--hint); line-height: 1.45; }
-.shop-balance {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 14px;
-  padding: 8px 11px;
-  border-radius: 999px;
-  color: #f3c34f;
-  background: color-mix(in srgb, #f3c34f 12%, transparent);
-  font-size: 12px;
-  font-weight: 800;
-}
-.shop-balance svg { width: 18px; height: 18px; }
-.shop-grid {
-  display: grid;
-  grid-template-columns: repeat(2,minmax(0,1fr));
-  gap: 10px;
-}
-.shop-card {
-  min-width: 0;
-  min-height: 176px;
-  padding: 15px;
-  border: 1px solid var(--separator);
-  border-radius: 21px;
-  color: var(--text);
-  background: var(--secondary-bg);
-  text-align: left;
-}
-.shop-card-icon {
-  width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 15px;
-  color: var(--button);
-  background: var(--premium-bg);
-}
-.shop-card-icon svg {
-  width: 25px;
-  height: 25px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.8;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.shop-card.premium .shop-card-icon { color:#f3c34f; background:color-mix(in srgb,#f3c34f 13%,transparent); }
-.shop-card.coin .shop-card-icon { color:#58c7a3; background:color-mix(in srgb,#58c7a3 13%,transparent); }
-.shop-card.case .shop-card-icon { color:#9b7cff; background:color-mix(in srgb,#9b7cff 13%,transparent); }
-.shop-card.ads .shop-card-icon { color:#ff9b55; background:color-mix(in srgb,#ff9b55 13%,transparent); }
-.shop-card h3 { margin: 12px 0 0; font-size: 17px; }
-.shop-card p { min-height: 48px; margin: 7px 0 0; color: var(--hint); font-size: 12px; line-height: 1.4; }
-.shop-card strong { display: block; margin-top: 10px; color: var(--button); font-size: 13px; }
-
-@media (max-width: 460px) {
-  .bottom-nav { width: calc(100% - 10px); padding: 5px 3px; border-radius: 25px; }
-  .bottom-nav .nav { min-height: 58px; padding: 6px 1px; border-radius: 18px; font-size: 8.5px; }
-  .bottom-nav .nav svg { width: 22px; height: 22px; }
-  .shop-grid { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
-  .shop-card { min-height: 166px; padding: 13px; }
-}
 
 .sheet-dialog {
   width: min(620px, calc(100% - 20px));
@@ -711,41 +628,35 @@ html[data-theme="dark"] {
   background: color-mix(in srgb, var(--secondary-bg) 86%, transparent);
 }
 
-
 /* User profile */
 .user-account-card {
-  padding: 18px;
+  padding: 20px;
   border: 1px solid var(--separator);
   border-radius: 25px;
   background:
-    radial-gradient(circle at 100% 0%, color-mix(in srgb, #f3c34f 12%, transparent), transparent 34%),
-    linear-gradient(180deg, color-mix(in srgb, var(--secondary-bg) 96%, transparent), var(--secondary-bg));
+    radial-gradient(circle at 92% 8%, color-mix(in srgb, #f3c34f 14%, transparent), transparent 32%),
+    var(--secondary-bg);
 }
 .user-account-head {
   display: grid;
-  grid-template-columns: 102px minmax(0,1fr);
-  gap: 16px;
+  grid-template-columns: 118px minmax(0,1fr);
+  gap: 18px;
   align-items: center;
 }
-.user-account-avatar-wrap {
-  position: relative;
-  width: 102px;
-  height: 102px;
-}
+.user-account-avatar-wrap { position: relative; width: 118px; height: 118px; }
 .user-account-avatar {
-  width: 102px;
-  height: 102px;
+  width: 118px;
+  height: 118px;
   display: grid;
   place-items: center;
   position: relative;
   overflow: hidden;
-  border: 3px solid color-mix(in srgb, var(--button) 44%, transparent);
+  border: 4px solid color-mix(in srgb, var(--button) 48%, transparent);
   border-radius: 50%;
   color: var(--button-text);
   background: linear-gradient(145deg, var(--button), #5fd3ff);
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 850;
-  box-shadow: inset 0 -8px 18px rgba(0,0,0,.08);
 }
 .user-account-avatar > span { position: relative; z-index: 0; }
 .user-account-avatar img {
@@ -756,32 +667,41 @@ html[data-theme="dark"] {
   height: 100%;
   object-fit: cover;
 }
-.account-premium-mark { display: none !important; }
-.user-account-identity {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+.account-premium-mark {
+  position: absolute;
+  right: -2px;
+  top: 1px;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #f3c34f;
+  border-radius: 50%;
+  background: #18130a;
+  box-shadow: 0 7px 18px rgba(0,0,0,.24);
 }
+.account-premium-mark img { width: 20px; height: 20px; }
+.user-account-identity { min-width: 0; }
 .account-user-name {
   margin: 0;
   overflow-wrap: anywhere;
-  font-size: 23px;
-  line-height: 1.12;
+  font-size: 25px;
+  line-height: 1.15;
 }
 .account-user-name.regular, .regular-user-name {
-  color: color-mix(in srgb, var(--button) 60%, var(--hint));
+  color: color-mix(in srgb, var(--button) 58%, var(--hint));
 }
 .account-user-name.premium, .premium-user-name {
   color: #f3c34f;
 }
-.user-account-identity p { margin: 7px 0 0; color: var(--hint); font-size: 13px; }
+.user-account-identity p { margin: 8px 0 0; color: var(--hint); font-size: 13px; }
 .account-status-chip {
-  min-height: 30px;
+  min-height: 29px;
   display: inline-flex;
   align-items: center;
-  margin-top: 12px;
-  padding: 7px 11px;
+  margin-top: 11px;
+  padding: 6px 9px;
   border-radius: 999px;
   color: var(--button);
   background: var(--premium-bg);
@@ -789,6 +709,121 @@ html[data-theme="dark"] {
   font-weight: 800;
 }
 .account-status-chip.premium { color: #f3c34f; background: color-mix(in srgb, #f3c34f 14%, transparent); }
+.anicoin-wallet-card {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 64px;
+  gap: 14px;
+  align-items: center;
+  margin-top: 20px;
+  padding: 17px;
+  border: 1px solid color-mix(in srgb, #f3c34f 30%, var(--separator));
+  border-radius: 21px;
+  background: linear-gradient(145deg, color-mix(in srgb, #f3c34f 14%, transparent), transparent 62%), var(--section-bg);
+}
+.anicoin-wallet-copy > span, .anicoin-wallet-copy > small { display: block; color: var(--hint); }
+.anicoin-wallet-copy > span { font-size: 12px; font-weight: 700; }
+.anicoin-wallet-copy > strong { display: block; margin-top: 6px; font-size: 25px; }
+.anicoin-wallet-copy > small { margin-top: 6px; font-size: 11px; line-height: 1.4; }
+.anicoin-wallet-icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, #f3c34f 28%, var(--separator));
+  border-radius: 20px;
+  background: color-mix(in srgb, #f3c34f 13%, transparent);
+}
+.anicoin-wallet-icon img { width: 43px; height: 43px; }
+.account-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 10px;
+}
+.account-stat-card {
+  min-width: 0;
+  min-height: 142px;
+  padding: 15px;
+  border: 1px solid var(--separator);
+  border-radius: 21px;
+  background: var(--secondary-bg);
+}
+.account-stat-icon {
+  width: 48px;
+  height: 48px;
+  padding: 10px;
+  border-radius: 16px;
+  background: var(--premium-bg);
+}
+.account-stat-card > span, .account-stat-card > strong, .account-stat-card > small { display: block; }
+.account-stat-card > span { margin-top: 11px; color: var(--hint); font-size: 12px; font-weight: 700; }
+.account-stat-card > strong { margin-top: 5px; font-size: 23px; }
+.account-stat-card > small { margin-top: 5px; overflow: hidden; color: var(--hint); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+
+/* Account menu and dialogs */
+.menu-account-summary {
+  display: grid;
+  grid-template-columns: 50px minmax(0,1fr);
+  gap: 11px;
+  align-items: center;
+  margin-bottom: 11px;
+  padding: 12px;
+  border: 1px solid var(--separator);
+  border-radius: 18px;
+  background: var(--section-bg);
+}
+.menu-account-summary > span:last-child { min-width: 0; }
+.menu-account-summary b, .menu-account-summary small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.menu-account-summary small { margin-top: 4px; color: var(--hint); font-size: 11px; }
+.menu-user-avatar {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
+  color: var(--button-text);
+  background: var(--button);
+  font-weight: 800;
+}
+.menu-user-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.row-icon.external-icon img { width: 25px; height: 25px; }
+.account-action-card {
+  margin-bottom: 10px;
+  padding: 15px;
+  border: 1px solid var(--separator);
+  border-radius: 18px;
+  background: var(--secondary-bg);
+}
+.account-action-card h3 { margin: 0; font-size: 17px; }
+.account-action-card p { margin: 7px 0 0; color: var(--hint); font-size: 13px; line-height: 1.5; }
+.account-action-button { width: 100%; margin-top: 2px; }
+.faq-item {
+  margin-bottom: 9px;
+  padding: 13px 14px;
+  border: 1px solid var(--separator);
+  border-radius: 17px;
+  background: var(--secondary-bg);
+}
+.faq-item summary { cursor: pointer; font-weight: 750; }
+.faq-item p { margin: 9px 0 0; color: var(--hint); font-size: 13px; line-height: 1.5; }
+
+@media (max-width: 520px) {
+  .user-account-card { padding: 17px; }
+  .user-account-head { grid-template-columns: 92px minmax(0,1fr); gap: 14px; }
+  .user-account-avatar-wrap, .user-account-avatar { width: 92px; height: 92px; }
+  .user-account-avatar { font-size: 26px; }
+  .account-premium-mark { width: 29px; height: 29px; }
+  .account-premium-mark img { width: 17px; height: 17px; }
+  .account-user-name { font-size: 20px; }
+  .user-account-identity p { font-size: 11px; }
+  .account-stat-card { min-height: 132px; padding: 13px; }
+  .account-stat-card > strong { font-size: 20px; }
+}
+
+
+/* Profile visual fixes v2 */
+.account-premium-mark { display: none !important; }
 
 .anicoin-wallet-card {
   position: relative;
@@ -798,24 +833,25 @@ html[data-theme="dark"] {
     "brand chip"
     "balance chip";
   gap: 8px 14px;
-  min-height: 98px;
-  margin-top: 18px;
+  min-height: 104px;
+  margin-top: 16px;
   padding: 14px 15px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, #f3c34f 28%, var(--separator));
-  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, #f3c34f 30%, var(--separator));
+  border-radius: 18px;
   background:
-    radial-gradient(circle at 94% 6%, color-mix(in srgb, #f3c34f 14%, transparent), transparent 36%),
-    linear-gradient(135deg, color-mix(in srgb, var(--section-bg) 96%, #15100a), var(--section-bg));
+    radial-gradient(circle at 93% 4%, color-mix(in srgb, #f3c34f 18%, transparent), transparent 35%),
+    linear-gradient(135deg, color-mix(in srgb, var(--section-bg) 92%, #14100a), var(--section-bg));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
 }
 .anicoin-wallet-card::after {
   content: "";
   position: absolute;
-  right: 56px;
-  bottom: -42px;
-  width: 104px;
-  height: 104px;
-  border: 1px solid color-mix(in srgb, #f3c34f 15%, transparent);
+  right: 60px;
+  bottom: -40px;
+  width: 110px;
+  height: 110px;
+  border: 1px solid color-mix(in srgb, #f3c34f 18%, transparent);
   border-radius: 50%;
 }
 .anicoin-wallet-brand {
@@ -823,16 +859,16 @@ html[data-theme="dark"] {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 9px;
 }
 .anicoin-wallet-icon {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
   display: grid;
   place-items: center;
   border: 1px solid color-mix(in srgb, #f3c34f 32%, var(--separator));
-  border-radius: 13px;
+  border-radius: 12px;
   color: #f3c34f;
   background: color-mix(in srgb, #f3c34f 12%, transparent);
 }
@@ -841,80 +877,81 @@ html[data-theme="dark"] {
   height: 24px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2.4;
+  stroke-width: 3.5;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 .anicoin-wallet-name { min-width: 0; }
-.anicoin-wallet-name b, .anicoin-wallet-name small { display: block; }
-.anicoin-wallet-name b { font-size: 14px; }
-.anicoin-wallet-name small { margin-top: 3px; color: var(--hint); font-size: 10px; }
-.anicoin-wallet-balance { grid-area: balance; min-width: 0; }
-.anicoin-wallet-balance small { display: block; color: var(--hint); font-size: 10px; }
-.anicoin-wallet-balance strong { display: block; margin-top: 4px; font-size: 18px; line-height: 1.1; }
-.anicoin-wallet-balance em { color: #f3c34f; font-size: 11px; font-style: normal; }
+.anicoin-wallet-name b,
+.anicoin-wallet-name small { display: block; }
+.anicoin-wallet-name b { font-size: 13px; }
+.anicoin-wallet-name small {
+  margin-top: 3px;
+  color: var(--hint);
+  font-size: 10px;
+}
+.anicoin-wallet-balance {
+  grid-area: balance;
+  min-width: 0;
+}
+.anicoin-wallet-balance small {
+  display: block;
+  color: var(--hint);
+  font-size: 10px;
+}
+.anicoin-wallet-balance strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 20px;
+  line-height: 1;
+}
+.anicoin-wallet-balance em {
+  color: #f3c34f;
+  font-size: 11px;
+  font-style: normal;
+}
 .anicoin-wallet-chip {
   grid-area: chip;
   align-self: center;
-  width: 48px;
-  height: 48px;
+  width: 43px;
+  height: 43px;
   display: grid;
   place-items: center;
   position: relative;
   z-index: 1;
-  border-radius: 15px;
+  border-radius: 14px;
   color: #f3c34f;
   background: color-mix(in srgb, #f3c34f 11%, var(--secondary-bg));
 }
 .anicoin-wallet-chip svg {
-  width: 24px;
-  height: 24px;
+  width: 23px;
+  height: 23px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.9;
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
-.account-stat-grid {
-  display: grid;
-  grid-template-columns: repeat(2,minmax(0,1fr));
-  gap: 10px;
-}
-.account-stat-card {
-  min-width: 0;
-  min-height: 168px;
-  padding: 18px 15px 16px;
-  border: 1px solid var(--separator);
-  border-radius: 21px;
-  background: var(--secondary-bg);
-}
-.account-stat-card > .account-stat-icon {
-  width: 58px;
-  height: 58px;
-  margin: 0 auto 16px;
+.account-stat-icon {
+  width: 48px;
+  height: 48px;
   padding: 0;
   display: grid;
   place-items: center;
-  border-radius: 18px;
-  color: #8d98a8 !important;
-  background: rgba(141,152,168,.10) !important;
+  border-radius: 16px;
+  color: var(--button);
+  background: var(--premium-bg);
 }
-.account-stat-card > .account-stat-icon svg {
-  width: 28px;
-  height: 28px;
-  display: block;
-  margin: 0;
+.account-stat-icon svg {
+  width: 26px;
+  height: 26px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.9;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.account-stat-card > span, .account-stat-card > strong, .account-stat-card > small { display: block; }
-.account-stat-card > span:not(.account-stat-icon) { margin-top: 0; color: var(--hint); font-size: 12px; font-weight: 700; }
-.account-stat-card > strong { margin-top: 5px; font-size: 23px; }
-.account-stat-card > small { margin-top: 5px; overflow: hidden; color: var(--hint); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
 
 .account-info-grid {
   display: grid;
@@ -923,15 +960,15 @@ html[data-theme="dark"] {
 }
 .account-info-card {
   min-width: 0;
-  min-height: 114px;
+  min-height: 118px;
   padding: 14px;
   border: 1px solid var(--separator);
   border-radius: 20px;
   color: var(--text);
   background: var(--secondary-bg);
   display: grid;
-  grid-template-columns: 44px minmax(0,1fr);
-  gap: 10px;
+  grid-template-columns: 43px minmax(0,1fr);
+  gap: 11px;
   align-items: start;
   text-align: left;
 }
@@ -940,8 +977,8 @@ html[data-theme="dark"] {
   background: linear-gradient(145deg, color-mix(in srgb, #f3c34f 10%, transparent), transparent 64%), var(--secondary-bg);
 }
 .account-info-icon {
-  width: 44px;
-  height: 44px;
+  width: 43px;
+  height: 43px;
   display: grid;
   place-items: center;
   border-radius: 14px;
@@ -952,10 +989,6 @@ html[data-theme="dark"] {
   color: #f3c34f;
   background: color-mix(in srgb, #f3c34f 13%, transparent);
 }
-.account-info-card[data-tone="chats"] .account-info-icon { color:#46b0ff; background:color-mix(in srgb,#46b0ff 14%,transparent); }
-.account-info-card[data-tone="messages"] .account-info-icon { color:#94a4ff; background:color-mix(in srgb,#94a4ff 14%,transparent); }
-.account-info-card[data-tone="warnings"] .account-info-icon { color:#64d5c6; background:color-mix(in srgb,#64d5c6 14%,transparent); }
-.account-info-card[data-tone="premium"] .account-info-icon { color:#f3c34f; background:color-mix(in srgb,#f3c34f 14%,transparent); }
 .account-info-icon svg {
   width: 23px;
   height: 23px;
@@ -965,10 +998,28 @@ html[data-theme="dark"] {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.account-info-copy { min-width: 0; display: block; }
-.account-info-copy small, .account-info-copy strong, .account-info-copy em { display: block; }
-.account-info-copy small { overflow: hidden; color: var(--hint); font-size: 10px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
-.account-info-copy strong { margin-top: 6px; overflow-wrap: anywhere; font-size: 18px; }
+.account-info-copy {
+  min-width: 0;
+  display: block;
+}
+.account-info-copy small,
+.account-info-copy strong,
+.account-info-copy em {
+  display: block;
+}
+.account-info-copy small {
+  overflow: hidden;
+  color: var(--hint);
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.account-info-copy strong {
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+  font-size: 18px;
+}
 .account-info-copy em {
   margin-top: 6px;
   overflow: hidden;
@@ -981,274 +1032,47 @@ html[data-theme="dark"] {
   -webkit-box-orient: vertical;
 }
 
-.menu-account-summary {
-  display: grid;
-  grid-template-columns: 56px minmax(0,1fr);
-  gap: 12px;
-  align-items: center;
-  margin-bottom: 11px;
-  padding: 14px;
-  border: 1px solid var(--separator);
-  border-radius: 18px;
-  background: var(--section-bg);
-}
-.menu-account-summary > span:last-child { min-width: 0; }
-.menu-account-summary b,
-.menu-account-summary small {
-  display: block;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.menu-account-summary b { font-size: 16px; }
-.menu-account-summary small { margin-top: 4px; color: var(--hint); font-size: 12px; }
-.menu-user-avatar {
-  width: 56px;
-  height: 56px;
-  display: grid;
-  place-items: center;
-  position: relative;
-  overflow: hidden;
-  border-radius: 50%;
-  color: var(--button-text);
-  background: linear-gradient(145deg, var(--button), #5fd3ff);
-  font-size: 20px;
-  font-weight: 800;
-}
-.menu-user-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-
-@media (max-width: 520px) {
-  .user-account-card { padding: 16px; }
-  .user-account-head { grid-template-columns: 88px minmax(0,1fr); gap: 13px; }
-  .user-account-avatar-wrap, .user-account-avatar { width: 88px; height: 88px; }
-  .user-account-avatar { font-size: 25px; }
-  .account-user-name { font-size: 21px; }
-  .user-account-identity p { font-size: 12px; }
-  .account-stat-card { min-height: 156px; padding: 16px 13px 14px; }
-  .account-stat-card > .account-stat-icon { width: 54px; height: 54px; margin-bottom: 14px; }
-  .account-stat-card > .account-stat-icon svg { width: 26px; height: 26px; }
-  .account-stat-card > strong { font-size: 20px; }
+@media (max-width: 420px) {
   .account-info-card {
-    min-height: 108px;
+    min-height: 112px;
     padding: 12px;
-    grid-template-columns: 40px minmax(0,1fr);
+    grid-template-columns: 38px minmax(0,1fr);
     gap: 9px;
   }
-  .account-info-icon { width: 40px; height: 40px; }
+  .account-info-icon { width: 38px; height: 38px; }
   .account-info-icon svg { width: 21px; height: 21px; }
   .account-info-copy strong { font-size: 16px; }
-  .anicoin-wallet-card { min-height: 94px; padding: 13px; }
-  .anicoin-wallet-balance strong { font-size: 17px; }
-  .menu-account-summary { grid-template-columns: 52px minmax(0,1fr); padding: 13px; }
-  .menu-user-avatar { width: 52px; height: 52px; }
+  .anicoin-wallet-card { min-height: 98px; padding: 13px; }
+  .anicoin-wallet-balance strong { font-size: 18px; }
 }
 
 
-/* Profile visual fixes v2 */
 .account-menu-icon{width:52px;height:52px;border-radius:17px;display:grid;place-items:center;color:var(--button);background:color-mix(in srgb,var(--button) 14%,transparent)}
-.account-menu-icon svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.account-menu-icon svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .account-menu-icon.settings{color:#8a69fa;background:color-mix(in srgb,#8a69fa 14%,transparent)}
 .account-menu-icon.advertising{color:#f3c34f;background:color-mix(in srgb,#f3c34f 14%,transparent)}
 .account-menu-icon.faq{color:#43c98e;background:color-mix(in srgb,#43c98e 14%,transparent)}
-.account-menu-icon.support{color:#46b0ff;background:color-mix(in srgb,#46b0ff 14%,transparent)}
 .account-menu-link .row-icon{flex-basis:52px}
-
-
-
-.user-action-content-plain { display:grid; gap:12px; }
-.account-action-list { display:grid; gap:10px; }
-.account-action-card h3 { margin:0 0 8px; }
-.setting-toggle-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 16px; border:1px solid var(--separator); border-radius:18px; background:var(--card); }
-.setting-toggle-row .copy { display:grid; gap:3px; }
-.setting-toggle-row b { font-size:15px; }
-.setting-toggle-row small { color:var(--hint); }
-.site-setting-actions { display:grid; gap:10px; }
-.faq-hero-card { border:1px solid var(--separator); border-radius:20px; padding:16px; background:linear-gradient(135deg, color-mix(in srgb,var(--button) 10%, transparent), transparent 70%), var(--card); }
-.faq-list-modern { display:grid; gap:10px; }
-.faq-item.modern { border:1px solid var(--separator); border-radius:18px; padding:14px 16px; background:var(--card); }
-.faq-item.modern summary { cursor:pointer; font-weight:800; }
-.faq-item.modern p { margin:10px 0 0; color:var(--hint); line-height:1.55; }
-.support-thread { display:grid; gap:10px; max-height:320px; overflow:auto; padding:6px; border:1px solid var(--separator); border-radius:18px; background:var(--surface); }
-.support-message { max-width:88%; padding:12px 14px; border-radius:18px; line-height:1.45; }
-.support-message.user { margin-left:auto; background:color-mix(in srgb,var(--button) 18%, var(--surface)); border-bottom-right-radius:8px; }
-.support-message.support { margin-right:auto; background:var(--card); border-bottom-left-radius:8px; }
-.support-message small { display:block; margin-top:6px; color:var(--hint); font-size:11px; }
-.support-composer { display:grid; gap:10px; }
-.support-composer textarea { min-height:88px; resize:vertical; }
-.support-actions { display:grid; gap:10px; grid-template-columns:1fr auto; }
-.ad-stats-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:12px; }
-.ad-stats-grid .metric.small { padding:12px; border-radius:16px; background:color-mix(in srgb,var(--surface) 75%, transparent); border:1px solid var(--separator); }
-.ad-stats-grid .metric.small span { display:block; color:var(--hint); font-size:11px; line-height:1.35; }
-.ad-stats-grid .metric.small strong { display:block; margin-top:8px; font-size:22px; }
-.shop-subhero h1 { font-size:32px; margin-bottom:10px; }
-.ad-summary-card { border:1px solid var(--separator); border-radius:18px; }
-.coin-package-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
-.coin-package-card { padding:16px; border-radius:20px; border:1px solid var(--separator); background:var(--card); text-align:left; display:grid; gap:6px; }
-.coin-package-card b { font-size:18px; }
-.coin-package-card small { color:var(--hint); }
-.premium-case-card { display:grid; gap:16px; }
-.case-reward-list { display:flex; flex-wrap:wrap; gap:8px; }
-.reward-chip { padding:8px 12px; border-radius:999px; font-size:12px; border:1px solid var(--separator); background:var(--surface); }
-.reward-chip.premium { color:#f3c34f; border-color:color-mix(in srgb,#f3c34f 35%, var(--separator)); }
-.case-preview-strip { display:flex; gap:10px; overflow-x:auto; padding:2px 1px 6px; scrollbar-width:none; }
-.case-preview-strip::-webkit-scrollbar { display:none; }
-.case-preview-item, .case-opening-item {
-  flex:0 0 auto;
-  min-width:136px;
-  width:136px;
-  padding:12px 10px;
-  border-radius:18px;
-  border:1px solid var(--separator);
-  background:var(--card);
-  text-align:center;
-}
-.case-preview-item { min-height:94px; }
-.case-cell-icon {
-  width:42px; height:42px; margin:0 auto 10px; border-radius:14px;
-  display:grid; place-items:center;
-  background:color-mix(in srgb,var(--button) 14%, transparent);
-  color:var(--button);
-}
-.case-cell-icon svg { width:24px; height:24px; }
-.case-preview-item.premium .case-cell-icon,
-.case-opening-item.premium .case-cell-icon,
-.case-win-card.premium .case-cell-icon {
-  background:color-mix(in srgb,#f3c34f 18%, transparent);
-  color:#f3c34f;
-}
-.case-item-title { font-size:14px; font-weight:800; line-height:1.3; }
-.case-item-sub { margin-top:5px; color:var(--hint); font-size:11px; line-height:1.35; }
-.case-info-note { color:var(--hint); font-size:12px; line-height:1.45; }
-.case-inline-result { display:grid; gap:10px; }
-.case-inline-result-head { display:flex; align-items:center; gap:12px; }
-.case-inline-result .case-cell-icon { width:52px; height:52px; margin:0; border-radius:18px; }
-.case-inline-result b { display:block; font-size:16px; }
-.case-opening-dialog .sheet,
-.case-win-dialog .sheet {
-  width:min(960px, calc(100vw - 18px));
-  max-width:960px;
-}
-.case-opening-sheet { display:grid; gap:14px; }
-.case-opening-hero { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; }
-.case-opening-hero h2 { margin:0; font-size:22px; }
-.case-opening-hero p { margin:6px 0 0; color:var(--hint); }
-.case-opening-balance { flex:0 0 auto; }
-.case-opening-viewport-wrap { position:relative; }
-.case-opening-pointer {
-  position:absolute; left:50%; top:-10px; transform:translateX(-50%);
-  width:22px; height:22px; z-index:2; background:var(--button);
-  clip-path:polygon(50% 100%, 0 0, 100% 0);
-  box-shadow:0 8px 20px rgba(0,0,0,.18);
-}
-.case-opening-viewport {
-  overflow:hidden;
-  border-radius:22px;
-  border:1px solid var(--separator);
-  background:color-mix(in srgb,var(--surface) 88%, transparent);
-}
-.case-opening-track {
-  display:flex; gap:10px; width:max-content; padding:14px 16px;
-  will-change:transform; transform:translate3d(0,0,0);
-}
-.case-opening-item { min-width:146px; width:146px; min-height:124px; display:flex; flex-direction:column; justify-content:center; }
-.case-opening-item .case-cell-icon { margin-bottom:12px; }
-.case-opening-status { text-align:center; font-weight:700; }
-.case-opening-actions { display:flex; justify-content:center; }
-.case-opening-actions .secondary { min-width:220px; }
-.case-win-card { display:grid; gap:14px; text-align:center; }
-.case-win-card .case-cell-icon { width:82px; height:82px; border-radius:26px; margin:0 auto 2px; }
-.case-win-kicker { font-size:12px; font-weight:900; letter-spacing:.08em; color:var(--hint); }
-.case-win-title { font-size:28px; font-weight:900; line-height:1.2; }
-.case-win-text { color:var(--hint); line-height:1.55; }
-.case-win-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-.case-win-actions .primary, .case-win-actions .secondary { width:100%; }
-.premium-case-card #open-premium-case { width:100%; min-height:54px; }
-@media (max-width: 640px) {
-  .case-preview-item, .case-opening-item { min-width:118px; width:118px; border-radius:16px; }
-  .case-preview-item { min-height:90px; }
-  .case-item-title { font-size:13px; }
-  .case-item-sub { font-size:10px; }
-  .case-opening-dialog .sheet,
-  .case-win-dialog .sheet { width:min(100vw - 12px, 100%); }
-  .case-opening-hero { display:grid; }
-  .case-opening-track { gap:8px; padding:12px 10px; }
-  .case-opening-item { min-width:112px; width:112px; min-height:116px; padding:12px 8px; }
-  .case-opening-pointer { top:-8px; width:18px; height:18px; }
-  .case-win-title { font-size:22px; }
-  .case-win-actions { grid-template-columns:1fr; }
-}
-@media (max-width: 390px) {
-  .case-preview-item, .case-opening-item { min-width:104px; width:104px; }
-  .case-opening-item { min-height:108px; }
-  .case-cell-icon { width:38px; height:38px; border-radius:12px; }
-  .case-cell-icon svg { width:22px; height:22px; }
-}
-.order-card { display:grid; gap:10px; }
-.order-card .order-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
-.order-badge { padding:6px 10px; border-radius:999px; font-size:12px; font-weight:800; }
-.order-badge.pending { background:color-mix(in srgb,#f3c34f 18%, transparent); color:#f3c34f; }
-.order-badge.approved { background:color-mix(in srgb,#58c7a3 18%, transparent); color:#58c7a3; }
-.order-badge.rejected { background:color-mix(in srgb,#ff6b7d 18%, transparent); color:#ff6b7d; }
-.order-badge.paid { background:color-mix(in srgb,var(--button) 18%, transparent); color:var(--button); }
-.order-meta { color:var(--hint); font-size:12px; line-height:1.45; }
-.order-actions { display:flex; flex-wrap:wrap; gap:8px; }
-.ui-no-blur .sheet-dialog::backdrop { backdrop-filter:none; }
-.ui-hide-hints .muted, .ui-hide-hints .section-heading p, .ui-hide-hints small { opacity:.18; }
-.ui-compact .card, .ui-compact .shop-card, .ui-compact .account-stat-card, .ui-compact .account-info-card, .ui-compact .form-card { padding:12px !important; }
-.ui-reduced-motion *, .ui-reduced-motion *::before, .ui-reduced-motion *::after { animation-duration:.01ms !important; animation-iteration-count:1 !important; transition-duration:.01ms !important; scroll-behavior:auto !important; }
-@media (max-width: 620px) { .ad-stats-grid, .coin-package-grid { grid-template-columns:1fr; } .support-actions { grid-template-columns:1fr; } }
 
 </style>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
   <svg class="svg-sprite" aria-hidden="true">
-
-    <symbol id="i-group-page" viewBox="0 0 24 24">
-      <rect x="3" y="4" width="18" height="16" rx="3"/>
-      <circle cx="9" cy="10" r="2.2"/>
-      <path d="M5.8 16a3.7 3.7 0 0 1 6.4 0"/>
-      <path d="M14.5 8.5h3.5M14.5 12h3.5M14.5 15.5h2.2"/>
-    </symbol>
-    <symbol id="i-shop-page" viewBox="0 0 24 24">
-      <path d="M4 9h16l-1 11H5z"/>
-      <path d="M7 9 8.5 4h7L17 9"/>
-      <path d="M8 13v7M16 13v7"/>
-      <path d="M4 9c0 2 3 2 4 0 1 2 3 2 4 0 1 2 3 2 4 0 1 2 4 2 4 0"/>
-    </symbol>
-    <symbol id="i-shop-premium" viewBox="0 0 24 24">
-      <path d="M5 17 7 8l5 4 5-4 2 9z"/>
-      <path d="M7 8 9.5 5l2.5 3 2.5-3L17 8M7 20h10"/>
-    </symbol>
-    <symbol id="i-shop-coin" viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="8.5"/>
-      <path d="M8.8 15.5 12 8l3.2 7.5M10 13h4"/>
-    </symbol>
-    <symbol id="i-shop-case" viewBox="0 0 24 24">
-      <rect x="3" y="8" width="18" height="12" rx="3"/>
-      <path d="M8 8V5h8v3M3 12h18M10 12v3h4v-3"/>
-    </symbol>
-    <symbol id="i-shop-ads" viewBox="0 0 24 24">
-      <path d="M4 12v3h3l9 4V5l-9 4H4z"/>
-      <path d="M7 15l1.5 4h3L10 15M18 8c1.8.8 3 2.2 3 4s-1.2 3.2-3 4"/>
-    </symbol>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-6h4v6"/></symbol>
     <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M12 3 20 7v5c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V7z"/><path d="m9 12 2 2 4-5"/></symbol>
     <symbol id="i-command-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M8 9h8M8 13h5"/></symbol>
     <symbol id="i-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
-    <symbol id="i-menu-profile" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M6.5 16a3.5 3.5 0 0 1 5 0"/><path d="M14 9h3.5M14 12.5h4M14 16h2.5"/></symbol>
-    <symbol id="i-menu-settings" viewBox="0 0 24 24"><path d="M5 7h14M7 12h10M9 17h6"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="12" cy="17" r="2"/></symbol>
-    <symbol id="i-menu-advertising" viewBox="0 0 24 24"><path d="M4 12v3h3l9 4V5l-9 4H4z"/><path d="M7 15l1.5 4h3L10 15"/><path d="M18 8c1.8.8 3 2.2 3 4s-1.2 3.2-3 4"/></symbol>
-    <symbol id="i-menu-faq" viewBox="0 0 24 24"><path d="M12 20c4.4 0 8-3.1 8-7s-3.6-7-8-7-8 3.1-8 7c0 1.6.6 3 1.7 4.2L5 20l3-1c1.2.6 2.6 1 4 1Z"/><path d="M9.8 10.4A2.4 2.4 0 1 1 13 12.6c-.8.4-1.2 1-1.2 1.8"/><path d="M11.8 16h.01"/></symbol>
-    <symbol id="i-menu-support" viewBox="0 0 24 24"><path d="M5 12a7 7 0 0 1 14 0v4"/><path d="M5 13H3v4a2 2 0 0 0 2 2h2v-6zM19 13h2v4a2 2 0 0 1-2 2h-2v-6z"/><path d="M17 19c-1 1.3-2.7 2-5 2"/><path d="M9 8.5c.8-.7 1.8-1 3-1s2.2.3 3 1"/></symbol>
-    <symbol id="i-profile-rating" viewBox="0 0 24 24"><path d="M5 19h14"/><path d="M7 17V9M12 17V6M17 17v-4"/><path d="m6 8 3-2 3 1.5 3-2 3 1.5"/></symbol>
-    <symbol id="i-profile-level" viewBox="0 0 24 24"><path d="M5 18h4v-4h4V10h4V6h2"/><path d="m17 4 2 2-2 2"/></symbol>
-    <symbol id="i-profile-game" viewBox="0 0 24 24"><path d="M7 9h10a4 4 0 0 1 4 4v1.5a3.5 3.5 0 0 1-5.8 2.6L13.5 16h-3l-1.7 1.1A3.5 3.5 0 0 1 3 14.5V13a4 4 0 0 1 4-4Z"/><path d="M8 12.5h4M10 10.5v4M16.5 11.8h.01M18.4 13.6h.01"/></symbol>
-    <symbol id="i-profile-reputation" viewBox="0 0 24 24"><path d="M12 3.5 6.5 6v6c0 3.7 2.1 6.3 5.5 8 3.4-1.7 5.5-4.3 5.5-8V6z"/><path d="m9.5 12 1.8 1.8 3.3-3.8"/></symbol>
-    <symbol id="i-anicoin-profile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 15.8 12 7.8l3.5 8"/><path d="M9.8 13h4.4"/><path d="M12 3.8v2.1M12 18.1v2.1M3.8 12h2.1M18.1 12h2.1"/></symbol>
-    <symbol id="i-wallet-profile" viewBox="0 0 24 24"><path d="M4 8.5h13a2.5 2.5 0 0 1 2.5 2.5v6H4A2.5 2.5 0 0 1 1.5 14.5V11A2.5 2.5 0 0 1 4 8.5Z"/><path d="M4 8.5 15 5v3.5"/><rect x="14" y="10.5" width="8" height="4" rx="2"/><path d="M17.7 12.5h.01"/></symbol>
-    <symbol id="i-profile-anicoin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 15.8 12 7.8l3.5 8"/><path d="M9.8 13h4.4"/><path d="M12 3.8v2.1M12 18.1v2.1M3.8 12h2.1M18.1 12h2.1"/></symbol>
-    <symbol id="i-profile-wallet" viewBox="0 0 24 24"><path d="M4 8.5h13a2.5 2.5 0 0 1 2.5 2.5v6H4A2.5 2.5 0 0 1 1.5 14.5V11A2.5 2.5 0 0 1 4 8.5Z"/><path d="M4 8.5 15 5v3.5"/><rect x="14" y="10.5" width="8" height="4" rx="2"/><path d="M17.7 12.5h.01"/></symbol>
+    <symbol id="i-menu-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-menu-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19 13.5 2-1.5-2-1.5-.5-1.2.4-2.4-2.4-.4-1.2-.5L14 4h-4L8.6 7l-1.2.5-2.4-.4-.4 2.4-.5 1.2L2 12l2.1 1.3.5 1.2.4 2.4 2.4-.4 1.2.5L10 20h4l1.4-3 1.2-.5 2.4.4.4-2.4z"/></symbol>
+    <symbol id="i-menu-advertising" viewBox="0 0 24 24"><path d="M3 10v4h4l10 5V5L7 10z"/><path d="M7 14 9 21h4l-2-5M19 9a4 4 0 0 1 0 6"/></symbol>
+    <symbol id="i-menu-faq" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 4 2.8c-.9.4-1 1.1-1 2.2M12 18h.01"/></symbol>
+    <symbol id="i-profile-rating" viewBox="0 0 24 24"><path d="M5 19V9M12 19V5M19 19v-7"/><path d="m4 7 6-4 4 3 6-4"/></symbol>
+    <symbol id="i-profile-level" viewBox="0 0 24 24"><path d="M4 18h5v-4h5v-4h6"/><path d="m16 6 4 4-4 4"/></symbol>
+    <symbol id="i-profile-game" viewBox="0 0 24 24"><path d="M8 8h8a5 5 0 0 1 5 5v4a3 3 0 0 1-5 2l-2-2h-4l-2 2a3 3 0 0 1-5-2v-4a5 5 0 0 1 5-5Z"/><path d="M8 12v4M6 14h4M16 13h.01M18 15h.01"/></symbol>
+    <symbol id="i-profile-reputation" viewBox="0 0 24 24"><path d="M12 3 20 7v5c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V7z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></symbol>
+    <symbol id="i-anicoin-profile" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27"/><circle cx="32" cy="32" r="21" opacity=".55"/><path d="M32 16 20 47h8l3-8h10l3 8h8L32 16Z"/><path d="M28.5 31h7"/></symbol>
+    <symbol id="i-wallet-profile" viewBox="0 0 24 24"><path d="M4 6h14a2 2 0 0 1 2 2v11H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z"/><path d="M4 6 16 3v3M15 11h7v5h-7a2.5 2.5 0 0 1 0-5Z"/><path d="M17.5 13.5h.01"/></symbol>
     <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
     <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
     <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
@@ -1262,16 +1086,16 @@ html[data-theme="dark"] {
     <symbol id="i-gamepad" viewBox="0 0 24 24"><path d="M8 8h8a5 5 0 0 1 5 5v4a3 3 0 0 1-5 2l-2-2h-4l-2 2a3 3 0 0 1-5-2v-4a5 5 0 0 1 5-5Z"/><path d="M8 12v4M6 14h4M16 13h.01M18 15h.01"/></symbol>
     <symbol id="i-rule" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="m8 9 2 2 3-4M8 16h8"/></symbol>
     <symbol id="i-crown" viewBox="0 0 24 24"><path d="m4 17 2-9 4 4 2-7 2 7 4-4 2 9z"/><path d="M6 21h12"/></symbol>
-    <symbol id="i-diamond" viewBox="0 0 24 24"><path d="m5 8 3-4h8l3 4-7 11z"/><path d="M5 8h14M8 4l4 15 4-15"/></symbol>
+    <symbol id="i-diamond" viewBox="0 0 24 24"><path d="m4 8 4-4h8l4 4-8 12z"/><path d="M4 8h16M8 4l4 16 4-16"/></symbol>
     <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19 13.5 2-1.5-2-1.5-.5-1.2.4-2.4-2.4-.4-1.2-.5L14 4h-4L8.6 7l-1.2.5-2.4-.4-.4 2.4-.5 1.2L2 12l2.1 1.3.5 1.2.4 2.4 2.4-.4 1.2.5L10 20h4l1.4-3 1.2-.5 2.4.4.4-2.4z"/></symbol>
-    <symbol id="i-document" viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v5h4M10 11h6M10 15h6M10 19h4"/></symbol>
-    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h13a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H8l-4 3z"/><path d="M8 10h8M8 14h5"/></symbol>
+    <symbol id="i-document" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h16v12H7l-3 3z"/><path d="M8 9h8M8 13h5"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></symbol>
     <symbol id="i-save" viewBox="0 0 24 24"><path d="M4 4h13l3 3v13H4z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></symbol>
     <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></symbol>
     <symbol id="i-edit" viewBox="0 0 24 24"><path d="m4 16-1 5 5-1L19 9l-4-4z"/><path d="m13 7 4 4"/></symbol>
     <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></symbol>
-    <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 4 3.5 19h17z"/><path d="M12 9v5"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 3 2.8 20h18.4z"/><path d="M12 9v5M12 17h.01"/></symbol>
     <symbol id="i-warning-off" viewBox="0 0 24 24"><path d="m3 3 18 18"/><path d="M10.5 6 2.8 20h17.7M12 9v2M12 17h.01"/></symbol>
     <symbol id="i-mute" viewBox="0 0 24 24"><path d="M5 10v4h4l5 4V6L9 10z"/><path d="m18 9 4 4m0-4-4 4"/></symbol>
     <symbol id="i-volume" viewBox="0 0 24 24"><path d="M5 10v4h4l5 4V6L9 10z"/><path d="M17 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></symbol>
@@ -1330,11 +1154,6 @@ html[data-theme="dark"] {
     <symbol id="i-top" viewBox="0 0 24 24"><path d="M8 4h8v4a4 4 0 0 1-8 0z"/><path d="M8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 12v5M8 21h8M9 17h6"/></symbol>
     <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a9 9 0 1 0 10.5 10.5z"/></symbol>
-
-    <symbol id="i-account-chats" viewBox="0 0 24 24"><path d="M4.5 7.5h9a2.5 2.5 0 0 1 2.5 2.5v4a2.5 2.5 0 0 1-2.5 2.5H8.5L5 19v-2.5h-.5A2.5 2.5 0 0 1 2 14V10a2.5 2.5 0 0 1 2.5-2.5Z"/><path d="M16 9h3a3 3 0 0 1 3 3v5l-3-2h-1"/></symbol>
-    <symbol id="i-account-messages" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><path d="M7.5 9h9M7.5 12.5h9M7.5 16h6"/></symbol>
-    <symbol id="i-account-warnings" viewBox="0 0 24 24"><path d="M12 4 4 18h16z"/><path d="M12 9v4.5"/><path d="M12 16.5h.01"/></symbol>
-    <symbol id="i-account-premium" viewBox="0 0 24 24"><path d="M5 17 7 8l5 4 5-4 2 9z"/><path d="M7 8 9.5 5l2.5 3 2.5-3L17 8"/></symbol>
   </svg>
 
   <div class="app-shell">
@@ -1426,7 +1245,8 @@ html[data-theme="dark"] {
             <label>Название<input id="rule-name" class="control" value="Защита новичков"></label>
             <label>Условие<select id="rule-condition" class="control"><option value="newbie_link">Новичок отправил ссылку</option><option value="flood">Флуд</option><option value="blocked_word">Запрещённое слово</option><option value="mass_mentions">Массовые упоминания</option></select></label>
             <label>Действие<select id="rule-action" class="control"><option value="delete_warn">Удалить и предупредить</option><option value="mute">Удалить и выдать мут</option><option value="quarantine">Карантин</option><option value="notify">Уведомить</option></select></label>
-                        <button id="create-rule" class="primary button-row full" type="button"><svg><use href="#i-plus"></use></svg>Создать правило</button>
+            <label class="switch-line"><input id="rule-premium" type="checkbox"><span>Premium-правило</span></label>
+            <button id="create-rule" class="primary button-row full" type="button"><svg><use href="#i-plus"></use></svg>Создать правило</button>
           </article>
           <div id="rules-list" class="list spaced"></div>
         </section>
@@ -1467,25 +1287,25 @@ html[data-theme="dark"] {
 
           <div class="section-heading"><div><h2>Статистика аккаунта</h2><p>Рейтинг, уровни и репутация пользователя</p></div></div>
           <div class="account-stat-grid">
-            <article class="account-stat-card" data-tone="rating">
+            <article class="account-stat-card">
               <span class="account-stat-icon"><svg viewBox="0 0 24 24"><use href="#i-profile-rating"></use></svg></span>
               <span>Рейтинг</span>
               <strong id="account-rating">0</strong>
               <small id="account-rating-meta">Общий рейтинг аккаунта</small>
             </article>
-            <article class="account-stat-card" data-tone="level">
+            <article class="account-stat-card">
               <span class="account-stat-icon"><svg viewBox="0 0 24 24"><use href="#i-profile-level"></use></svg></span>
               <span>Уровень аккаунта</span>
               <strong id="account-level">1</strong>
               <small id="account-level-meta">Прогресс AniGuard</small>
             </article>
-            <article class="account-stat-card" data-tone="game">
+            <article class="account-stat-card">
               <span class="account-stat-icon"><svg viewBox="0 0 24 24"><use href="#i-profile-game"></use></svg></span>
               <span>Игровой уровень</span>
               <strong id="account-game-level">1</strong>
               <small id="account-game-meta">Игровой прогресс</small>
             </article>
-            <article class="account-stat-card" data-tone="reputation">
+            <article class="account-stat-card">
               <span class="account-stat-icon"><svg viewBox="0 0 24 24"><use href="#i-profile-reputation"></use></svg></span>
               <span>Репутация</span>
               <strong id="account-reputation">100 / 100</strong>
@@ -1495,139 +1315,6 @@ html[data-theme="dark"] {
 
           <div class="section-heading"><div><h2>Аккаунт</h2><p>Дополнительные сведения</p></div></div>
           <div id="account-info-list" class="account-info-grid"></div>
-        </section>
-
-
-        <section class="view hidden" data-panel="shop">
-          <article class="shop-hero">
-            <h1>Магазин AniGuard</h1>
-            <p>Premium, AniCoin, кейсы и рекламные размещения в одном разделе.</p>
-            <span class="shop-balance"><svg><use href="#i-shop-coin"></use></svg><span id="shop-balance-value">3 240 AniCoin</span></span>
-          </article>
-
-          <div class="section-heading"><div><h2>Категории</h2><p>Выберите нужный раздел магазина</p></div></div>
-          <div class="shop-grid">
-            <button class="shop-card premium nav pressable" data-view="premium" type="button">
-              <span class="shop-card-icon"><svg><use href="#i-shop-premium"></use></svg></span>
-              <h3>Premium</h3>
-              <p>Расширенная защита, конструкторы и повышенные лимиты.</p>
-              <strong>Открыть тарифы</strong>
-            </button>
-            <button class="shop-card coin pressable" data-shop-action="coins" type="button">
-              <span class="shop-card-icon"><svg><use href="#i-shop-coin"></use></svg></span>
-              <h3>AniCoin</h3>
-              <p>Внутренняя валюта для оформления, игры и специальных товаров.</p>
-              <strong>Пополнить баланс</strong>
-            </button>
-            <button class="shop-card case pressable" data-shop-action="cases" type="button">
-              <span class="shop-card-icon"><svg><use href="#i-shop-case"></use></svg></span>
-              <h3>Кейсы</h3>
-              <p>Открывайте кейсы за AniCoin и получайте гарантированную награду.</p>
-              <strong>Перейти к кейсам</strong>
-            </button>
-            <button class="shop-card ads nav pressable" data-view="advertising" type="button">
-              <span class="shop-card-icon"><svg><use href="#i-shop-ads"></use></svg></span>
-              <h3>Реклама</h3>
-              <p>Покупка размещений в Telegram-боте и канале AniGuard.</p>
-              <strong>Создать заказ</strong>
-            </button>
-          </div>
-        </section>
-
-        <section class="view hidden" data-panel="advertising">
-          <div class="section-heading"><div><h2>Реклама</h2><p>Размещения в боте и Telegram-канале</p></div></div>
-          <article class="shop-hero shop-subhero">
-            <h1>Рекламный кабинет</h1>
-            <p>Запускайте рекламу в Telegram-канале, в боте или в формате рекламы с вознаграждением. Перед оплатой заказ отправляется на модерацию.</p>
-            <div class="ad-stats-grid">
-              <div class="metric small"><span>Живые пользователи канала за неделю</span><strong id="ad-live-channel">0</strong></div>
-              <div class="metric small"><span>Живые пользователи бота за неделю</span><strong id="ad-live-bot">0</strong></div>
-              <div class="metric small"><span>Доступно для rewarded-рекламы</span><strong id="ad-live-rewarded">0</strong></div>
-            </div>
-          </article>
-          <article class="form-card spaced">
-            <label>Формат рекламы
-              <select id="advertising-type" class="control">
-                <option value="channel">Telegram-канал · 2 звезды за пользователя</option>
-                <option value="bot">Рассылка в боте · 5 звёзд за пользователя</option>
-                <option value="rewarded">Реклама с вознаграждением · 15 звёзд за пользователя</option>
-              </select>
-            </label>
-            <label>Количество пользователей
-              <input id="advertising-users" class="control" type="number" min="1" step="1" placeholder="Например: 250">
-            </label>
-            <label>Название проекта
-              <input id="advertising-title" class="control" maxlength="80" placeholder="Название проекта или оффера">
-            </label>
-            <label>Ссылка
-              <input id="advertising-url" class="control" placeholder="https://t.me/example">
-            </label>
-            <label>Текст рекламы
-              <textarea id="advertising-text" class="control" maxlength="1200" rows="6" placeholder="Опишите рекламное предложение. Этот текст уйдёт админу на модерацию."></textarea>
-            </label>
-            <article id="advertising-price-summary" class="account-action-card ad-summary-card">
-              <h3>Итог заказа</h3>
-              <p id="advertising-summary-text">Выберите формат рекламы и укажите аудиторию.</p>
-            </article>
-            <div class="button-grid two">
-              <button id="advertising-preview-button" class="secondary" type="button">Предпросмотр</button>
-              <button id="advertising-submit-button" class="primary" type="button">Отправить на модерацию</button>
-            </div>
-          </article>
-          <article id="advertising-preview-card" class="card hidden spaced">
-            <h3 id="advertising-preview-title">Заголовок рекламы</h3>
-            <p id="advertising-preview-text">Текст рекламного объявления</p>
-            <button id="advertising-preview-link" class="primary" type="button">Открыть проект</button>
-          </article>
-          <div class="section-heading"><div><h2>Мои заказы</h2><p>История рекламы и статусы модерации</p></div></div>
-          <div id="advertising-orders" class="telegram-list"></div>
-        </section>
-
-        <section class="view hidden" data-panel="coin-store">
-          <div class="section-heading"><div><h2>Покупка AniCoin</h2><p>100 AniCoin = 1 Telegram Star</p></div></div>
-          <article class="shop-hero shop-subhero">
-            <h1>Пополнение AniCoin</h1>
-            <p>Выберите готовый пакет или укажите свою сумму. Для кастомной покупки сумма должна быть кратна 100 AniCoin.</p>
-            <span class="shop-balance"><svg><use href="#i-shop-coin"></use></svg><span id="coin-store-balance">0 AniCoin</span></span>
-          </article>
-          <div class="coin-package-grid">
-            <button class="coin-package-card pressable" type="button" data-coin-package="100"><b>100 AniCoin</b><small>Стоимость: 1 звезда</small></button>
-            <button class="coin-package-card pressable" type="button" data-coin-package="1000"><b>1 000 AniCoin</b><small>Стоимость: 10 звёзд</small></button>
-            <button class="coin-package-card pressable" type="button" data-coin-package="10000"><b>10 000 AniCoin</b><small>Стоимость: 100 звёзд</small></button>
-            <button class="coin-package-card pressable" type="button" data-coin-package="100000"><b>100 000 AniCoin</b><small>Стоимость: 1 000 звёзд</small></button>
-          </div>
-          <article class="form-card spaced">
-            <label>Своя сумма AniCoin
-              <input id="custom-coin-amount" class="control" type="number" min="10000" step="100" value="10000">
-            </label>
-            <p class="muted">Минимальное пополнение для своей суммы — 10 000 AniCoin (100 звёзд). Сумма 150 AniCoin недоступна, потому что это 1,5 звезды, а Telegram принимает только целые звёзды.</p>
-            <article id="custom-coin-summary" class="account-action-card ad-summary-card"></article>
-            <button id="buy-custom-coins" class="primary" type="button">Создать счёт</button>
-          </article>
-        </section>
-
-        <section class="view hidden" data-panel="cases">
-          <div class="section-heading"><div><h2>Кейсы</h2><p>Открывайте кейсы за AniCoin и получайте награды</p></div></div>
-          <article class="shop-hero shop-subhero">
-            <h1>Premium кейс</h1>
-            <p>Стоимость открытия — <b>2 500 AniCoin</b>. Главная награда — Premium с шансом ниже 1%, а Premium на 1 год имеет шанс 0,001%.</p>
-            <span class="shop-balance"><svg><use href="#i-shop-coin"></use></svg><span id="case-balance">0 AniCoin</span></span>
-          </article>
-          <article class="card spaced premium-case-card">
-            <div class="case-reward-list">
-              <span class="reward-chip">AniCoin от 500 до 6000</span>
-              <span class="reward-chip premium">Premium на 1 час</span>
-              <span class="reward-chip premium">Premium на 1 день</span>
-              <span class="reward-chip premium">Premium на 7 дней</span>
-              <span class="reward-chip premium">Premium на 1 месяц</span>
-              <span class="reward-chip premium">Premium на 6 месяцев</span>
-              <span class="reward-chip premium">Premium на 1 год</span>
-            </div>
-            <div id="case-preview-strip" class="case-preview-strip"></div>
-            <p class="case-info-note">Анимация открытия повторяет формат прокрутки наград. После открытия появляется отдельная карточка с наградой, как в прототипе кейсов.</p>
-            <div id="case-last-result" class="account-action-card"><h3>Последняя награда</h3><p>Нажмите на кнопку ниже, чтобы открыть Premium кейс.</p></div>
-            <button id="open-premium-case" class="primary" type="button">Открыть за 2 500 AniCoin</button>
-          </article>
         </section>
 
         <section class="view hidden" data-panel="group-profile">
@@ -1746,22 +1433,16 @@ html[data-theme="dark"] {
     <button class="nav pressable active" data-view="overview" type="button"><svg><use href="#i-home"></use></svg><span>Главная</span></button>
     <button class="nav pressable" data-view="moderation" type="button"><svg><use href="#i-shield-check"></use></svg><span>Модерация</span></button>
     <button class="nav pressable" data-view="commands" type="button"><svg><use href="#i-command-panel"></use></svg><span>Команды</span></button>
-    <button class="nav pressable" data-view="group-profile" type="button"><svg><use href="#i-group-page"></use></svg><span>Группа</span></button>
-    <button class="nav pressable" data-view="shop" type="button"><svg><use href="#i-shop-page"></use></svg><span>Магазин</span></button>
     <button class="nav pressable" data-view="profile" type="button"><svg><use href="#i-profile"></use></svg><span>Профиль</span></button>
   </nav>
 
   <dialog id="group-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Выберите группу</h2><p>Настройки каждой группы хранятся отдельно</p></div><button id="close-group-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="group-options" class="group-options"></div></div></dialog>
 
-  <dialog id="menu-dialog" class="sheet-dialog account-menu-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Меню аккаунта</h2><p>Поддержка, настройки и FAQ AniGuard</p></div><button id="close-menu-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="menu-links" class="telegram-list"></div></div></dialog>
+  <dialog id="menu-dialog" class="sheet-dialog account-menu-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Меню аккаунта</h2><p>Профиль, настройки и помощь AniGuard</p></div><button id="close-menu-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="menu-account-summary" class="menu-account-summary"></div><div id="menu-links" class="telegram-list"></div></div></dialog>
 
   <dialog id="user-action-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2 id="user-action-title">Раздел аккаунта</h2><p id="user-action-subtitle">AniGuard</p></div><button id="close-user-action-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="user-action-content"></div></div></dialog>
 
   <dialog id="premium-dialog" class="sheet-dialog"><div class="sheet compact-sheet"><div class="sheet-handle"></div><span class="premium-hero-icon small"><svg><use href="#i-diamond"></use></svg></span><h2>Нужен AniGuard Premium</h2><p id="premium-dialog-text">Эта функция доступна только с Premium.</p><button id="premium-dialog-open" class="primary" type="button">Посмотреть Premium</button><button id="premium-dialog-close" class="secondary" type="button">Закрыть</button></div></dialog>
-
-  <dialog id="case-opening-dialog" class="sheet-dialog case-opening-dialog"><div class="sheet case-opening-sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Открытие кейса</h2><p>Прокрутка наград Premium кейса</p></div><button id="close-case-opening" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div class="case-opening-hero"><div><h2>Premium кейс</h2><p>Открывайте кейс за AniCoin и получайте награды.</p></div><span class="shop-balance case-opening-balance"><svg><use href="#i-shop-coin"></use></svg><span id="case-dialog-balance">0 AniCoin</span></span></div><div id="case-dialog-strip" class="case-preview-strip"></div><div class="case-opening-viewport-wrap"><div class="case-opening-pointer"></div><div id="case-opening-viewport" class="case-opening-viewport"><div id="case-opening-track" class="case-opening-track"></div></div></div><p id="case-opening-status" class="case-opening-status muted">Подготавливаем награды…</p><div class="case-opening-actions"><button id="case-skip-btn" class="secondary" type="button">Пропустить анимацию</button></div></div></dialog>
-
-  <dialog id="case-win-dialog" class="sheet-dialog case-win-dialog"><div class="sheet case-win-sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Награда получена</h2><p id="case-win-subtitle">Результат открытия Premium кейса</p></div><button id="close-case-win" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="case-win-content"></div></div></dialog>
 
   <dialog id="action-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div class="section-title"><span id="action-icon" class="section-icon"><svg><use href="#i-command-panel"></use></svg></span><div><h2 id="action-title">Команда</h2><p id="action-description"></p></div></div><button id="close-action" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><label id="action-target-row">Пользователь<select id="action-target" class="control"></select></label><label id="action-duration-row">Срок<input id="action-duration" class="control" placeholder="Пусто — срок из настроек; например: 30 минут или навсегда"></label><label id="action-amount-row" class="hidden">Количество<input id="action-amount" class="control" type="number" min="1" max="1000" value="25"></label><label>Причина<textarea id="action-reason" class="control" rows="3"></textarea></label><button id="execute-action" class="primary" type="button">Выполнить</button></div></dialog>
 
@@ -1780,7 +1461,6 @@ html[data-theme="dark"] {
   <script>
 
 (() => {
-  if (new URLSearchParams(location.search).get('demo') !== '1') return;
   const now = new Date();
   const iso = (days=0, hours=0) => new Date(now.getTime()+days*86400000+hours*3600000).toISOString();
   const chatId = -1004438078492;
@@ -1988,13 +1668,6 @@ html[data-theme="dark"] {
     premiumStatus: null,
     editingBasicKey: null,
     captchaPreviewAnswer: null,
-    supportMessages: [
-      {from:'support', text:'Здравствуйте! Это AniGuard Support. Напишите вопрос по Mini App, Premium, AniCoin, кейсам или рекламе.', time:'сейчас'},
-    ],
-    siteSettings: null,
-    adOrders: [],
-    liveAudience: {channel: 1480, bot: 860, rewarded: 620},
-    caseAnimating: false,
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -2206,41 +1879,23 @@ html[data-theme="dark"] {
     $$('.view').forEach(panel => panel.classList.toggle('hidden', panel.dataset.panel !== view));
     $$('.nav[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === view));
     const bottomMap = {
-      overview:'overview',
-      moderation:'moderation',
-      commands:'commands',
-      'group-profile':'group-profile',
-      members:'group-profile', reports:'group-profile', logs:'group-profile', settings:'group-profile',
-      shop:'shop', advertising:'shop', premium:'shop', 'coin-store':'shop', cases:'shop',
-      profile:'profile', admin:'profile',
+      overview:'overview', moderation:'moderation', commands:'commands', profile:'profile', 'group-profile':'profile',
+      members:'profile', reports:'profile', logs:'profile', settings:'profile', premium:'profile', admin:'profile',
       custom:'commands', game:'commands', rp:'commands',
     };
     $$('#bottom-nav .nav').forEach(button => button.classList.toggle('active', button.dataset.view === (bottomMap[view] || 'overview')));
     if (view === 'admin' && state.user?.is_bot_admin) loadAdmin();
-    if (view === 'advertising') renderAdvertisingCabinet();
-    if (view === 'coin-store') renderCoinStore();
-    if (view === 'cases') renderCaseLanding();
     if (tg?.BackButton) {
-      if (['overview','moderation','commands','group-profile','shop','profile'].includes(view)) tg.BackButton.hide();
+      if (['overview','moderation','commands','profile'].includes(view)) tg.BackButton.hide();
       else tg.BackButton.show();
     }
     haptic('light');
     window.scrollTo({top:0, behavior:'smooth'});
   }
 
-  function initialViewFromPath() {
-    const path = location.pathname.replace(/\/+$/, '');
-    if (path === '/shop') return 'shop';
-    if (path === '/account') return 'profile';
-    if (path === '/group') return 'group-profile';
-    return 'overview';
-  }
-
   async function init() {
     try {
       applyTelegramChrome();
-      state.siteSettings = loadSiteSettings();
-      applySiteSettings();
       bindEvents();
       state.user = await api('/api/me');
       $('#user-line').textContent = `${state.user.username ? '@' + state.user.username : state.user.first_name}${state.user.premium ? ' · Premium' : ''}`;
@@ -2260,22 +1915,13 @@ html[data-theme="dark"] {
         state.chatId = state.chats[0].id;
         $('#chat-select').value = String(state.chatId);
         await loadChat();
-        const initialView = initialViewFromPath();
-        if (initialView !== 'overview') setView(initialView);
       } else if (state.user.is_bot_admin) {
         $('#chat-select').innerHTML = '<option>Нет бесед</option>';
         setView('admin');
       } else {
-        const initialView = initialViewFromPath();
-        if (['shop','profile'].includes(initialView)) {
-          $('#workspace').classList.remove('hidden');
-          $('#bottom-nav').classList.remove('hidden');
-          setView(initialView);
-        } else {
-          $('#workspace').classList.add('hidden');
-          $('#bottom-nav').classList.add('hidden');
-          $('#empty-state').classList.remove('hidden');
-        }
+        $('#workspace').classList.add('hidden');
+        $('#bottom-nav').classList.add('hidden');
+        $('#empty-state').classList.remove('hidden');
       }
     } catch (error) {
       $('#empty-state').classList.remove('hidden');
@@ -2521,7 +2167,12 @@ html[data-theme="dark"] {
   }
 
   function renderMenuAccountSummary() {
-    return;
+    const node = $('#menu-account-summary');
+    if (!node || !state.user) return;
+    const fullName = [state.user.first_name, state.user.last_name].filter(Boolean).join(' ') || 'Пользователь';
+    node.innerHTML = `
+      <span class="menu-user-avatar"><span>${escapeHtml(userInitials(state.user))}</span>${state.user.avatar_url ? `<img src="${escapeHtml(state.user.avatar_url)}" alt="Аватар" onerror="this.remove()">` : ''}</span>
+      <span><b class="${state.user.premium ? 'premium-user-name' : 'regular-user-name'}">${escapeHtml(fullName)}</b><small>ID ${state.user.id}${state.user.premium ? ' · Premium' : ''}</small></span>`;
   }
 
   function renderUserProfile() {
@@ -2551,11 +2202,11 @@ html[data-theme="dark"] {
     $('#account-reputation-meta').textContent = reputationLabel(Number(stats.reputation ?? 100));
 
     $('#account-info-list').innerHTML = [
-      accountInfoCard('i-account-chats', 'Подключённые беседы', String(stats.chats || 0), 'Группы под вашим управлением'),
-      accountInfoCard('i-account-messages', 'Сообщения', Number(stats.messages || 0).toLocaleString('ru-RU'), 'Учтённая активность'),
-      accountInfoCard('i-account-warnings', 'Предупреждения', String(stats.warnings || 0), 'Получено в беседах'),
+      accountInfoCard('i-chat', 'Подключённые беседы', String(stats.chats || 0), 'Группы под вашим управлением'),
+      accountInfoCard('i-document', 'Сообщения', Number(stats.messages || 0).toLocaleString('ru-RU'), 'Учтённая активность'),
+      accountInfoCard('i-warning', 'Предупреждения', String(stats.warnings || 0), 'Получено в беседах'),
       accountInfoCard(
-        'i-account-premium',
+        'i-diamond',
         'Premium',
         user.premium ? 'Активен' : 'Неактивен',
         user.premium_lifetime
@@ -2568,22 +2219,11 @@ html[data-theme="dark"] {
       ),
     ].join('');
     renderMenuAccountSummary();
-    refreshAniCoinDisplays();
-    renderCoinStore();
-    renderAdvertisingCabinet();
-    renderCaseLanding();
   }
 
 
   function accountInfoCard(iconId, title, value, subtitle, action = '', premium = false) {
-    const toneMap = {
-      'i-account-chats': 'chats',
-      'i-account-messages': 'messages',
-      'i-account-warnings': 'warnings',
-      'i-account-premium': 'premium',
-    };
-    const tone = toneMap[iconId] || '';
-    return `<button class="account-info-card pressable ${premium ? 'premium' : ''}" ${tone ? `data-tone="${tone}"` : ''} type="button" ${action ? `data-profile-action="${action}"` : ''}>
+    return `<button class="account-info-card pressable ${premium ? 'premium' : ''}" type="button" ${action ? `data-profile-action="${action}"` : ''}>
       <span class="account-info-icon"><svg viewBox="0 0 24 24"><use href="#${iconId}"></use></svg></span>
       <span class="account-info-copy">
         <small>${escapeHtml(title)}</small>
@@ -2659,8 +2299,9 @@ html[data-theme="dark"] {
     const node = $('#menu-links');
     if (!node) return;
     const links = [
-      ['support', 'i-menu-support', 'support', 'Чат с поддержкой', 'Связаться с командой AniGuard'],
+      ['profile', 'i-menu-profile', 'profile', 'Профиль', 'Баланс, уровни и статистика аккаунта'],
       ['settings', 'i-menu-settings', 'settings', 'Настройки', 'Оформление и параметры пользователя'],
+      ['advertising', 'i-menu-advertising', 'advertising', 'Реклама', 'Покупка размещений в боте и канале'],
       ['faq', 'i-menu-faq', 'faq', 'FAQ', 'Ответы на частые вопросы'],
     ];
     node.innerHTML = links.map(([action,iconId,tone,title,sub]) => `<button class="telegram-row account-menu-link pressable" data-user-menu-action="${action}" type="button"><span class="row-icon account-menu-icon ${tone}"><svg><use href="#${iconId}"></use></svg></span><span class="row-copy"><b>${title}</b><small>${sub}</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>`).join('');
@@ -2672,52 +2313,28 @@ html[data-theme="dark"] {
     const title = $('#user-action-title');
     const subtitle = $('#user-action-subtitle');
     const content = $('#user-action-content');
-    content.classList.add('user-action-content-plain');
 
     if (action === 'settings') {
       title.textContent = 'Настройки';
-      subtitle.textContent = 'Настройки сайта AniGuard';
-      const s = state.siteSettings || loadSiteSettings();
+      subtitle.textContent = 'Параметры аккаунта AniGuard';
       content.innerHTML = `
-        <div class="account-action-card"><h3>Настройки сайта</h3><p>Эти параметры влияют на внешний вид и поведение Mini App только на вашем устройстве.</p></div>
-        <div class="account-action-list">
-          <button class="telegram-row pressable" type="button" data-toggle-theme-from-settings><span class="row-icon account-menu-icon settings"><svg><use href="#i-menu-settings"></use></svg></span><span class="row-copy"><b>Светлая или тёмная тема</b><small>Сейчас используется ${document.documentElement.dataset.theme === 'dark' ? 'тёмная' : 'светлая'} тема</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
-          <label class="setting-toggle-row"><span class="copy"><b>Размытие фона</b><small>Эффект blur для модальных окон и подложки</small></span><span class="toggle"><input type="checkbox" data-app-setting="backdropBlur" ${s.backdropBlur ? 'checked' : ''}><span></span></span></label>
-          <label class="setting-toggle-row"><span class="copy"><b>Сниженная анимация</b><small>Уменьшает длительность анимаций и прокруток</small></span><span class="toggle"><input type="checkbox" data-app-setting="reducedMotion" ${s.reducedMotion ? 'checked' : ''}><span></span></span></label>
-          <label class="setting-toggle-row"><span class="copy"><b>Компактный режим</b><small>Делает карточки и блоки плотнее</small></span><span class="toggle"><input type="checkbox" data-app-setting="compactCards" ${s.compactCards ? 'checked' : ''}><span></span></span></label>
-          <label class="setting-toggle-row"><span class="copy"><b>Показывать подсказки</b><small>Описание разделов и дополнительные пояснения</small></span><span class="toggle"><input type="checkbox" data-app-setting="showHints" ${s.showHints ? 'checked' : ''}><span></span></span></label>
-        </div>
-        <div class="site-setting-actions"><button class="secondary" type="button" data-reset-ui-settings>Сбросить настройки сайта</button></div>`;
-    } else if (action === 'support') {
-      title.textContent = 'Чат с поддержкой';
-      subtitle.textContent = 'Помощь по AniGuard';
+        <div class="account-action-card"><h3>Оформление</h3><p>Переключайте тему независимо от темы Telegram. Выбор сохраняется на устройстве.</p></div>
+        <button class="telegram-row pressable" type="button" data-toggle-theme-from-settings><span class="row-icon account-menu-icon settings"><svg><use href="#i-menu-settings"></use></svg></span><span class="row-copy"><b>Светлая или тёмная тема</b><small>Текущая тема: ${document.documentElement.dataset.theme === 'dark' ? 'тёмная' : 'светлая'}</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
+        <div class="account-action-card"><h3>Данные аккаунта</h3><p>Имя, фамилия, ID, Premium и баланс загружаются с сервера. Права и баланс нельзя изменить через код страницы.</p></div>`;
+    } else if (action === 'advertising') {
+      title.textContent = 'Реклама';
+      subtitle.textContent = 'Размещения в экосистеме AniGuard';
       content.innerHTML = `
-        <div class="account-action-card"><h3>Прямая переписка с поддержкой</h3><p>В этом окне можно написать в поддержку прямо из панели. Основной бот поддержки: <b>@anicode_support_bot</b>.</p></div>
-        <div id="support-thread" class="support-thread"></div>
-        <div class="support-composer">
-          <textarea id="support-input" class="control" placeholder="Опишите вопрос: Premium, AniCoin, кейсы, реклама, настройки беседы..."></textarea>
-          <div class="support-actions">
-            <button class="primary" type="button" data-send-support-message>Отправить сообщение</button>
-            <button class="secondary" type="button" data-open-support-chat>Открыть @anicode_support_bot</button>
-          </div>
-          <button class="telegram-row pressable" type="button" data-copy-support-username><span class="row-icon account-menu-icon support"><svg><use href="#i-menu-support"></use></svg></span><span class="row-copy"><b>@anicode_support_bot</b><small>Скопировать имя пользователя</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
-        </div>`;
-      loadSupportThread();
+        <div class="account-action-card"><h3>AniGuard Ads</h3><p>Покупка рекламы в Telegram-боте, рекламных постов в канале и комбинированных размещений.</p></div>
+        <button class="primary account-action-button" type="button" data-open-advertising>Открыть магазин рекламы</button>`;
     } else if (action === 'faq') {
       title.textContent = 'FAQ';
       subtitle.textContent = 'Часто задаваемые вопросы';
       content.innerHTML = `
-        <div class="faq-hero-card"><h3>Быстрые ответы по AniGuard</h3><p>Здесь собраны самые частые вопросы по подключению группы, Premium, AniCoin, кейсам, рекламе и Mini App.</p></div>
-        <div class="faq-list-modern">
-          <details class="faq-item modern" open><summary>Как подключить беседу?</summary><p>Добавьте AniGuard администратором в беседу. Если регистрация не сработала автоматически, отправьте команду <code>/register_chat</code> и снова откройте Mini App.</p></details>
-          <details class="faq-item modern"><summary>Для чего нужен AniCoin?</summary><p>AniCoin — внутренняя валюта проекта. Она нужна для кейсов, будущих игровых механик, оформления и специальных покупок в магазине AniGuard.</p></details>
-          <details class="faq-item modern"><summary>Как работает Premium?</summary><p>Premium расширяет лимиты, открывает часть защитных функций, даёт дополнительные возможности в боте и выделяет ваш профиль. Для группы Premium может работать отдельно от Premium пользователя.</p></details>
-          <details class="faq-item modern"><summary>Какие шансы у Premium кейса?</summary><p>Основной шанс всегда идёт на награду AniCoin. Совокупный шанс выпадения Premium — меньше 1%. Самая редкая награда — Premium на 1 год с шансом 0,001%.</p></details>
-          <details class="faq-item modern"><summary>Как считается статистика аккаунта?</summary><p>Рейтинг, уровень аккаунта, игровой уровень и репутация рассчитываются по вашей активности: сообщениям, участию в группах, игровому прогрессу и предупреждениям.</p></details>
-          <details class="faq-item modern"><summary>Как заказать рекламу?</summary><p>Выберите формат рекламы, укажите количество пользователей, добавьте текст объявления и отправьте заказ на модерацию. После одобрения появится кнопка оплаты в Telegram Stars.</p></details>
-          <details class="faq-item modern"><summary>Почему нельзя указать 150 AniCoin при покупке?</summary><p>Потому что 100 AniCoin = 1 звезда. Значение 150 AniCoin означало бы 1,5 звезды, а Telegram не поддерживает оплату дробными звёздами.</p></details>
-          <details class="faq-item modern"><summary>Куда писать, если что-то не работает?</summary><p>Используйте встроенный чат поддержки в панели или откройте бота <b>@anicode_support_bot</b>. Обычно ответы по проекту дают в течение рабочего времени.</p></details>
-        </div>`;
+        <details class="faq-item" open><summary>Как подключить беседу?</summary><p>Добавьте AniGuard администратором. Если регистрация не выполнилась автоматически, отправьте в группе команду <code>/register_chat</code>.</p></details>
+        <details class="faq-item"><summary>Для чего нужен AniCoin?</summary><p>AniCoin используется в магазине, кейсах, оформлении профиля и игровых механиках.</p></details>
+        <details class="faq-item"><summary>Почему ник золотой?</summary><p>Золотой или жёлтый ник отображается только у пользователя с активным Premium. У обычного аккаунта ник серо-синий.</p></details>
+        <details class="faq-item"><summary>Как определяется статистика?</summary><p>Уровни, рейтинг и репутация рассчитываются сервером по активности, XP, числу бесед и предупреждениям.</p></details>`;
     }
     if (!dialog.open) dialog.showModal();
   }
@@ -2983,7 +2600,7 @@ html[data-theme="dark"] {
   }
 
   async function createRule() {
-    const payload = {name:$('#rule-name').value.trim(), condition:{type:$('#rule-condition').value}, actions:[{type:$('#rule-action').value}], enabled:true, is_premium:false};
+    const payload = {name:$('#rule-name').value.trim(), condition:{type:$('#rule-condition').value}, actions:[{type:$('#rule-action').value}], enabled:true, is_premium:$('#rule-premium').checked};
     try { await api(`/api/chats/${state.chatId}/rules`, {method:'POST', body:JSON.stringify(payload)}); notify('Правило создано.'); await loadChat(); }
     catch (error) { notify(error.message, true); }
   }
@@ -3249,447 +2866,6 @@ html[data-theme="dark"] {
     notify('Группа переключена.');
   }
 
-
-  const UI_SETTINGS_STORAGE_KEY = 'aniguard-site-settings-v1';
-
-  function defaultSiteSettings() {
-    return {backdropBlur:true, reducedMotion:false, compactCards:false, showHints:true};
-  }
-
-  function loadSiteSettings() {
-    try {
-      return {...defaultSiteSettings(), ...JSON.parse(localStorage.getItem(UI_SETTINGS_STORAGE_KEY) || '{}')};
-    } catch {
-      return defaultSiteSettings();
-    }
-  }
-
-  function persistSiteSettings() {
-    localStorage.setItem(UI_SETTINGS_STORAGE_KEY, JSON.stringify(state.siteSettings || defaultSiteSettings()));
-  }
-
-  function applySiteSettings() {
-    if (!state.siteSettings) state.siteSettings = loadSiteSettings();
-    const s = state.siteSettings;
-    document.documentElement.classList.toggle('ui-no-blur', !s.backdropBlur);
-    document.documentElement.classList.toggle('ui-reduced-motion', !!s.reducedMotion);
-    document.documentElement.classList.toggle('ui-compact', !!s.compactCards);
-    document.documentElement.classList.toggle('ui-hide-hints', !s.showHints);
-  }
-
-  function refreshAniCoinDisplays() {
-    const value = Number(state.user?.ani_coin || 0).toLocaleString('ru-RU');
-    $('#shop-balance-value') && ($('#shop-balance-value').textContent = `${value} AniCoin`);
-    $('#coin-store-balance') && ($('#coin-store-balance').textContent = `${value} AniCoin`);
-    $('#case-balance') && ($('#case-balance').textContent = `${value} AniCoin`);
-    $('#account-anicoin') && ($('#account-anicoin').textContent = value);
-  }
-
-  function renderSupportThread() {
-    const node = $('#support-thread');
-    if (!node) return;
-    node.innerHTML = state.supportMessages.length
-      ? state.supportMessages.map(message => `<div class="support-message ${message.from}">${escapeHtml(message.text)}<small>${escapeHtml(message.from === 'user' ? 'Вы' : 'Поддержка')} · ${escapeHtml(message.time || '')}</small></div>`).join('')
-      : '<div class="card muted">Сообщений пока нет. Напишите первый вопрос.</div>';
-    node.scrollTop = node.scrollHeight;
-  }
-
-  async function loadSupportThread() {
-    try {
-      const payload = await api('/api/support/thread');
-      state.supportMessages = (payload.messages || []).map(message => ({
-        from: message.sender_type === 'support' ? 'support' : 'user',
-        text: message.text,
-        time: message.created_at ? new Date(message.created_at).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'}) : '',
-      }));
-      renderSupportThread();
-    } catch (error) {
-      notify(error.message, true);
-      renderSupportThread();
-    }
-  }
-
-  async function sendSupportMessage() {
-    const input = $('#support-input');
-    if (!input) return;
-    const text = input.value.trim();
-    if (!text) return notify('Введите сообщение для поддержки.', true);
-    const button = $('[data-send-support-message]');
-    if (button) button.disabled = true;
-    try {
-      await api('/api/support/messages', {method:'POST', body:JSON.stringify({text})});
-      input.value = '';
-      await loadSupportThread();
-      notify('Сообщение отправлено в поддержку.');
-    } catch (error) {
-      notify(error.message, true);
-    } finally {
-      if (button) button.disabled = false;
-    }
-  }
-
-  function renderCoinStore() {
-    refreshAniCoinDisplays();
-    updateCustomCoinSummary();
-  }
-
-  function customCoinStars(amount) {
-    return Number(amount) / 100;
-  }
-
-  function updateCustomCoinSummary() {
-    const node = $('#custom-coin-summary');
-    const input = $('#custom-coin-amount');
-    if (!node || !input) return;
-    const amount = Number(input.value || 0);
-    const valid = amount >= 10000 && amount % 100 === 0;
-    node.innerHTML = valid
-      ? `<h3>Индивидуальный пакет</h3><p>${amount.toLocaleString('ru-RU')} AniCoin = <b>${customCoinStars(amount).toLocaleString('ru-RU')} звёзд</b>. Пакет соответствует ограничениям Telegram Stars.</p>`
-      : '<h3>Индивидуальный пакет</h3><p>Введите сумму от 10 000 AniCoin и кратную 100 AniCoin.</p>';
-  }
-
-  async function reloadUserProfile() {
-    state.user = await api('/api/me');
-    renderUserProfile();
-    refreshAniCoinDisplays();
-  }
-
-  async function createCoinPurchase(amount, custom = false) {
-    const stars = customCoinStars(amount);
-    if (!Number.isInteger(stars)) return notify('Сумма должна конвертироваться в целое количество звёзд.', true);
-    try {
-      const invoice = await api('/api/store/coins/invoice', {
-        method:'POST',
-        body:JSON.stringify({amount:Number(amount), custom:Boolean(custom)}),
-      });
-      if (tg?.openInvoice) {
-        tg.openInvoice(invoice.invoice_url, async status => {
-          if (status === 'paid') {
-            await reloadUserProfile();
-            notify(`Баланс пополнен на ${Number(amount).toLocaleString('ru-RU')} AniCoin.`);
-          } else if (status === 'failed') notify('Оплата не прошла.', true);
-        });
-      } else {
-        window.open(invoice.invoice_url, '_blank', 'noopener,noreferrer');
-        notify(`Счёт на ${invoice.stars} ⭐ открыт в новом окне.`);
-      }
-    } catch (error) {
-      notify(error.message, true);
-    }
-  }
-
-  async function renderAdvertisingCabinet() {
-    try {
-      const [audience, orders] = await Promise.all([api('/api/store/audience'), api('/api/store/ads')]);
-      state.liveAudience = audience.live || state.liveAudience;
-      state.adRates = audience.rates || {channel:2, bot:5, rewarded:15};
-      state.adOrders = (orders || []).map(order => ({
-        id: order.id,
-        type: order.placement,
-        typeLabel: order.placement_label,
-        users: order.audience_count,
-        price: order.total_stars,
-        title: order.title,
-        text: order.text,
-        url: order.url,
-        status: order.status,
-        moderationNote: order.moderation_note,
-      }));
-    } catch (error) {
-      notify(error.message, true);
-    }
-    $('#ad-live-channel') && ($('#ad-live-channel').textContent = Number(state.liveAudience.channel || 0).toLocaleString('ru-RU'));
-    $('#ad-live-bot') && ($('#ad-live-bot').textContent = Number(state.liveAudience.bot || 0).toLocaleString('ru-RU'));
-    $('#ad-live-rewarded') && ($('#ad-live-rewarded').textContent = Number(state.liveAudience.rewarded || 0).toLocaleString('ru-RU'));
-    updateAdvertisingSummary();
-    renderAdvertisingOrders();
-  }
-
-  function advertisingTypeMeta(type) {
-    const rates = state.adRates || {channel:2, bot:5, rewarded:15};
-    if (type === 'channel') return {title:'Telegram-канал', live:Number(state.liveAudience.channel || 0), starsPerUser:Number(rates.channel || 2)};
-    if (type === 'rewarded') return {title:'Реклама с вознаграждением', live:Number(state.liveAudience.rewarded || 0), starsPerUser:Number(rates.rewarded || 15)};
-    return {title:'Рассылка в боте', live:Number(state.liveAudience.bot || 0), starsPerUser:Number(rates.bot || 5)};
-  }
-
-  function updateAdvertisingSummary() {
-    const node = $('#advertising-summary-text');
-    const type = $('#advertising-type')?.value || 'channel';
-    const users = Number($('#advertising-users')?.value || 0);
-    if (!node) return;
-    const meta = advertisingTypeMeta(type);
-    const total = users > 0 ? users * meta.starsPerUser : 0;
-    node.innerHTML = users > 0
-      ? `Формат: <b>${meta.title}</b><br>Живых пользователей за неделю: <b>${meta.live.toLocaleString('ru-RU')}</b><br>Выбрано пользователей: <b>${users.toLocaleString('ru-RU')}</b><br>Итоговая стоимость: <b>${total.toLocaleString('ru-RU')} звёзд</b>`
-      : `Выберите формат рекламы. Доступно пользователей: <b>${meta.live.toLocaleString('ru-RU')}</b>, цена за пользователя: <b>${meta.starsPerUser} ⭐</b>.`;
-  }
-
-  function showAdvertisingPreview() {
-    const title = $('#advertising-title')?.value.trim() || 'Без названия';
-    const body = $('#advertising-text')?.value.trim() || 'Текст рекламного объявления';
-    $('#advertising-preview-title').textContent = title;
-    $('#advertising-preview-text').textContent = body;
-    $('#advertising-preview-card').classList.remove('hidden');
-  }
-
-  function renderAdvertisingOrders() {
-    const node = $('#advertising-orders');
-    if (!node) return;
-    if (!state.adOrders.length) {
-      node.innerHTML = '<div class="card muted">Рекламных заказов пока нет.</div>';
-      return;
-    }
-    node.innerHTML = state.adOrders.map(order => {
-      const badgeClass = order.status === 'pending' ? 'pending' : order.status === 'approved' ? 'approved' : order.status === 'paid' ? 'paid' : 'rejected';
-      const badgeText = order.status === 'pending' ? 'На модерации' : order.status === 'approved' ? 'Одобрено' : order.status === 'paid' ? 'Оплачено' : 'Отклонено';
-      return `<div class="telegram-row order-card"><div class="row-copy"><div class="order-head"><b>${escapeHtml(order.title)}</b><span class="order-badge ${badgeClass}">${badgeText}</span></div><span class="order-meta">${escapeHtml(order.typeLabel)} · ${Number(order.users).toLocaleString('ru-RU')} пользователей · ${Number(order.price).toLocaleString('ru-RU')} ⭐</span><small>${escapeHtml(order.text)}</small>${order.moderationNote ? `<small>${escapeHtml(order.moderationNote)}</small>` : ''}${order.url ? `<small>${escapeHtml(order.url)}</small>` : ''}</div>${order.status === 'approved' ? `<span class="order-actions"><button class="primary pay-ad-order" type="button" data-order-id="${order.id}">Оплатить ${Number(order.price).toLocaleString('ru-RU')} ⭐</button></span>` : ''}</div>`;
-    }).join('');
-  }
-
-  async function submitAdvertisingOrder() {
-    const type = $('#advertising-type')?.value || 'channel';
-    const users = Number($('#advertising-users')?.value || 0);
-    const title = $('#advertising-title')?.value.trim();
-    const body = $('#advertising-text')?.value.trim();
-    const url = $('#advertising-url')?.value.trim();
-    const meta = advertisingTypeMeta(type);
-    if (!title) return notify('Укажите название проекта.', true);
-    if (!body || body.length < 15) return notify('Текст рекламы слишком короткий.', true);
-    if (!users || users < 1) return notify('Укажите количество пользователей.', true);
-    if (users > meta.live) return notify(`Доступно только ${meta.live.toLocaleString('ru-RU')} живых пользователей за неделю для этого формата.`, true);
-    try {
-      const order = await api('/api/store/ads', {
-        method:'POST',
-        body:JSON.stringify({placement:type, audience_count:users, title, text:body, url:url || null}),
-      });
-      notify(`Заказ #${order.id} отправлен на модерацию.`);
-      await renderAdvertisingCabinet();
-    } catch (error) {
-      notify(error.message, true);
-    }
-  }
-
-  async function payAdOrder(orderId) {
-    try {
-      const invoice = await api(`/api/store/ads/${Number(orderId)}/invoice`, {method:'POST', body:'{}'});
-      if (tg?.openInvoice) {
-        tg.openInvoice(invoice.invoice_url, async status => {
-          if (status === 'paid') {
-            notify(`Рекламный заказ #${orderId} оплачен.`);
-            await renderAdvertisingCabinet();
-          } else if (status === 'failed') notify('Оплата не прошла.', true);
-        });
-      } else {
-        window.open(invoice.invoice_url, '_blank', 'noopener,noreferrer');
-      }
-    } catch (error) {
-      notify(error.message, true);
-    }
-  }
-
-  function caseRewardPool() {
-    return [
-      {type:'coins', min:500, max:6000, weight:99.049},
-      {type:'premium', duration:'1 час', ms:3600_000, weight:0.4},
-      {type:'premium', duration:'1 день', ms:86_400_000, weight:0.25},
-      {type:'premium', duration:'7 дней', ms:604_800_000, weight:0.15},
-      {type:'premium', duration:'1 месяц', ms:2_592_000_000, weight:0.1},
-      {type:'premium', duration:'6 месяцев', ms:15_552_000_000, weight:0.05},
-      {type:'premium', duration:'1 год', ms:31_536_000_000, weight:0.001},
-    ];
-  }
-
-  let caseAnimationTimer = null;
-  let caseFinishTimer = null;
-  let currentCaseReward = null;
-
-  function mapCaseRewardPresentation(reward) {
-    const label = reward.reward_label || reward.label || '';
-    const isPremium = (reward.reward_type || reward.type) === 'premium' || /Premium/i.test(label);
-    if (!isPremium) {
-      const amount = reward.amount ?? Number((label.match(/(\d[\d\s]*)/) || ['0','0'])[1].replace(/\s+/g,''));
-      let rarity = 'Обычная награда';
-      let description = 'Монеты моментально зачисляются на баланс AniCoin.';
-      if (amount >= 5000) { rarity = 'Редкая награда'; description = 'Крупный приз AniCoin уже добавлен на ваш кошелёк.'; }
-      else if (amount >= 2500) { rarity = 'Хорошая награда'; description = 'AniCoin уже начислены на баланс и готовы к использованию.'; }
-      return { reward_type:'coins', label:label || `${amount.toLocaleString('ru-RU')} AniCoin`, sub:'Монеты', icon:'coin', premium:false, rarity, description };
-    }
-
-    const premiumMap = {
-      '1 час': ['Редкая награда', 'Premium активирован на 1 час.'],
-      '1 день': ['Редкая награда', 'Premium активирован на 1 день.'],
-      '7 дней': ['Эпическая награда', 'Premium активирован на 7 дней.'],
-      '1 месяц': ['Легендарная награда', 'Premium активирован на 1 месяц.'],
-      '6 месяцев': ['Мифическая награда', 'Premium активирован на 6 месяцев.'],
-      '1 год': ['Эксклюзивная награда', 'Максимальный приз — Premium активирован на 1 год.'],
-    };
-    const duration = Object.keys(premiumMap).find(key => label.includes(key)) || '1 день';
-    const [rarity, description] = premiumMap[duration];
-    return { reward_type:'premium', label:label || `Premium на ${duration}`, sub:'Premium', icon:'premium', premium:true, rarity, description };
-  }
-
-  function randomCaseReward() {
-    const pool = caseRewardPool();
-    const fake = pool[Math.floor(Math.random() * pool.length)];
-    if (fake.type === 'coins') {
-      const amount = Math.floor(Math.random() * (fake.max - fake.min + 1)) + fake.min;
-      return mapCaseRewardPresentation({ type:'coins', amount, label:`${amount.toLocaleString('ru-RU')} AniCoin` });
-    }
-    return mapCaseRewardPresentation({ type:'premium', label:`Premium на ${fake.duration}` });
-  }
-
-  function caseRewardCell(item) {
-    const iconUse = item.icon === 'premium' ? '#i-diamond' : '#i-shop-coin';
-    return `<span class="case-cell-icon"><svg><use href="${iconUse}"></use></svg></span>`;
-  }
-
-  function caseRewardCard(item, cssClass = 'case-preview-item') {
-    return `<div class="${cssClass} ${item.premium ? 'premium' : ''}">${caseRewardCell(item)}<div class="case-item-title">${escapeHtml(item.label)}</div><div class="case-item-sub">${escapeHtml(item.sub || '')}</div></div>`;
-  }
-
-  function renderCasePreview() {
-    const previewItems = [
-      mapCaseRewardPresentation({type:'coins', label:'500 AniCoin', amount:500}),
-      mapCaseRewardPresentation({type:'coins', label:'1200 AniCoin', amount:1200}),
-      mapCaseRewardPresentation({type:'premium', label:'Premium на 1 час'}),
-      mapCaseRewardPresentation({type:'coins', label:'3200 AniCoin', amount:3200}),
-      mapCaseRewardPresentation({type:'premium', label:'Premium на 1 день'}),
-      mapCaseRewardPresentation({type:'coins', label:'5800 AniCoin', amount:5800}),
-    ];
-    ['case-preview-strip', 'case-dialog-strip'].forEach(id => {
-      const node = $(`#${id}`);
-      if (node) node.innerHTML = previewItems.map(item => caseRewardCard(item, 'case-preview-item')).join('');
-    });
-  }
-
-  function renderCaseLanding() {
-    refreshAniCoinDisplays();
-    renderCasePreview();
-  }
-
-  function openCaseOpeningDialog(rewardView) {
-    currentCaseReward = rewardView;
-    const dialog = $('#case-opening-dialog');
-    const track = $('#case-opening-track');
-    const viewport = $('#case-opening-viewport');
-    const status = $('#case-opening-status');
-    if (!dialog || !track || !viewport || !status) return;
-
-    const items = [];
-    const winnerIndex = 56;
-    for (let i = 0; i < 70; i += 1) {
-      items.push(i === winnerIndex ? rewardView : randomCaseReward());
-    }
-    track.style.transition = 'none';
-    track.style.transform = 'translate3d(0,0,0)';
-    track.innerHTML = items.map(item => caseRewardCard(item, 'case-opening-item')).join('');
-    $('#case-dialog-balance') && ($('#case-dialog-balance').textContent = `${Number(state.user?.ani_coin || 0).toLocaleString('ru-RU')} AniCoin`);
-    status.textContent = 'Прокручиваем награды...';
-
-    if (!dialog.open) dialog.showModal();
-
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      const first = track.querySelector('.case-opening-item');
-      const itemStyles = first ? getComputedStyle(first) : null;
-      const gap = parseFloat(getComputedStyle(track).gap || '10') || 10;
-      const itemWidth = (first ? first.getBoundingClientRect().width : 146) + gap;
-      const itemCenter = winnerIndex * itemWidth + (itemWidth - gap) / 2;
-      const viewportCenter = viewport.clientWidth / 2;
-      const jitter = Math.round((Math.random() - 0.5) * 26);
-      const target = viewportCenter - itemCenter + jitter;
-      track.style.transition = document.documentElement.classList.contains('ui-reduced-motion')
-        ? 'transform .45s linear'
-        : 'transform 6.2s cubic-bezier(.08,.67,.08,1)';
-      track.style.transform = `translate3d(${target}px,0,0)`;
-    }));
-
-    clearTimeout(caseAnimationTimer);
-    clearTimeout(caseFinishTimer);
-    caseAnimationTimer = setTimeout(() => {
-      $('#case-opening-status') && ($('#case-opening-status').textContent = `Выпало: ${rewardView.label}`);
-    }, document.documentElement.classList.contains('ui-reduced-motion') ? 200 : 5800);
-    caseFinishTimer = setTimeout(() => finishCaseOpening(), document.documentElement.classList.contains('ui-reduced-motion') ? 520 : 6650);
-  }
-
-  function renderCaseWinDialog(rewardView) {
-    const content = $('#case-win-content');
-    if (!content) return;
-    const balanceNote = rewardView.reward_type === 'coins'
-      ? 'Награда уже начислена на ваш баланс AniCoin.'
-      : 'Premium уже активирован на сервере и учтён в профиле.';
-    $('#case-win-subtitle') && ($('#case-win-subtitle').textContent = rewardView.rarity);
-    content.innerHTML = `
-      <div class="case-win-card ${rewardView.premium ? 'premium' : ''}">
-        ${caseRewardCell(rewardView)}
-        <div class="case-win-kicker">${escapeHtml(rewardView.rarity.toUpperCase())}</div>
-        <div class="case-win-title">${escapeHtml(rewardView.label)}</div>
-        <div class="case-win-text">${escapeHtml(rewardView.description)}<br>${escapeHtml(balanceNote)}</div>
-        <div class="case-win-actions">
-          <button id="case-open-again" class="primary" type="button">Открыть ещё за 2 500 AniCoin</button>
-          <button id="case-win-done" class="secondary" type="button">Закрыть</button>
-        </div>
-      </div>`;
-    const again = $('#case-open-again');
-    const done = $('#case-win-done');
-    if (again) {
-      again.disabled = Number(state.user?.ani_coin || 0) < 2500;
-      again.addEventListener('click', () => {
-        $('#case-win-dialog').close();
-        openPremiumCase();
-      }, { once:true });
-    }
-    if (done) done.addEventListener('click', () => $('#case-win-dialog').close(), { once:true });
-    $('#case-win-dialog').showModal();
-  }
-
-  function updateCaseLastResult(rewardView) {
-    const resultNode = $('#case-last-result');
-    if (!resultNode) return;
-    resultNode.innerHTML = `<h3>Последняя награда</h3><div class="case-inline-result"><div class="case-inline-result-head">${caseRewardCell(rewardView)}<div><b>${escapeHtml(rewardView.label)}</b><span class="muted">${escapeHtml(rewardView.reward_type === 'coins' ? 'AniCoin начислены на баланс.' : 'Premium уже активирован.')}</span></div></div><span class="case-item-sub">${escapeHtml(rewardView.rarity)}</span></div>`;
-  }
-
-  async function finishCaseOpening() {
-    if (!state.caseAnimating || !currentCaseReward) return;
-    clearTimeout(caseAnimationTimer);
-    clearTimeout(caseFinishTimer);
-    $('#case-opening-dialog')?.close();
-    await reloadUserProfile();
-    refreshAniCoinDisplays();
-    renderCasePreview();
-    updateCaseLastResult(currentCaseReward);
-    renderCaseWinDialog(currentCaseReward);
-    notify(`Вы получили ${currentCaseReward.label}.`);
-    state.caseAnimating = false;
-    const button = $('#open-premium-case');
-    if (button) { button.disabled = false; button.textContent = 'Открыть за 2 500 AniCoin'; }
-    currentCaseReward = null;
-  }
-
-  async function openPremiumCase() {
-    if (state.caseAnimating) return;
-    if (Number(state.user?.ani_coin || 0) < 2500) return notify('Недостаточно AniCoin для открытия кейса.', true);
-    state.caseAnimating = true;
-    const button = $('#open-premium-case');
-    if (button) { button.disabled = true; button.textContent = 'Открываем…'; }
-    try {
-      const requestId = globalThis.crypto?.randomUUID?.() || `case-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const reward = await api('/api/store/cases/premium/open', {
-        method:'POST',
-        headers:{'Idempotency-Key':requestId},
-        body:'{}',
-      });
-      await reloadUserProfile();
-      refreshAniCoinDisplays();
-      const rewardView = mapCaseRewardPresentation(reward);
-      openCaseOpeningDialog(rewardView);
-    } catch (error) {
-      state.caseAnimating = false;
-      if (button) { button.disabled = false; button.textContent = 'Открыть за 2 500 AniCoin'; }
-      notify(error.message, true);
-    }
-  }
-
-
   function bindEvents() {
     document.addEventListener('pointerdown', event => {
       if (event.target.closest('button, .pressable, input[type="checkbox"], select')) haptic('light');
@@ -3699,18 +2875,12 @@ html[data-theme="dark"] {
       const nav = event.target.closest('.nav[data-view]');
       if (nav) setView(nav.dataset.view);
 
-      const shopAction = event.target.closest('[data-shop-action]');
-      if (shopAction) {
-        const action = shopAction.dataset.shopAction;
-        if (action === 'coins') { renderCoinStore(); setView('coin-store'); }
-        if (action === 'cases') { renderCaseLanding(); setView('cases'); }
-      }
-
       const userMenuAction = event.target.closest('[data-user-menu-action]');
       if (userMenuAction) {
         $('#menu-dialog').close();
         const action = userMenuAction.dataset.userMenuAction;
-        openUserActionDialog(action);
+        if (action === 'profile') setView('profile');
+        else openUserActionDialog(action);
       }
 
       if (event.target.closest('[data-toggle-theme-from-settings]')) {
@@ -3718,49 +2888,8 @@ html[data-theme="dark"] {
         openUserActionDialog('settings');
       }
 
-      if (event.target.closest('[data-open-support-chat]')) {
-        const supportUrl = 'https://t.me/anicode_support_bot';
-        if (window.Telegram?.WebApp?.openTelegramLink) window.Telegram.WebApp.openTelegramLink(supportUrl);
-        else window.open(supportUrl, '_blank', 'noopener,noreferrer');
-      }
-
-      if (event.target.closest('[data-copy-support-username]')) {
-        try {
-          await navigator.clipboard.writeText('@anicode_support_bot');
-          notify('Имя пользователя поддержки скопировано.');
-        } catch {
-          notify('Поддержка: @anicode_support_bot');
-        }
-      }
-
-      if (event.target.closest('[data-send-support-message]')) {
-        sendSupportMessage();
-      }
-
-      const coinPackage = event.target.closest('[data-coin-package]');
-      if (coinPackage) {
-        createCoinPurchase(Number(coinPackage.dataset.coinPackage), false);
-      }
-
-      if (event.target.closest('#buy-custom-coins')) {
-        const amount = Number($('#custom-coin-amount')?.value || 0);
-        if (amount < 10000 || amount % 100 !== 0) notify('Своя сумма должна быть не меньше 10 000 AniCoin и кратной 100 AniCoin.', true);
-        else createCoinPurchase(amount, true);
-      }
-
-      if (event.target.closest('#open-premium-case')) openPremiumCase();
-
-      if (event.target.closest('#advertising-preview-button')) showAdvertisingPreview();
-      if (event.target.closest('#advertising-submit-button')) submitAdvertisingOrder();
-      const payAdButton = event.target.closest('.pay-ad-order');
-      if (payAdButton) payAdOrder(payAdButton.dataset.orderId);
-
-      if (event.target.closest('[data-reset-ui-settings]')) {
-        state.siteSettings = defaultSiteSettings();
-        persistSiteSettings();
-        applySiteSettings();
-        openUserActionDialog('settings');
-        notify('Настройки сайта сброшены.');
+      if (event.target.closest('[data-open-advertising]')) {
+        notify('Магазин рекламы будет открыт в отдельном разделе AniGuard.');
       }
 
       const groupOption = event.target.closest('[data-chat-id]');
@@ -3898,22 +3027,6 @@ html[data-theme="dark"] {
         premiumSetting.checked = false;
         openPremiumDialog('Эта настройка доступна только с AniGuard Premium.');
       }
-
-      const siteSetting = event.target.closest('[data-app-setting]');
-      if (siteSetting) {
-        state.siteSettings = state.siteSettings || loadSiteSettings();
-        state.siteSettings[siteSetting.dataset.appSetting] = siteSetting.checked;
-        persistSiteSettings();
-        applySiteSettings();
-      }
-
-      if (event.target.closest('#advertising-type') || event.target.closest('#advertising-users')) {
-        updateAdvertisingSummary();
-      }
-
-      if (event.target.closest('#custom-coin-amount')) {
-        updateCustomCoinSummary();
-      }
     });
 
     $('#chat-select').addEventListener('change', event => switchChat(Number(event.target.value)));
@@ -3927,10 +3040,6 @@ html[data-theme="dark"] {
 
     $('#premium-dialog-close').addEventListener('click', () => $('#premium-dialog').close());
     $('#premium-dialog-open').addEventListener('click', () => { $('#premium-dialog').close(); setView('premium'); });
-
-    $('#close-case-opening').addEventListener('click', finishCaseOpening);
-    $('#case-skip-btn').addEventListener('click', finishCaseOpening);
-    $('#close-case-win').addEventListener('click', () => $('#case-win-dialog').close());
 
     $('#profile-open-link').addEventListener('click', () => {
       const profile = state.profile;
@@ -3986,15 +3095,6 @@ html[data-theme="dark"] {
         node.classList.toggle('hidden', Boolean(q) && !node.textContent.toLowerCase().includes(q));
       });
     });
-    $('#support-input')?.addEventListener('keydown', event => {
-      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-        event.preventDefault();
-        sendSupportMessage();
-      }
-    });
-    $('#advertising-type')?.addEventListener('change', updateAdvertisingSummary);
-    $('#advertising-users')?.addEventListener('input', updateAdvertisingSummary);
-    $('#custom-coin-amount')?.addEventListener('input', updateCustomCoinSummary);
   }
 
 

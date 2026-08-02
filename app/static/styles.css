@@ -585,3 +585,318 @@ textarea.control { min-height: 88px; resize: vertical; }
 .user-avatar { position:relative; }
 .user-avatar > span { position:absolute; inset:0; display:grid; place-items:center; }
 .user-avatar > img { position:absolute; inset:0; z-index:1; }
+
+
+/* Manual light/dark mode. These values intentionally override Telegram CSS variables
+   after the user presses the theme button. */
+html[data-theme="light"] {
+  --bg: #f2f3f5;
+  --secondary-bg: #ffffff;
+  --section-bg: #ffffff;
+  --text: #111318;
+  --hint: #748093;
+  --link: #168acd;
+  --button: #168acd;
+  --button-text: #ffffff;
+  --destructive: #e64b55;
+  color-scheme: light;
+}
+html[data-theme="dark"] {
+  --bg: #1b2634;
+  --secondary-bg: #121b26;
+  --section-bg: #121b26;
+  --text: #f4f7fb;
+  --hint: #8794a7;
+  --link: #2ca3ed;
+  --button: #2ca3ed;
+  --button-text: #ffffff;
+  --destructive: #ff7181;
+  color-scheme: dark;
+}
+.theme-toggle-button {
+  margin-left: 1px;
+  border: 1px solid var(--separator);
+  background: color-mix(in srgb, var(--secondary-bg) 86%, transparent);
+}
+
+/* User profile */
+.user-account-card {
+  padding: 20px;
+  border: 1px solid var(--separator);
+  border-radius: 25px;
+  background:
+    radial-gradient(circle at 92% 8%, color-mix(in srgb, #f3c34f 14%, transparent), transparent 32%),
+    var(--secondary-bg);
+}
+.user-account-head {
+  display: grid;
+  grid-template-columns: 118px minmax(0,1fr);
+  gap: 18px;
+  align-items: center;
+}
+.user-account-avatar-wrap { position: relative; width: 118px; height: 118px; }
+.user-account-avatar {
+  width: 118px;
+  height: 118px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  border: 4px solid color-mix(in srgb, var(--button) 48%, transparent);
+  border-radius: 50%;
+  color: var(--button-text);
+  background: linear-gradient(145deg, var(--button), #5fd3ff);
+  font-size: 32px;
+  font-weight: 850;
+}
+.user-account-avatar > span { position: relative; z-index: 0; }
+.user-account-avatar img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.account-premium-mark {
+  position: absolute;
+  right: -2px;
+  top: 1px;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 2px solid #f3c34f;
+  border-radius: 50%;
+  background: #18130a;
+  box-shadow: 0 7px 18px rgba(0,0,0,.24);
+}
+.account-premium-mark img { width: 20px; height: 20px; }
+.user-account-identity { min-width: 0; }
+.account-user-name {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 25px;
+  line-height: 1.15;
+}
+.account-user-name.regular, .regular-user-name {
+  color: color-mix(in srgb, var(--button) 58%, var(--hint));
+}
+.account-user-name.premium, .premium-user-name {
+  color: #f3c34f;
+}
+.user-account-identity p { margin: 8px 0 0; color: var(--hint); font-size: 13px; }
+.account-status-chip {
+  min-height: 29px;
+  display: inline-flex;
+  align-items: center;
+  margin-top: 11px;
+  padding: 6px 9px;
+  border-radius: 999px;
+  color: var(--button);
+  background: var(--premium-bg);
+  font-size: 11px;
+  font-weight: 800;
+}
+.account-status-chip.premium { color: #f3c34f; background: color-mix(in srgb, #f3c34f 14%, transparent); }
+.anicoin-wallet-card {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) 64px;
+  gap: 14px;
+  align-items: center;
+  margin-top: 20px;
+  padding: 17px;
+  border: 1px solid color-mix(in srgb, #f3c34f 30%, var(--separator));
+  border-radius: 21px;
+  background: linear-gradient(145deg, color-mix(in srgb, #f3c34f 14%, transparent), transparent 62%), var(--section-bg);
+}
+.anicoin-wallet-copy > span, .anicoin-wallet-copy > small { display: block; color: var(--hint); }
+.anicoin-wallet-copy > span { font-size: 12px; font-weight: 700; }
+.anicoin-wallet-copy > strong { display: block; margin-top: 6px; font-size: 25px; }
+.anicoin-wallet-copy > small { margin-top: 6px; font-size: 11px; line-height: 1.4; }
+.anicoin-wallet-icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, #f3c34f 28%, var(--separator));
+  border-radius: 20px;
+  background: color-mix(in srgb, #f3c34f 13%, transparent);
+}
+.anicoin-wallet-icon img { width: 43px; height: 43px; }
+.account-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 10px;
+}
+.account-stat-card {
+  min-width: 0;
+  min-height: 142px;
+  padding: 15px;
+  border: 1px solid var(--separator);
+  border-radius: 21px;
+  background: var(--secondary-bg);
+}
+.account-stat-icon {
+  width: 48px;
+  height: 48px;
+  padding: 10px;
+  border-radius: 16px;
+  background: var(--premium-bg);
+}
+.account-stat-card > span, .account-stat-card > strong, .account-stat-card > small { display: block; }
+.account-stat-card > span { margin-top: 11px; color: var(--hint); font-size: 12px; font-weight: 700; }
+.account-stat-card > strong { margin-top: 5px; font-size: 23px; }
+.account-stat-card > small { margin-top: 5px; overflow: hidden; color: var(--hint); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+
+/* Account menu and dialogs */
+.menu-account-summary {
+  display: grid;
+  grid-template-columns: 50px minmax(0,1fr);
+  gap: 11px;
+  align-items: center;
+  margin-bottom: 11px;
+  padding: 12px;
+  border: 1px solid var(--separator);
+  border-radius: 18px;
+  background: var(--section-bg);
+}
+.menu-account-summary > span:last-child { min-width: 0; }
+.menu-account-summary b, .menu-account-summary small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.menu-account-summary small { margin-top: 4px; color: var(--hint); font-size: 11px; }
+.menu-user-avatar {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
+  color: var(--button-text);
+  background: var(--button);
+  font-weight: 800;
+}
+.menu-user-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.row-icon.external-icon img { width: 25px; height: 25px; }
+.account-action-card {
+  margin-bottom: 10px;
+  padding: 15px;
+  border: 1px solid var(--separator);
+  border-radius: 18px;
+  background: var(--secondary-bg);
+}
+.account-action-card h3 { margin: 0; font-size: 17px; }
+.account-action-card p { margin: 7px 0 0; color: var(--hint); font-size: 13px; line-height: 1.5; }
+.account-action-button { width: 100%; margin-top: 2px; }
+.faq-item {
+  margin-bottom: 9px;
+  padding: 13px 14px;
+  border: 1px solid var(--separator);
+  border-radius: 17px;
+  background: var(--secondary-bg);
+}
+.faq-item summary { cursor: pointer; font-weight: 750; }
+.faq-item p { margin: 9px 0 0; color: var(--hint); font-size: 13px; line-height: 1.5; }
+
+@media (max-width: 520px) {
+  .user-account-card { padding: 17px; }
+  .user-account-head { grid-template-columns: 92px minmax(0,1fr); gap: 14px; }
+  .user-account-avatar-wrap, .user-account-avatar { width: 92px; height: 92px; }
+  .user-account-avatar { font-size: 26px; }
+  .account-premium-mark { width: 29px; height: 29px; }
+  .account-premium-mark img { width: 17px; height: 17px; }
+  .account-user-name { font-size: 20px; }
+  .user-account-identity p { font-size: 11px; }
+  .account-stat-card { min-height: 132px; padding: 13px; }
+  .account-stat-card > strong { font-size: 20px; }
+}
+
+
+/* Profile and account menu icon integration */
+.account-premium-mark { display: none !important; }
+
+.anicoin-wallet-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  grid-template-areas: "brand chip" "balance chip";
+  gap: 8px 14px;
+  min-height: 104px;
+  margin-top: 16px;
+  padding: 14px 15px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, #f3c34f 30%, var(--separator));
+  border-radius: 18px;
+  background: radial-gradient(circle at 93% 4%, color-mix(in srgb, #f3c34f 18%, transparent), transparent 35%), linear-gradient(135deg, color-mix(in srgb, var(--section-bg) 92%, #14100a), var(--section-bg));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+}
+.anicoin-wallet-card::after { content:""; position:absolute; right:60px; bottom:-40px; width:110px; height:110px; border:1px solid color-mix(in srgb,#f3c34f 18%,transparent); border-radius:50%; }
+.anicoin-wallet-brand { grid-area:brand; min-width:0; display:flex; align-items:center; gap:9px; }
+.anicoin-wallet-icon { width:36px; height:36px; flex:0 0 36px; display:grid; place-items:center; border:1px solid color-mix(in srgb,#f3c34f 32%,var(--separator)); border-radius:12px; color:#f3c34f; background:color-mix(in srgb,#f3c34f 12%,transparent); }
+.anicoin-wallet-icon svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:3.5; stroke-linecap:round; stroke-linejoin:round; }
+.anicoin-wallet-name { min-width:0; }
+.anicoin-wallet-name b,.anicoin-wallet-name small { display:block; }
+.anicoin-wallet-name b { font-size:13px; }
+.anicoin-wallet-name small { margin-top:3px; color:var(--hint); font-size:10px; }
+.anicoin-wallet-balance { grid-area:balance; min-width:0; }
+.anicoin-wallet-balance small { display:block; color:var(--hint); font-size:10px; }
+.anicoin-wallet-balance strong { display:block; margin-top:3px; font-size:20px; line-height:1; }
+.anicoin-wallet-balance em { color:#f3c34f; font-size:11px; font-style:normal; }
+.anicoin-wallet-chip { grid-area:chip; align-self:center; width:43px; height:43px; display:grid; place-items:center; position:relative; z-index:1; border-radius:14px; color:#f3c34f; background:color-mix(in srgb,#f3c34f 11%,var(--secondary-bg)); }
+.anicoin-wallet-chip svg { width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+
+.account-stat-icon { width:48px; height:48px; padding:0; display:grid; place-items:center; border-radius:16px; color:var(--button); background:var(--premium-bg); }
+.account-stat-icon svg { width:26px; height:26px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+
+.account-info-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.account-info-card { min-width:0; min-height:118px; padding:14px; border:1px solid var(--separator); border-radius:20px; color:var(--text); background:var(--secondary-bg); display:grid; grid-template-columns:43px minmax(0,1fr); gap:11px; align-items:start; text-align:left; }
+.account-info-card.premium { border-color:color-mix(in srgb,#f3c34f 28%,var(--separator)); background:linear-gradient(145deg,color-mix(in srgb,#f3c34f 10%,transparent),transparent 64%),var(--secondary-bg); }
+.account-info-icon { width:43px; height:43px; display:grid; place-items:center; border-radius:14px; color:var(--button); background:var(--premium-bg); }
+.account-info-card.premium .account-info-icon { color:#f3c34f; background:color-mix(in srgb,#f3c34f 13%,transparent); }
+.account-info-icon svg { width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+.account-info-copy { min-width:0; display:block; }
+.account-info-copy small,.account-info-copy strong,.account-info-copy em { display:block; }
+.account-info-copy small { overflow:hidden; color:var(--hint); font-size:10px; font-weight:700; white-space:nowrap; text-overflow:ellipsis; }
+.account-info-copy strong { margin-top:6px; overflow-wrap:anywhere; font-size:18px; }
+.account-info-copy em { margin-top:6px; overflow:hidden; color:var(--hint); font-size:10px; font-style:normal; line-height:1.35; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+
+.account-menu-icon { width:52px; height:52px; border-radius:17px; display:grid; place-items:center; color:var(--button); background:color-mix(in srgb,var(--button) 14%,transparent); }
+.account-menu-icon svg { width:28px; height:28px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+.account-menu-icon.settings { color:#8a69fa; background:color-mix(in srgb,#8a69fa 14%,transparent); }
+.account-menu-icon.advertising { color:#f3c34f; background:color-mix(in srgb,#f3c34f 14%,transparent); }
+.account-menu-icon.faq { color:#43c98e; background:color-mix(in srgb,#43c98e 14%,transparent); }
+.account-menu-link .row-icon { flex-basis:52px; }
+
+/* Integrated advertising page */
+.advertising-plan-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
+.advertising-plan-card { min-width:0; min-height:124px; padding:14px; border:1px solid var(--separator); border-radius:20px; color:var(--text); background:var(--secondary-bg); display:grid; grid-template-columns:48px minmax(0,1fr); gap:11px; align-items:start; text-align:left; }
+.advertising-plan-icon { width:48px; height:48px; display:grid; place-items:center; border-radius:16px; color:var(--button); background:var(--premium-bg); }
+.advertising-plan-icon svg { width:26px; height:26px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+.advertising-plan-copy { min-width:0; }
+.advertising-plan-copy b,.advertising-plan-copy small,.advertising-plan-copy em { display:block; }
+.advertising-plan-copy b { font-size:14px; }
+.advertising-plan-copy small { margin-top:5px; color:var(--hint); font-size:11px; line-height:1.35; }
+.advertising-plan-copy em { margin-top:8px; color:#f3c34f; font-size:16px; font-style:normal; font-weight:850; }
+.advertising-builder { margin-top:2px; }
+.advertising-buttons { margin-top:14px; }
+.advertising-buttons button { display:inline-flex; align-items:center; justify-content:center; gap:8px; }
+.advertising-buttons svg { width:20px; height:20px; }
+.advertising-preview { overflow:hidden; margin-top:14px; border:1px solid var(--separator); border-radius:22px; background:#0e1621; box-shadow:var(--shadow); }
+.advertising-preview-head { padding:11px 14px; color:#fff; background:#182533; font-size:12px; font-weight:800; }
+.advertising-preview-body { padding:15px; color:#fff; }
+.advertising-preview-body h3 { margin:0; font-size:17px; }
+.advertising-preview-body p { margin:9px 0 0; color:#d7e0ea; font-size:13px; line-height:1.5; white-space:pre-wrap; }
+.advertising-preview-body button { width:100%; min-height:42px; margin-top:12px; border:0; border-radius:12px; color:#fff; background:#2b89c8; font-weight:800; }
+.advertising-order { cursor:default; }
+.advertising-status { padding:6px 8px; border-radius:999px; color:#f3c34f; background:color-mix(in srgb,#f3c34f 13%,transparent); font-size:10px; font-weight:850; white-space:nowrap; }
+
+@media (max-width:520px) {
+  .account-info-card { min-height:112px; padding:12px; grid-template-columns:38px minmax(0,1fr); gap:9px; }
+  .account-info-icon { width:38px; height:38px; }
+  .account-info-icon svg { width:21px; height:21px; }
+  .account-info-copy strong { font-size:16px; }
+  .anicoin-wallet-card { min-height:98px; padding:13px; }
+  .anicoin-wallet-balance strong { font-size:18px; }
+  .advertising-plan-grid { grid-template-columns:1fr; }
+}

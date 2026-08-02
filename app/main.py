@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import router as api_router
+from app.store import router as store_router
 from app.bot import start_polling, stop_bot
 from app.config import get_settings
 from app.db import init_db
@@ -38,6 +39,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="AniGuard", version="1.0.0", lifespan=lifespan)
 app.include_router(api_router)
+app.include_router(store_router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -48,6 +50,12 @@ async def root() -> RedirectResponse:
 
 @app.get("/panel", include_in_schema=False)
 @app.get("/panel/", include_in_schema=False)
+@app.get("/shop", include_in_schema=False)
+@app.get("/shop/", include_in_schema=False)
+@app.get("/account", include_in_schema=False)
+@app.get("/account/", include_in_schema=False)
+@app.get("/group", include_in_schema=False)
+@app.get("/group/", include_in_schema=False)
 async def mini_app() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 

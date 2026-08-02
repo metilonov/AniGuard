@@ -33,6 +33,7 @@ from app.models import (
     PromoRedemption,
     BroadcastJob,
     SystemSetting,
+    StorePayment,
     UserWallet,
     ModerationRule,
     Report,
@@ -78,6 +79,7 @@ from app.services import (
     get_chat_or_raise,
     ensure_entity_available,
     entity_has_premium,
+    entity_premium_details,
     get_block_record,
     get_merged_settings,
     has_premium_access,
@@ -161,13 +163,58 @@ async def get_me(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     blocked = await get_block_record(session, "user", user.id)
+    db_user = await session.get(User, user.id)
+    wallet = await session.get(UserWallet, user.id)
+    premium = await entity_premium_details(session, "user", user.id)
+
+    aggregate = (
+        await session.execute(
+            select(
+                func.count(func.distinct(Membership.chat_id)),
+                func.coalesce(func.sum(Membership.message_count), 0),
+                func.coalesce(func.sum(Membership.xp), 0),
+                func.coalesce(func.sum(Membership.coins), 0),
+                func.coalesce(func.sum(Membership.warnings), 0),
+                func.coalesce(func.sum(Membership.penalty_points), 0),
+            ).where(Membership.user_id == user.id)
+        )
+    ).one()
+    chats_count, messages, total_xp, membership_coins, warnings, penalty_points = map(int, aggregate)
+
+    account_points = messages + chats_count * 100 + total_xp // 5
+    account_level = max(1, 1 + account_points // 1_000)
+    game_level = max(1, 1 + total_xp // 500)
+    rating = max(0, total_xp + messages * 2 + chats_count * 100 - warnings * 50 - penalty_points * 10)
+    reputation = max(0, min(100, 100 - warnings * 5 - penalty_points * 2))
+    ani_coin = int(wallet.balance) if wallet is not None else membership_coins
+
+    created_at = db_user.created_at if db_user else utcnow()
+    first_name = db_user.first_name if db_user else user.first_name
+    last_name = db_user.last_name if db_user else user.last_name
+    username = db_user.username if db_user else user.username
+
     return {
         "id": user.id,
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "username": user.username,
+        "first_name": first_name,
+        "last_name": last_name,
+        "username": username,
+        "avatar_url": f"/api/avatars/{user.id}",
+        "created_at": created_at.isoformat(),
         "is_bot_admin": user.id in settings.admin_ids,
-        "premium": await entity_has_premium(session, "user", user.id),
+        "premium": premium["active"],
+        "premium_until": premium["until"].isoformat() if premium["until"] else None,
+        "premium_lifetime": premium["lifetime"],
+        "ani_coin": ani_coin,
+        "statistics": {
+            "rating": rating,
+            "account_level": account_level,
+            "game_level": game_level,
+            "reputation": reputation,
+            "total_xp": total_xp,
+            "messages": messages,
+            "chats": chats_count,
+            "warnings": warnings,
+        },
         "blocked": blocked is not None,
         "block_reason": blocked.reason if blocked else None,
     }
@@ -1869,7 +1916,14 @@ async def admin_dashboard(
         )
         or 0
     )
-    revenue = int(await session.scalar(select(func.coalesce(func.sum(Payment.stars), 0))) or 0)
+    premium_revenue = int(await session.scalar(select(func.coalesce(func.sum(Payment.stars), 0))) or 0)
+    store_revenue = int(
+        await session.scalar(
+            select(func.coalesce(func.sum(StorePayment.stars), 0)).where(StorePayment.status == "paid")
+        )
+        or 0
+    )
+    revenue = premium_revenue + store_revenue
     ani_coin = int(await session.scalar(select(func.coalesce(func.sum(UserWallet.balance), 0))) or 0)
     if not ani_coin:
         ani_coin = int(await session.scalar(select(func.coalesce(func.sum(Membership.coins), 0))) or 0)
@@ -1921,12 +1975,21 @@ async def admin_dashboard(
             await session.scalar(select(func.count()).select_from(Membership).where(Membership.user_id == row.id))
             or 0
         )
-        spent = int(
+        premium_spent = int(
             await session.scalar(
                 select(func.coalesce(func.sum(Payment.stars), 0)).where(Payment.user_id == row.id)
             )
             or 0
         )
+        store_spent = int(
+            await session.scalar(
+                select(func.coalesce(func.sum(StorePayment.stars), 0)).where(
+                    StorePayment.user_id == row.id, StorePayment.status == "paid"
+                )
+            )
+            or 0
+        )
+        spent = premium_spent + store_spent
         block = await get_block_record(session, "user", row.id)
         full_name = " ".join(filter(None, [row.first_name, row.last_name]))
         users_payload.append(
@@ -2008,6 +2071,24 @@ async def admin_dashboard(
         }
         for row in payment_rows
     ]
+    store_payment_rows = (
+        await session.scalars(
+            select(StorePayment).where(StorePayment.status == "paid").order_by(StorePayment.id.desc()).limit(200)
+        )
+    ).all()
+    payments_payload.extend(
+        {
+            "id": f"STORE-{row.id}",
+            "userId": row.user_id,
+            "chatId": None,
+            "item": "Покупка AniCoin" if row.kind == "coins" else f"Реклама #{row.reference_id}",
+            "amount": row.stars,
+            "date": _iso(row.paid_at or row.created_at),
+            "status": "Оплачено",
+        }
+        for row in store_payment_rows
+    )
+    payments_payload.sort(key=lambda item: item.get("date") or "", reverse=True)
 
     report_rows = (await session.scalars(select(Report).order_by(Report.id.desc()).limit(200))).all()
     reports_payload = [

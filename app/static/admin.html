@@ -396,6 +396,19 @@ svg{display:block}
   .badge{font-size:11px}
 }
 .auth-card .field,.auth-card .switch-row{display:none}
+
+.store-kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.store-kpi{padding:14px;border:1px solid var(--line);border-radius:20px;background:var(--card)}
+.store-kpi small{display:block;color:var(--muted);font-size:12px}.store-kpi b{display:block;margin-top:6px;font-size:22px}
+.admin-thread{display:grid;gap:10px;max-height:330px;overflow:auto;padding:8px;border:1px solid var(--line);border-radius:20px;background:var(--bg-2)}
+.admin-message{max-width:88%;padding:11px 13px;border-radius:17px;background:var(--card);line-height:1.45}.admin-message.support{margin-left:auto;background:var(--accent-soft)}
+.admin-message small{display:block;margin-top:5px;color:var(--muted);font-size:11px}
+.order-status{display:inline-flex;padding:6px 9px;border-radius:999px;font-size:11px;font-weight:800}.order-status.pending{color:var(--warning);background:var(--warning-soft)}.order-status.approved{color:var(--success);background:var(--success-soft)}.order-status.rejected{color:var(--danger);background:var(--danger-soft)}.order-status.paid{color:var(--accent);background:var(--accent-soft)}
+.admin-store-row{display:grid;gap:8px;padding:14px;border:1px solid var(--line);border-radius:20px;background:var(--card)}
+.admin-store-row-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.admin-store-row p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+.button-grid{display:grid;gap:10px}.button-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:520px){.store-kpi-grid,.button-grid.two{grid-template-columns:1fr}}
+
 </style>
 </head>
 <body>
@@ -432,6 +445,11 @@ svg{display:block}
   <symbol id="link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 1 0-7l1.5-1.5a5 5 0 1 1 7 7L17 13"/><path d="M14 11a5 5 0 0 1 0 7L12.5 19.5a5 5 0 0 1-7-7L7 11"/></symbol>
   <symbol id="user-round" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></symbol>
   <symbol id="mail" viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></symbol>
+  <symbol id="megaphone" viewBox="0 0 24 24"><path d="M4 12v3h3l9 4V5l-9 4H4z"/><path d="M7 15l1.5 4h3L10 15"/><path d="M18 8c1.8.8 3 2.2 3 4s-1.2 3.2-3 4"/></symbol>
+  <symbol id="case-box" viewBox="0 0 24 24"><path d="M4 8h16v12H4z"/><path d="M8 8V5h8v3M4 12h16M10 12v2h4v-2"/></symbol>
+  <symbol id="support-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/><path d="M17 18v3M14 21h6"/></symbol>
+  <symbol id="wallet-history" viewBox="0 0 24 24"><path d="M4 7h14a2 2 0 0 1 2 2v9H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M4 7 15 4v3M15 11h7v4h-7a2 2 0 0 1 0-4Z"/><path d="M17.5 13h.01"/></symbol>
+
 </svg>
 
 <section id="authScreen" class="auth-screen">
@@ -578,7 +596,12 @@ svg{display:block}
     reports: [],
     tickets: [],
     promos: [],
-    logs: []
+    logs: [],
+    storeOverview: {pending_ads:0, open_tickets:0, case_openings:0, coin_sales_stars:0, ad_sales_stars:0, audience:{channel:0,bot:0,rewarded:0}},
+    storeAds: [],
+    supportTickets: [],
+    caseOpenings: [],
+    walletTransactions: []
   };
 
   const tg = window.Telegram?.WebApp;
@@ -587,9 +610,14 @@ svg{display:block}
     return tg?.initData || '';
   }
 
+  function devUserId(){
+    return new URLSearchParams(location.search).get('dev_user_id') || '';
+  }
+
   async function api(path, options={}){
     const headers = new Headers(options.headers || {});
-    headers.set('X-Telegram-Init-Data', telegramInitData());
+    if (telegramInitData()) headers.set('X-Telegram-Init-Data', telegramInitData());
+    else if (devUserId()) headers.set('X-Dev-User-Id', devUserId());
     if (options.body && !(options.body instanceof FormData)) headers.set('Content-Type', 'application/json');
     const response = await fetch(path, {...options, headers});
     if (!response.ok) {
@@ -625,11 +653,15 @@ svg{display:block}
   }
 
   async function loadRemoteData(){
-    if (!telegramInitData()) throw new Error('Откройте админ-панель кнопкой из команды /admin в Telegram.');
+    if (!telegramInitData() && !devUserId()) throw new Error('Откройте админ-панель кнопкой из команды /admin в Telegram. Для DEV_MODE можно добавить ?dev_user_id=ВАШ_ID.');
     const me = await api('/api/me');
     if (!me.is_bot_admin) throw new Error('Доступ разрешён только владельцу AniGuard.');
-    const dashboard = await api('/api/admin/dashboard');
+    const [dashboard, storeOverview] = await Promise.all([
+      api('/api/admin/dashboard'),
+      api('/api/admin/store/overview'),
+    ]);
     applyDashboard(dashboard);
+    data.storeOverview = storeOverview || data.storeOverview;
     renderAll();
     return dashboard;
   }
@@ -644,7 +676,10 @@ svg{display:block}
   }
 
   async function downloadExport(filename='aniguard_export.json'){
-    const response = await fetch('/api/admin/export', {headers:{'X-Telegram-Init-Data':telegramInitData()}});
+    const exportHeaders = {};
+    if (telegramInitData()) exportHeaders['X-Telegram-Init-Data'] = telegramInitData();
+    else if (devUserId()) exportHeaders['X-Dev-User-Id'] = devUserId();
+    const response = await fetch('/api/admin/export', {headers:exportHeaders});
     if (!response.ok) {
       let msg = 'Не удалось сформировать файл';
       try { msg = (await response.json()).detail || msg; } catch (_) {}
@@ -721,7 +756,7 @@ svg{display:block}
     const s = stats();
     $('#overviewRoot').innerHTML = `
       <div class="metrics">
-        ${metric('Пользователей', fmt(s.users), '+326 за сутки')}
+        ${metric('Пользователей', fmt(s.users), 'Всего зарегистрировано')}
         ${metric('Активны 24 ч.', fmt(s.active24), 'Онлайн-аудитория')}
         ${metric('Активны 7 дней', fmt(s.active7), 'Неделя активности')}
         ${metric('Бесед', fmt(s.chats), 'Подключено')}
@@ -729,7 +764,11 @@ svg{display:block}
         ${metric('Premium бесед', fmt(s.premiumChats), 'Группы и наследование')}
         ${metric('Доход', fmt(s.revenue) + ' Stars', 'Текущий месяц')}
         ${metric('AniCoin', fmt(s.aniCoin), 'В обороте')}
-        ${metric('Жалобы', fmt(data.reports.length), 'Требуют проверки')}
+        ${metric('Жалобы', fmt(s.reports || 0), 'Требуют проверки')}
+        ${metric('Реклама', fmt(data.storeOverview.pending_ads), 'Заказов на модерации')}
+        ${metric('Поддержка', fmt(data.storeOverview.open_tickets), 'Открытых диалогов')}
+        ${metric('Кейсы', fmt(data.storeOverview.case_openings), 'Всего открытий')}
+        ${metric('Доход магазина', fmt(Number(data.storeOverview.coin_sales_stars || 0) + Number(data.storeOverview.ad_sales_stars || 0)) + ' Stars', 'AniCoin и реклама')}
       </div>
 
       <div class="section-head"><h2>Быстрые действия</h2><span>Частые задачи</span></div>
@@ -786,6 +825,15 @@ svg{display:block}
           <p>Подозрительные действия, входы в панель и контроль настроек.</p>
           <div class="card-actions"><button class="secondary" data-action="security-log">Открыть</button></div>
         </div>
+      </div>
+
+      <div class="section-head"><h2>Магазин и поддержка</h2><span>Новые серверные разделы</span></div>
+      <div class="cards">
+        <div class="card"><h3>Модерация рекламы</h3><p>Проверка текста, ссылки, аудитории и стоимости перед оплатой.</p><div class="card-actions"><button class="primary" data-action="store-ads">Открыть (${fmt(data.storeOverview.pending_ads)})</button></div></div>
+        <div class="card"><h3>Чат поддержки</h3><p>Прямые обращения пользователей из Mini App и ответы администратора.</p><div class="card-actions"><button class="secondary" data-action="support-inbox">Открыть (${fmt(data.storeOverview.open_tickets)})</button></div></div>
+        <div class="card"><h3>История кейсов</h3><p>Результаты Premium кейса, награды и расходы AniCoin.</p><div class="card-actions"><button class="secondary" data-action="case-history">Открыть</button></div></div>
+        <div class="card"><h3>Операции AniCoin</h3><p>Покупки, списания за кейсы и изменения баланса пользователей.</p><div class="card-actions"><button class="secondary" data-action="wallet-history">Открыть</button></div></div>
+        <div class="card"><h3>Настройки рекламы</h3><p>Количество живых пользователей канала для расчёта цены.</p><div class="card-actions"><button class="secondary" data-action="advertising-settings">Настроить</button></div></div>
       </div>
 
       <div class="section-head"><h2>Последние события</h2><span>${data.logs.length} записей</span></div>
@@ -1432,6 +1480,62 @@ svg{display:block}
     `);
   }
 
+
+  async function storeAdsSheet(){
+    data.storeAds = await api('/api/admin/store/ads');
+    openSheet('Модерация рекламы', 'Заказы пользователей до оплаты', `
+      <div class="form">
+        ${data.storeAds.length ? data.storeAds.map(order => `
+          <button class="admin-store-row" type="button" data-ad-order="${order.id}">
+            <div class="admin-store-row-head"><b>#${order.id} · ${escapeHtml(order.title)}</b><span class="order-status ${order.status}">${order.status === 'pending' ? 'На модерации' : order.status === 'approved' ? 'Одобрено' : order.status === 'paid' ? 'Оплачено' : 'Отклонено'}</span></div>
+            <p>${escapeHtml(order.placement_label)} · ${fmt(order.audience_count)} пользователей · ${fmt(order.total_stars)} ⭐</p>
+            <p>${escapeHtml(order.text.slice(0,180))}</p>
+          </button>`).join('') : '<div class="card"><p>Рекламных заказов пока нет.</p></div>'}
+      </div>`);
+  }
+
+  function adOrderDetailSheet(order){
+    openSheet(`Реклама #${order.id}`, `${order.placement_label} · ${fmt(order.total_stars)} Stars`, `
+      <div class="card"><h3>${escapeHtml(order.title)}</h3><p style="white-space:pre-wrap">${escapeHtml(order.text)}</p>${order.url ? `<p style="margin-top:10px">${escapeHtml(order.url)}</p>` : ''}</div>
+      <div class="facts" style="margin-top:10px"><div class="fact"><small>Аудитория</small><b>${fmt(order.audience_count)}</b></div><div class="fact"><small>Цена за пользователя</small><b>${order.stars_per_user} ⭐</b></div><div class="fact"><small>Итого</small><b>${fmt(order.total_stars)} ⭐</b></div></div>
+      <div class="form" style="margin-top:12px"><div class="field"><label>Комментарий модератора</label><textarea id="adModerationNote">${escapeHtml(order.moderation_note || '')}</textarea></div>
+      ${order.status === 'pending' ? `<div class="button-grid two"><button class="success" data-ad-decision="approve" data-order-id="${order.id}">Одобрить</button><button class="danger" data-ad-decision="reject" data-order-id="${order.id}">Отклонить</button></div>` : ''}</div>`);
+  }
+
+  async function supportInboxSheet(){
+    data.supportTickets = await api('/api/admin/support/tickets');
+    openSheet('Чат поддержки', 'Диалоги пользователей из Mini App', `
+      <div class="list">${data.supportTickets.length ? data.supportTickets.map(ticket => `
+        <button class="row" data-support-ticket="${ticket.id}">
+          <div class="row-icon">${icon('support-chat')}</div><div class="row-copy"><span class="row-title">${escapeHtml(ticket.user_name || String(ticket.user_id))}</span><span class="row-sub">ID ${ticket.user_id} · ${ticket.messages.length} сообщений</span></div><div class="row-extra"><span class="order-status ${ticket.status === 'closed' ? 'paid' : ticket.status === 'in_progress' ? 'approved' : 'pending'}">${ticket.status === 'closed' ? 'Закрыт' : ticket.status === 'in_progress' ? 'В работе' : 'Открыт'}</span></div>
+        </button>`).join('') : '<div class="card"><p>Обращений пока нет.</p></div>'}</div>`);
+  }
+
+  function supportTicketDetailSheet(ticket){
+    openSheet(`Поддержка · #${ticket.id}`, `${ticket.user_name || ticket.user_id} · ID ${ticket.user_id}`, `
+      <div class="admin-thread">${ticket.messages.map(message => `<div class="admin-message ${message.sender_type === 'support' ? 'support' : 'user'}">${escapeHtml(message.text)}<small>${message.sender_type === 'support' ? 'Поддержка' : 'Пользователь'} · ${formatDate(message.created_at)}</small></div>`).join('')}</div>
+      <div class="form" style="margin-top:12px"><div class="field"><label>Ответ пользователю</label><textarea id="supportAdminReply" placeholder="Введите ответ"></textarea></div><button class="primary" data-support-reply="${ticket.id}">Отправить ответ</button>${ticket.status !== 'closed' ? `<button class="secondary" data-support-close="${ticket.id}">Закрыть обращение</button>` : ''}</div>`);
+  }
+
+  async function caseHistorySheet(){
+    data.caseOpenings = await api('/api/admin/store/cases');
+    openSheet('История Premium кейса', 'Серверные результаты открытий', `
+      <div class="list">${data.caseOpenings.length ? data.caseOpenings.map(row => `<div class="row"><div class="row-icon">${icon('case-box')}</div><div class="row-copy"><span class="row-title">${escapeHtml(row.reward_label)}</span><span class="row-sub">Юзер ${row.user_id} · стоимость ${fmt(row.cost)} AniCoin · ${formatDate(row.created_at)}</span></div><div class="row-extra"><span class="badge info">#${row.id}</span></div></div>`).join('') : '<div class="card"><p>Кейсы ещё не открывали.</p></div>'}</div>`);
+  }
+
+  async function walletHistorySheet(){
+    data.walletTransactions = await api('/api/admin/store/wallet-transactions');
+    openSheet('Операции AniCoin', 'Покупки и списания по кошелькам', `
+      <div class="list">${data.walletTransactions.length ? data.walletTransactions.map(row => `<div class="row"><div class="row-icon">${icon('wallet-history')}</div><div class="row-copy"><span class="row-title">${row.amount > 0 ? '+' : ''}${fmt(row.amount)} AniCoin</span><span class="row-sub">Юзер ${row.user_id} · ${escapeHtml(row.kind)} · баланс ${fmt(row.balance_after)} · ${formatDate(row.created_at)}</span></div><div class="row-extra">${row.stars ? `<span class="badge success">${fmt(row.stars)} ⭐</span>` : ''}</div></div>`).join('') : '<div class="card"><p>Операций пока нет.</p></div>'}</div>`);
+  }
+
+  function advertisingSettingsSheet(){
+    const audience = data.storeOverview.audience || {};
+    openSheet('Настройки рекламы', 'Аудитория и формулы расчёта', `
+      <div class="store-kpi-grid"><div class="store-kpi"><small>Живые пользователи бота</small><b>${fmt(audience.bot || 0)}</b></div><div class="store-kpi"><small>Rewarded-аудитория</small><b>${fmt(audience.rewarded || 0)}</b></div></div>
+      <div class="form" style="margin-top:12px"><div class="field"><label>Живые пользователи Telegram-канала за неделю</label><input id="channelLiveUsers" type="number" min="0" value="${Number(audience.channel || 0)}"></div><div class="card"><p>Тарифы: канал — 2 ⭐ за пользователя, бот — 5 ⭐, реклама с вознаграждением — 15 ⭐.</p></div><button id="saveAdvertisingSettings" class="primary">Сохранить</button></div>`);
+  }
+
   function backupSheet(){
     openSheet('Резервная копия', 'Создание бэкапа', `
       <div class="facts">
@@ -1493,6 +1597,16 @@ svg{display:block}
           <div class="row-copy"><span class="row-title">Платежи</span><span class="row-sub">Telegram Stars, возвраты и статусы</span></div>
           <div class="row-extra"><span class="badge info">Открыть</span></div>
         </button>
+        <button class="row" data-action="store-ads">
+          <div class="row-icon">${icon('megaphone')}</div>
+          <div class="row-copy"><span class="row-title">Модерация рекламы</span><span class="row-sub">Одобрение и отклонение заказов</span></div>
+          <div class="row-extra"><span class="badge info">${fmt(data.storeOverview.pending_ads)}</span></div>
+        </button>
+        <button class="row" data-action="support-inbox">
+          <div class="row-icon">${icon('support-chat')}</div>
+          <div class="row-copy"><span class="row-title">Чат поддержки</span><span class="row-sub">Прямые обращения из Mini App</span></div>
+          <div class="row-extra"><span class="badge info">${fmt(data.storeOverview.open_tickets)}</span></div>
+        </button>
         <button class="row" data-action="tickets">
           <div class="row-icon">${icon('ticket')}</div>
           <div class="row-copy"><span class="row-title">Тикеты</span><span class="row-sub">Поддержка пользователей</span></div>
@@ -1507,7 +1621,7 @@ svg{display:block}
     `);
   }
 
-  function handleAction(name){
+  async function handleAction(name){
     if (name === 'grant-premium') premiumForm();
     if (name === 'coin-manager') coinsForm();
     if (name === 'broadcast') broadcastSheet();
@@ -1517,6 +1631,11 @@ svg{display:block}
     if (name === 'export-report') exportSheet();
     if (name === 'security-log') securitySheet();
     if (name === 'tickets') ticketsSheet();
+    if (name === 'store-ads') await storeAdsSheet();
+    if (name === 'support-inbox') await supportInboxSheet();
+    if (name === 'case-history') await caseHistorySheet();
+    if (name === 'wallet-history') await walletHistorySheet();
+    if (name === 'advertising-settings') advertisingSettingsSheet();
     if (name === 'backup') backupSheet();
     if (name === 'danger-zone') dangerSheet();
     if (name === 'gift-pack') giftPackSheet();
@@ -1591,7 +1710,7 @@ svg{display:block}
     document.addEventListener('click', async (e) => {
       try {
         const actionNode = e.target.closest('[data-action]');
-        if (actionNode) handleAction(actionNode.dataset.action);
+        if (actionNode) await handleAction(actionNode.dataset.action);
 
         const userNode = e.target.closest('[data-user-action],[data-user-sheet]');
         if (userNode) {
@@ -1630,6 +1749,42 @@ svg{display:block}
         if (ticketNode) {
           const ticket = data.tickets.find(t => t.id === ticketNode.dataset.ticket);
           if (ticket) ticketDetailSheet(ticket);
+        }
+
+        const adOrderNode = e.target.closest('[data-ad-order]');
+        if (adOrderNode) {
+          const order = data.storeAds.find(item => item.id === Number(adOrderNode.dataset.adOrder));
+          if (order) adOrderDetailSheet(order);
+        }
+
+        const adDecision = e.target.closest('[data-ad-decision]');
+        if (adDecision) {
+          await post(`/api/admin/store/ads/${Number(adDecision.dataset.orderId)}/moderate`, {decision:adDecision.dataset.adDecision, note:$('#adModerationNote')?.value.trim() || ''});
+          closeSheet();
+          await reloadRemoteData(adDecision.dataset.adDecision === 'approve' ? 'Реклама одобрена' : 'Реклама отклонена');
+          await storeAdsSheet();
+        }
+
+        const supportTicketNode = e.target.closest('[data-support-ticket]');
+        if (supportTicketNode) {
+          const ticket = data.supportTickets.find(item => item.id === Number(supportTicketNode.dataset.supportTicket));
+          if (ticket) supportTicketDetailSheet(ticket);
+        }
+
+        const supportReply = e.target.closest('[data-support-reply]');
+        if (supportReply) {
+          const reply = $('#supportAdminReply')?.value.trim();
+          if (!reply) throw new Error('Введите ответ пользователю');
+          await post(`/api/admin/support/tickets/${Number(supportReply.dataset.supportReply)}/reply`, {text:reply});
+          await reloadRemoteData('Ответ отправлен пользователю');
+          await supportInboxSheet();
+        }
+
+        const supportClose = e.target.closest('[data-support-close]');
+        if (supportClose) {
+          await post(`/api/admin/support/tickets/${Number(supportClose.dataset.supportClose)}/status`, {status:'closed'});
+          await reloadRemoteData('Обращение закрыто');
+          await supportInboxSheet();
         }
 
         if (e.target.id === 'savePremiumBtn') {
@@ -1724,6 +1879,13 @@ svg{display:block}
           const result = await post('/api/admin/premium/bulk', {category:categoryMap[category] || 'premium_users', days});
           closeSheet(); await reloadRemoteData(`Продлено подписок: ${result.count}`);
         }
+        if (e.target.id === 'saveAdvertisingSettings') {
+          const channelLiveUsers = Math.max(0, Number($('#channelLiveUsers')?.value || 0));
+          await post('/api/admin/store/advertising-settings', {channel_live_users:channelLiveUsers});
+          closeSheet();
+          await reloadRemoteData('Настройки рекламы сохранены');
+        }
+
         if (e.target.id === 'uploadAdminAvatarBtn') {
           const file = $('#adminAvatarInput')?.files?.[0];
           if (!file) throw new Error('Выберите JPG, PNG или WEBP');

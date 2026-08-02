@@ -25,6 +25,7 @@
     premiumStatus: null,
     editingBasicKey: null,
     captchaPreviewAnswer: null,
+    adOrders: [],
   };
 
   const $ = (selector, root = document) => root.querySelector(selector);
@@ -154,18 +155,45 @@
     ]},
   ];
 
+  const THEME_STORAGE_KEY = 'aniguard-manual-theme';
+
+  function preferredTheme() {
+    return localStorage.getItem(THEME_STORAGE_KEY) || tg?.colorScheme || 'light';
+  }
+
+  function applyAppTheme(theme) {
+    const normalized = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = normalized;
+    const icon = $('#theme-toggle-icon');
+    if (icon) icon.setAttribute('href', normalized === 'dark' ? '#i-sun' : '#i-moon');
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', normalized === 'dark' ? '#1b2634' : '#f2f3f5');
+    try { tg?.setHeaderColor(normalized === 'dark' ? '#1b2634' : '#f2f3f5'); } catch (_) {}
+    try { tg?.setBackgroundColor(normalized === 'dark' ? '#1b2634' : '#f2f3f5'); } catch (_) {}
+    try { tg?.setBottomBarColor(normalized === 'dark' ? '#121b26' : '#ffffff'); } catch (_) {}
+  }
+
+  function toggleAppTheme() {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem(THEME_STORAGE_KEY, next);
+    applyAppTheme(next);
+    haptic('light');
+  }
+
   function applyTelegramChrome() {
-    if (!tg) return;
-    tg.ready();
-    tg.expand();
-    try { tg.setHeaderColor('bg_color'); } catch (_) {}
-    try { tg.setBackgroundColor('bg_color'); } catch (_) {}
-    try { tg.setBottomBarColor('secondary_bg_color'); } catch (_) {}
-    try { tg.disableVerticalSwipes(); } catch (_) {}
-    const updateTheme = () => document.documentElement.dataset.theme = tg.colorScheme || 'light';
-    updateTheme();
-    tg.onEvent?.('themeChanged', updateTheme);
-    tg.BackButton?.onClick(() => setView('overview'));
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      try { tg.disableVerticalSwipes(); } catch (_) {}
+      tg.onEvent?.('themeChanged', () => {
+        if (!localStorage.getItem(THEME_STORAGE_KEY)) applyAppTheme(tg.colorScheme || 'light');
+      });
+      tg.BackButton?.onClick(() => {
+        const backMap = {advertising:'profile', premium:'profile', settings:'group-profile', members:'group-profile', logs:'overview', reports:'overview', custom:'commands', game:'commands', rp:'commands'};
+        setView(backMap[state.currentView] || 'overview');
+      });
+    }
+    applyAppTheme(preferredTheme());
   }
 
   function haptic(kind = 'light') {
@@ -212,12 +240,13 @@
     $$('.view').forEach(panel => panel.classList.toggle('hidden', panel.dataset.panel !== view));
     $$('.nav[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === view));
     const bottomMap = {
-      overview:'overview', moderation:'moderation', commands:'commands', profile:'profile',
-      members:'profile', reports:'profile', logs:'profile', settings:'profile', premium:'profile', admin:'profile',
+      overview:'overview', moderation:'moderation', commands:'commands', profile:'profile', 'group-profile':'profile',
+      members:'profile', reports:'profile', logs:'profile', settings:'profile', premium:'profile', advertising:'profile', admin:'profile',
       custom:'commands', game:'commands', rp:'commands',
     };
     $$('#bottom-nav .nav').forEach(button => button.classList.toggle('active', button.dataset.view === (bottomMap[view] || 'overview')));
     if (view === 'admin' && state.user?.is_bot_admin) loadAdmin();
+    if (view === 'advertising') renderAdvertising();
     if (tg?.BackButton) {
       if (['overview','moderation','commands','profile'].includes(view)) tg.BackButton.hide();
       else tg.BackButton.show();
@@ -232,6 +261,9 @@
       bindEvents();
       state.user = await api('/api/me');
       $('#user-line').textContent = `${state.user.username ? '@' + state.user.username : state.user.first_name}${state.user.premium ? ' · Premium' : ''}`;
+      renderUserProfile();
+      loadAdvertisingOrders();
+      renderAdvertising();
       if (state.user.blocked && !state.user.is_bot_admin) throw new Error(state.user.block_reason || 'Доступ к AniGuard заблокирован');
       if (state.user.is_bot_admin) $$('.bot-admin-only').forEach(node => node.classList.remove('hidden'));
       [state.chats, state.plans] = await Promise.all([api('/api/chats'), api('/api/premium/plans')]);
@@ -444,6 +476,116 @@
       : '<article class="card muted">Журнал пока пуст.</article>';
   }
 
+  function userInitials(user) {
+    return [user?.first_name, user?.last_name]
+      .filter(Boolean)
+      .map(value => String(value).trim().charAt(0))
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'AG';
+  }
+
+  function setUserAccountAvatar(node, user) {
+    if (!node || !user) return;
+    node.innerHTML = `<span>${escapeHtml(userInitials(user))}</span>${user.avatar_url ? `<img src="${escapeHtml(user.avatar_url)}" alt="Аватар пользователя" onerror="this.remove()">` : ''}`;
+  }
+
+  function pluralRu(value, forms) {
+    const n = Math.abs(Number(value)) % 100;
+    const n1 = n % 10;
+    if (n > 10 && n < 20) return forms[2];
+    if (n1 > 1 && n1 < 5) return forms[1];
+    if (n1 === 1) return forms[0];
+    return forms[2];
+  }
+
+  function formatAccountAge(createdAt) {
+    const start = createdAt ? new Date(createdAt) : new Date();
+    const now = new Date();
+    if (Number.isNaN(start.getTime()) || start > now) return 'Вы с нами уже сегодня';
+
+    let years = now.getFullYear() - start.getFullYear();
+    let months = now.getMonth() - start.getMonth();
+    let days = now.getDate() - start.getDate();
+    if (days < 0) {
+      months -= 1;
+      days += new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+    }
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+
+    const parts = [];
+    if (years > 0) parts.push(`${years} ${pluralRu(years, ['год', 'года', 'лет'])}`);
+    if (months > 0) parts.push(`${months} ${pluralRu(months, ['месяц', 'месяца', 'месяцев'])}`);
+    if (years === 0 && days > 0) parts.push(`${days} ${pluralRu(days, ['день', 'дня', 'дней'])}`);
+    return `Вы с нами уже ${parts.length ? parts.join(' ') : 'сегодня'}`;
+  }
+
+  function reputationLabel(value) {
+    if (value >= 90) return 'Надёжный пользователь';
+    if (value >= 70) return 'Хорошая репутация';
+    if (value >= 40) return 'Требует внимания';
+    return 'Низкая репутация';
+  }
+
+  function renderMenuAccountSummary() {
+    const node = $('#menu-account-summary');
+    if (!node || !state.user) return;
+    const fullName = [state.user.first_name, state.user.last_name].filter(Boolean).join(' ') || 'Пользователь';
+    node.innerHTML = `
+      <span class="menu-user-avatar"><span>${escapeHtml(userInitials(state.user))}</span>${state.user.avatar_url ? `<img src="${escapeHtml(state.user.avatar_url)}" alt="Аватар" onerror="this.remove()">` : ''}</span>
+      <span><b class="${state.user.premium ? 'premium-user-name' : 'regular-user-name'}">${escapeHtml(fullName)}</b><small>ID ${state.user.id}${state.user.premium ? ' · Premium' : ''}</small></span>`;
+  }
+
+  function renderUserProfile() {
+    if (!state.user) return;
+    const user = state.user;
+    const stats = user.statistics || {};
+    const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Пользователь';
+
+    setUserAccountAvatar($('#account-user-avatar'), user);
+    $('#account-user-name').textContent = fullName;
+    $('#account-user-name').classList.toggle('premium', Boolean(user.premium));
+    $('#account-user-name').classList.toggle('regular', !user.premium);
+    $('#account-user-id').textContent = `ID аккаунта: ${user.id}`;
+    $('#account-user-age').textContent = formatAccountAge(user.created_at);
+    $('#account-user-status').textContent = user.premium ? 'Premium аккаунт' : 'Обычный аккаунт';
+    $('#account-user-status').classList.toggle('premium', Boolean(user.premium));
+    $('#account-premium-mark')?.classList.toggle('hidden', !user.premium);
+    $('#account-anicoin').textContent = Number(user.ani_coin || 0).toLocaleString('ru-RU');
+
+    $('#account-rating').textContent = Number(stats.rating || 0).toLocaleString('ru-RU');
+    $('#account-level').textContent = Number(stats.account_level || 1).toLocaleString('ru-RU');
+    $('#account-game-level').textContent = Number(stats.game_level || 1).toLocaleString('ru-RU');
+    $('#account-reputation').textContent = `${Number(stats.reputation ?? 100)} / 100`;
+    $('#account-rating-meta').textContent = `${Number(stats.chats || 0)} ${pluralRu(Number(stats.chats || 0), ['беседа', 'беседы', 'бесед'])}`;
+    $('#account-level-meta').textContent = `${Number(stats.messages || 0).toLocaleString('ru-RU')} сообщений`;
+    $('#account-game-meta').textContent = `${Number(stats.total_xp || 0).toLocaleString('ru-RU')} XP`;
+    $('#account-reputation-meta').textContent = reputationLabel(Number(stats.reputation ?? 100));
+
+    $('#account-info-list').innerHTML = [
+      accountInfoCard('i-chat', 'Подключённые беседы', String(stats.chats || 0), 'Группы под вашим управлением'),
+      accountInfoCard('i-document', 'Сообщения', Number(stats.messages || 0).toLocaleString('ru-RU'), 'Учтённая активность'),
+      accountInfoCard('i-warning', 'Предупреждения', String(stats.warnings || 0), 'Получено в беседах'),
+      accountInfoCard(
+        'i-diamond',
+        'Premium',
+        user.premium ? 'Активен' : 'Неактивен',
+        user.premium_lifetime ? 'Бессрочный доступ' : user.premium_until ? `До ${new Date(user.premium_until).toLocaleDateString('ru-RU')}` : 'Подписка не активна',
+        'user-premium',
+        Boolean(user.premium),
+      ),
+    ].join('');
+    renderMenuAccountSummary();
+  }
+
+
+  function accountInfoCard(iconId, title, value, subtitle, action = '', premium = false) {
+    return `<button class="account-info-card pressable ${premium ? 'premium' : ''}" type="button" ${action ? `data-profile-action="${action}"` : ''}><span class="account-info-icon"><svg><use href="#${iconId}"></use></svg></span><span class="account-info-copy"><small>${escapeHtml(title)}</small><strong>${escapeHtml(value)}</strong><em>${escapeHtml(subtitle)}</em></span></button>`;
+  }
+
   function profileRow(iconId, title, subtitle, value = '', action = '') {
     return `<button class="telegram-row pressable profile-click-row" type="button" ${action ? `data-profile-action="${action}"` : ''}><span class="row-icon"><svg><use href="#${iconId}"></use></svg></span><span class="row-copy"><b>${escapeHtml(title)}</b><small>${escapeHtml(subtitle)}</small></span>${value ? `<span class="muted">${escapeHtml(value)}</span>` : '<svg class="chevron"><use href="#i-chevron-right"></use></svg>'}</button>`;
   }
@@ -506,20 +648,122 @@
     $('#moderation-premium-state').textContent = premiumAvailable() ? 'Premium активен' : 'Обычный доступ';
   }
 
+
+  const advertisingPlans = [
+    {id:'bot',title:'Реклама в боте',placement:'Сообщение пользователям AniGuard',price:299,icon:'i-ad-bot',description:'Текст, изображение и одна кнопка-ссылка.'},
+    {id:'channel',title:'Пост в Telegram-канале',placement:'Пост в канале AniGuard',price:449,icon:'i-ad-channel',description:'Публикация остаётся в ленте канала.'},
+    {id:'pin',title:'Пост + закрепление',placement:'Пост и закрепление на 24 часа',price:699,icon:'i-ad-pin',description:'Повышенная заметность рекламной публикации.'},
+    {id:'combo',title:'Бот + канал',placement:'Комбинированное размещение',price:899,icon:'i-ad-combo',description:'Сообщение в боте и пост в Telegram-канале.'},
+  ];
+
+  function advertisingPlanById(id) {
+    return advertisingPlans.find(plan => plan.id === id) || advertisingPlans[0];
+  }
+
+  function loadAdvertisingOrders() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('aniguard_ad_orders') || '[]');
+      state.adOrders = Array.isArray(saved) ? saved : [];
+    } catch (_) {
+      state.adOrders = [];
+    }
+  }
+
+  function saveAdvertisingOrders() {
+    try { localStorage.setItem('aniguard_ad_orders', JSON.stringify(state.adOrders)); } catch (_) {}
+  }
+
+  function renderAdvertising() {
+    const plansNode = $('#advertising-plans');
+    const select = $('#advertising-plan');
+    if (!plansNode || !select) return;
+    if (!state.adOrders.length) loadAdvertisingOrders();
+    plansNode.innerHTML = advertisingPlans.map(plan => `<button class="advertising-plan-card pressable" type="button" data-ad-plan="${plan.id}"><span class="advertising-plan-icon"><svg><use href="#${plan.icon}"></use></svg></span><span class="advertising-plan-copy"><b>${escapeHtml(plan.title)}</b><small>${escapeHtml(plan.description)}</small><em>${plan.price} ⭐</em></span></button>`).join('');
+    select.innerHTML = advertisingPlans.map(plan => `<option value="${plan.id}">${escapeHtml(plan.title)} — ${plan.price} ⭐</option>`).join('');
+    const date = $('#advertising-date');
+    if (date && !date.value) {
+      const selected = new Date();
+      selected.setDate(selected.getDate() + 2);
+      date.min = new Date().toISOString().slice(0,10);
+      date.value = selected.toISOString().slice(0,10);
+    }
+    renderAdvertisingOrders();
+  }
+
+  function previewAdvertising() {
+    const title = $('#advertising-title')?.value.trim();
+    const text = $('#advertising-text')?.value.trim();
+    if (!title || !text) return notify('Введите заголовок и текст объявления.', true);
+    $('#advertising-preview-title').textContent = title;
+    $('#advertising-preview-text').textContent = text;
+    $('#advertising-preview-link').textContent = $('#advertising-button-text').value.trim() || 'Открыть проект';
+    $('#advertising-preview-card').classList.remove('hidden');
+    $('#advertising-preview-card').scrollIntoView({behavior:'smooth', block:'center'});
+  }
+
+  function submitAdvertisingOrder() {
+    const title = $('#advertising-title')?.value.trim();
+    const text = $('#advertising-text')?.value.trim();
+    const url = $('#advertising-url')?.value.trim();
+    const date = $('#advertising-date')?.value;
+    if (!title || !text || !date) return notify('Заполните заголовок, текст и дату.', true);
+    if (url && !/^(https?:\/\/|tg:\/\/)/i.test(url)) return notify('Ссылка должна начинаться с https:// или tg://', true);
+    const plan = advertisingPlanById($('#advertising-plan').value);
+    const order = {id:`AD-${Date.now().toString().slice(-8)}`,title,planId:plan.id,planTitle:plan.title,price:plan.price,date,status:'На проверке'};
+    state.adOrders.push(order);
+    saveAdvertisingOrders();
+    renderAdvertisingOrders();
+    notify('Демо-заказ создан и отправлен на проверку.');
+  }
+
+  function renderAdvertisingOrders() {
+    const node = $('#advertising-orders');
+    if (!node) return;
+    node.innerHTML = state.adOrders.length ? [...state.adOrders].reverse().map(order => `<article class="telegram-row advertising-order"><span class="row-icon"><svg><use href="#i-receipt"></use></svg></span><span class="row-copy"><b>${escapeHtml(order.title)}</b><small>${escapeHtml(order.id)} · ${escapeHtml(order.planTitle)} · ${escapeHtml(order.date)}</small></span><span class="advertising-status">${escapeHtml(order.status)}</span></article>`).join('') : '<article class="card muted">Рекламных заказов пока нет.</article>';
+  }
+
   function renderMenuLinks() {
     const node = $('#menu-links');
     if (!node) return;
     const links = [
-      ['members','i-users','Участники и роли','Поиск и права модераторов'],
-      ['custom','i-spark','Кастомные команды','Premium-конструктор'],
-      ['game','i-gamepad','Игровые команды','XP, AniCoin и награды'],
-      ['reports','i-flag','Жалобы','Обращения пользователей'],
-      ['rp','i-chat','RP-команды','Ролевые действия'],
-      ['logs','i-document','Журнал действий','История модерации'],
-      ['settings','i-gear','Настройки группы','Все параметры'],
-      ['premium','i-diamond','AniGuard Premium','Тарифы и возможности'],
+      ['profile', 'i-menu-profile', 'profile', 'Профиль', 'Баланс, уровни и статистика аккаунта'],
+      ['settings', 'i-menu-settings', 'settings', 'Настройки', 'Оформление и параметры пользователя'],
+      ['advertising', 'i-menu-advertising', 'advertising', 'Реклама', 'Покупка размещений в боте и канале'],
+      ['faq', 'i-menu-faq', 'faq', 'FAQ', 'Ответы на частые вопросы'],
     ];
-    node.innerHTML = links.map(([view,ic,title,sub]) => `<button class="telegram-row menu-view-link pressable" data-view-target="${view}" type="button"><span class="row-icon"><svg><use href="#${ic}"></use></svg></span><span class="row-copy"><b>${title}</b><small>${sub}</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>`).join('');
+    node.innerHTML = links.map(([action,iconId,tone,title,sub]) => `<button class="telegram-row account-menu-link pressable" data-user-menu-action="${action}" type="button"><span class="row-icon account-menu-icon ${tone}"><svg><use href="#${iconId}"></use></svg></span><span class="row-copy"><b>${title}</b><small>${sub}</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>`).join('');
+    renderMenuAccountSummary();
+  }
+
+  function openUserActionDialog(action) {
+    const dialog = $('#user-action-dialog');
+    const title = $('#user-action-title');
+    const subtitle = $('#user-action-subtitle');
+    const content = $('#user-action-content');
+
+    if (action === 'settings') {
+      title.textContent = 'Настройки';
+      subtitle.textContent = 'Параметры аккаунта AniGuard';
+      content.innerHTML = `
+        <div class="account-action-card"><h3>Оформление</h3><p>Переключайте тему независимо от темы Telegram. Выбор сохраняется на устройстве.</p></div>
+        <button class="telegram-row pressable" type="button" data-toggle-theme-from-settings><span class="row-icon account-menu-icon settings"><svg><use href="#i-menu-settings"></use></svg></span><span class="row-copy"><b>Светлая или тёмная тема</b><small>Текущая тема: ${document.documentElement.dataset.theme === 'dark' ? 'тёмная' : 'светлая'}</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
+        <div class="account-action-card"><h3>Данные аккаунта</h3><p>Имя, фамилия, ID, Premium и баланс загружаются с сервера. Права и баланс нельзя изменить через код страницы.</p></div>`;
+    } else if (action === 'advertising') {
+      title.textContent = 'Реклама';
+      subtitle.textContent = 'Размещения в экосистеме AniGuard';
+      content.innerHTML = `
+        <div class="account-action-card"><h3>AniGuard Ads</h3><p>Покупка рекламы в Telegram-боте, рекламных постов в канале и комбинированных размещений.</p></div>
+        <button class="primary account-action-button" type="button" data-open-advertising>Открыть магазин рекламы</button>`;
+    } else if (action === 'faq') {
+      title.textContent = 'FAQ';
+      subtitle.textContent = 'Часто задаваемые вопросы';
+      content.innerHTML = `
+        <details class="faq-item" open><summary>Как подключить беседу?</summary><p>Добавьте AniGuard администратором. Если регистрация не выполнилась автоматически, отправьте в группе команду <code>/register_chat</code>.</p></details>
+        <details class="faq-item"><summary>Для чего нужен AniCoin?</summary><p>AniCoin используется в магазине, кейсах, оформлении профиля и игровых механиках.</p></details>
+        <details class="faq-item"><summary>Почему ник золотой?</summary><p>Золотой или жёлтый ник отображается только у пользователя с активным Premium. У обычного аккаунта ник серо-синий.</p></details>
+        <details class="faq-item"><summary>Как определяется статистика?</summary><p>Уровни, рейтинг и репутация рассчитываются сервером по активности, XP, числу бесед и предупреждениям.</p></details>`;
+    }
+    if (!dialog.open) dialog.showModal();
   }
 
   async function saveSettingKey(key, value, sourceInput = null) {
@@ -1058,10 +1302,27 @@
       const nav = event.target.closest('.nav[data-view]');
       if (nav) setView(nav.dataset.view);
 
-      const menuLink = event.target.closest('[data-view-target]');
-      if (menuLink) {
+      const userMenuAction = event.target.closest('[data-user-menu-action]');
+      if (userMenuAction) {
         $('#menu-dialog').close();
-        setView(menuLink.dataset.viewTarget);
+        const action = userMenuAction.dataset.userMenuAction;
+        if (action === 'profile') setView('profile');
+        else if (action === 'advertising') setView('advertising');
+        else openUserActionDialog(action);
+      }
+
+      if (event.target.closest('[data-toggle-theme-from-settings]')) {
+        toggleAppTheme();
+        openUserActionDialog('settings');
+      }
+
+      if (event.target.closest('[data-open-advertising]')) setView('advertising');
+
+      const adPlan = event.target.closest('[data-ad-plan]');
+      if (adPlan) {
+        $('#advertising-plan').value = adPlan.dataset.adPlan;
+        $('#advertising-title').focus();
+        notify(`Выбран тариф «${advertisingPlanById(adPlan.dataset.adPlan).title}».`);
       }
 
       const groupOption = event.target.closest('[data-chat-id]');
@@ -1074,7 +1335,10 @@
       if (buy) buyPlan(buy.dataset.plan);
 
       const profileAction = event.target.closest('[data-profile-action]');
-      if (profileAction) handleProfileAction(profileAction.dataset.profileAction);
+      if (profileAction) {
+        if (profileAction.dataset.profileAction === 'user-premium') setView('premium');
+        else handleProfileAction(profileAction.dataset.profileAction);
+      }
 
       const memberCard = event.target.closest('[data-member-id]');
       if (memberCard && event.target.closest('.member-info')) await showMemberDetails(memberCard.dataset.memberId);
@@ -1201,9 +1465,13 @@
     $('#chat-select').addEventListener('change', event => switchChat(Number(event.target.value)));
     $('#group-switch-button').addEventListener('click', () => { renderChatSelect(); $('#group-dialog').showModal(); });
     $('#close-group-dialog').addEventListener('click', () => $('#group-dialog').close());
+    $('#theme-toggle-button').addEventListener('click', toggleAppTheme);
     $('#header-menu-button').addEventListener('click', () => $('#menu-dialog').showModal());
     $('#close-menu-dialog').addEventListener('click', () => $('#menu-dialog').close());
+    $('#close-user-action-dialog').addEventListener('click', () => $('#user-action-dialog').close());
     $('#header-search-button').addEventListener('click', () => { $('#global-search').focus(); haptic('medium'); });
+    $('#advertising-preview-button')?.addEventListener('click', previewAdvertising);
+    $('#advertising-submit-button')?.addEventListener('click', submitAdvertisingOrder);
 
     $('#premium-dialog-close').addEventListener('click', () => $('#premium-dialog').close());
     $('#premium-dialog-open').addEventListener('click', () => { $('#premium-dialog').close(); setView('premium'); });

@@ -28,3 +28,12 @@
 Premium: умный антиспам, скрытые ссылки, подозрительные новички, автокарантин, лестница наказаний, адаптивная защита и автоматическая блокировка при рейде.
 
 Premium проверяется не только интерфейсом, но и API сервера.
+
+## Store/Admin integration v12
+
+- Connected the mobile Premium case animation to server-side wallet deductions and rewards.
+- Added Telegram Stars invoices for AniCoin packages and approved advertising orders.
+- Added persistent advertising moderation, support chat, case history and wallet ledger.
+- Expanded the owner panel with advertising, support, case and AniCoin management.
+- Added direct routes `/shop`, `/account` and `/group`.
+- Removed the Premium-rule checkbox from user-created moderation rules.

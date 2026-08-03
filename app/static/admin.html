@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="aniguard-build" content="admin-block-grid-v23.2">
+<meta name="aniguard-build" content="admin-badge-fix-v23.2.1">
 <title>AniGuard Admin — панель владельца</title>
 <style>
 :root{
@@ -898,6 +898,29 @@ svg{display:block}
 
   function dashboardCard(title, description, action, buttonText, iconId, buttonClass='secondary', wide=false, counter=''){
     return `<article class="dashboard-card ${wide ? 'wide' : ''}"><div class="dashboard-card-head"><span class="dashboard-card-icon"><svg viewBox="0 0 24 24"><use href="#${iconId}"></use></svg></span><h3>${title}</h3></div><p>${description}</p><div class="card-actions"><button class="${buttonClass}" data-action="${action}">${buttonText}${counter ? ` (${counter})` : ''}</button></div></article>`;
+  }
+
+  function badge(value = '', tone = '') {
+    const text = String(value ?? '').trim();
+
+    if (!text) {
+      return '';
+    }
+
+    const allowedTones = new Set([
+      'success',
+      'warning',
+      'info',
+      'danger',
+      'muted'
+    ]);
+
+    const normalizedTone = String(tone ?? '').trim();
+    const toneClass = allowedTones.has(normalizedTone)
+      ? ` ${normalizedTone}`
+      : '';
+
+    return `<span class="badge${toneClass}">${escapeHtml(text)}</span>`;
   }
 
   function renderOverview(){

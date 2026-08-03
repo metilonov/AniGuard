@@ -19,6 +19,11 @@ from app.monitoring import resource_monitor
 
 settings = get_settings()
 STATIC_DIR = Path(__file__).resolve().parent / "static"
+NO_CACHE_HEADERS = {
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+    "Expires": "0",
+}
 logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
 
 
@@ -61,10 +66,16 @@ async def root() -> RedirectResponse:
 @app.get("/group", include_in_schema=False)
 @app.get("/group/", include_in_schema=False)
 async def mini_app() -> FileResponse:
-    return FileResponse(STATIC_DIR / "index.html")
+    return FileResponse(
+        STATIC_DIR / "index.html",
+        headers=NO_CACHE_HEADERS,
+    )
 
 
 @app.get("/admin", include_in_schema=False)
 @app.get("/admin/", include_in_schema=False)
 async def admin_panel() -> FileResponse:
-    return FileResponse(STATIC_DIR / "admin.html")
+    return FileResponse(
+        STATIC_DIR / "admin.html",
+        headers=NO_CACHE_HEADERS,
+    )

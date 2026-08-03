@@ -29,10 +29,18 @@ class Settings(BaseSettings):
 
     # BotHost resource monitoring. BOT_ID is injected by BotHost at runtime.
     bothost_agent_url: str = Field(default="http://agent:8000", alias="BOTHOST_AGENT_URL")
+    bothost_agent_fallback_urls: str = Field(
+        default="http://agent.bothost.ru,http://msk1.bothost.ru",
+        alias="BOTHOST_AGENT_FALLBACK_URLS",
+    )
+    bothost_agent_timeout_seconds: float = Field(default=1.2, alias="BOTHOST_AGENT_TIMEOUT_SECONDS")
+    bothost_agent_retry_seconds: float = Field(default=10.0, alias="BOTHOST_AGENT_RETRY_SECONDS")
     bothost_bot_id: str = Field(default="", alias="BOT_ID")
     bothost_ram_limit_mb: int = Field(default=2048, alias="BOTHOST_RAM_LIMIT_MB")
     bothost_cpu_limit: float = Field(default=4.0, alias="BOTHOST_CPU_LIMIT")
     bothost_disk_limit_gb: float = Field(default=15.0, alias="BOTHOST_DISK_LIMIT_GB")
+    bothost_project_dir: Path = Field(default=Path("/app"), alias="BOTHOST_PROJECT_DIR")
+    bothost_disk_scan_interval_seconds: float = Field(default=60.0, alias="BOTHOST_DISK_SCAN_INTERVAL_SECONDS")
     resource_poll_interval_seconds: float = Field(default=1.0, alias="RESOURCE_POLL_INTERVAL_SECONDS")
     resource_persist_interval_seconds: int = Field(default=10, alias="RESOURCE_PERSIST_INTERVAL_SECONDS")
     resource_history_days: int = Field(default=7, alias="RESOURCE_HISTORY_DAYS")
@@ -80,6 +88,21 @@ class Settings(BaseSettings):
         if isinstance(value, (list, tuple, set)):
             return {int(item) for item in value}
         raise ValueError("Значение должно содержать один или несколько числовых Telegram ID")
+
+    @field_validator("bothost_agent_timeout_seconds")
+    @classmethod
+    def minimum_agent_timeout(cls, value: float) -> float:
+        return max(0.3, min(10.0, float(value)))
+
+    @field_validator("bothost_agent_retry_seconds")
+    @classmethod
+    def minimum_agent_retry(cls, value: float) -> float:
+        return max(2.0, float(value))
+
+    @field_validator("bothost_disk_scan_interval_seconds")
+    @classmethod
+    def minimum_disk_scan_interval(cls, value: float) -> float:
+        return max(10.0, float(value))
 
     @field_validator("resource_poll_interval_seconds")
     @classmethod

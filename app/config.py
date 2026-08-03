@@ -38,6 +38,20 @@ class Settings(BaseSettings):
     resource_persist_interval_seconds: int = Field(default=10, alias="RESOURCE_PERSIST_INTERVAL_SECONDS")
     resource_history_days: int = Field(default=7, alias="RESOURCE_HISTORY_DAYS")
 
+<<<<<<< HEAD
+=======
+    # Currency conversion for the owner dashboard. USD/BYN is refreshed from
+    # the National Bank of Belarus; the Star-to-USD coefficient stays
+    # configurable because Telegram settlement values can change.
+    telegram_star_usd_rate: float = Field(default=0.013, alias="TELEGRAM_STAR_USD_RATE")
+    nbrb_usd_rate_url: str = Field(
+        default="https://api.nbrb.by/exrates/rates/431",
+        alias="NBRB_USD_RATE_URL",
+    )
+    usd_byn_fallback: float = Field(default=3.3, alias="USD_BYN_FALLBACK")
+    fx_refresh_seconds: int = Field(default=3600, alias="FX_REFRESH_SECONDS")
+
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
         env_file_encoding="utf-8",
@@ -93,6 +107,14 @@ class Settings(BaseSettings):
         # One second is the highest supported refresh rate for this project.
         return max(1.0, float(value))
 
+<<<<<<< HEAD
+=======
+    @field_validator("fx_refresh_seconds")
+    @classmethod
+    def minimum_fx_refresh(cls, value: int) -> int:
+        return max(300, int(value))
+
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     @field_validator("resource_persist_interval_seconds")
     @classmethod
     def minimum_persist_interval(cls, value: int) -> int:

@@ -13,7 +13,7 @@ from aiogram.enums import ChatMemberStatus
 from aiogram.types import ChatPermissions
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse, Response
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot import bot, moderation_response, render_custom_template
@@ -25,6 +25,9 @@ from app.models import (
     AdminActionLog,
     BlockedEntity,
     Chat,
+    CaseOpening,
+    AdvertisingOrder,
+    SupportTicket,
     CustomCommand,
     EntityAccessGrant,
     GameCommand,
@@ -41,6 +44,7 @@ from app.models import (
     Report,
     RoleAssignmentHistory,
     RPCommand,
+    ResponseStylePack,
     User,
     Appeal,
     BackupSnapshot,
@@ -95,9 +99,30 @@ from app.schemas import (
     AdminResponseStyleRequest,
     AdminBackupRestoreRequest,
     AdminProbationDecisionRequest,
+<<<<<<< HEAD
 )
 from app.security import TelegramUser, current_telegram_user
 from app.monitoring import resource_monitor
+=======
+    StylePackCreate,
+    StylePackUpdate,
+    StylePackModerationRequest,
+    ChatStyleApplyRequest,
+)
+from app.security import TelegramUser, current_telegram_user
+from app.monitoring import resource_monitor
+from app.response_styles import (
+    ACTION_TITLES as RESPONSE_ACTION_TITLES,
+    BUILTIN_STYLE_TEMPLATES,
+    STYLE_EXAMPLES,
+    STYLE_VARIABLES,
+    build_context,
+    render_template,
+    style_code,
+    validate_templates,
+)
+from app.exchange_rates import exchange_rates
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 from app.feature_services import (
     close_case,
     create_backup_snapshot,
@@ -771,12 +796,28 @@ async def run_action(
             try:
                 group_settings = await get_merged_settings(session, chat_id)
                 command_settings = group_settings.get("basic_moderation_commands") or {}
-                selected = next(
-                    (value for value in command_settings.values() if isinstance(value, dict) and value.get("action") == payload.action),
+                selected_key = next(
+                    (key for key, value in command_settings.items() if isinstance(value, dict) and value.get("action") == payload.action),
                     None,
                 )
-                if selected and selected.get("response"):
-                    chat = await get_chat_or_raise(session, chat_id)
+                selected = command_settings.get(selected_key) if selected_key else None
+                defaults = default_basic_commands()
+                default_response = str((defaults.get(selected_key) or {}).get("response") or "") if selected_key else ""
+                chat = await get_chat_or_raise(session, chat_id)
+                actor_db = await session.get(User, user.id)
+                target_db = await session.get(User, payload.target_id)
+                target_membership = await session.scalar(select(Membership).where(Membership.chat_id == chat_id, Membership.user_id == payload.target_id))
+                style = str(group_settings.get("response_style") or "ordinary")
+                custom_templates = None
+                if style == "custom":
+                    style_row = await session.scalar(select(ResponseStylePack).where(
+                        func.upper(ResponseStylePack.code) == str(group_settings.get("custom_style_code") or "").upper(),
+                        ResponseStylePack.status == "approved",
+                    ))
+                    custom_templates = dict(style_row.templates or {}) if style_row else None
+                    if not custom_templates:
+                        style = "ordinary"
+                if style != "custom" and selected and selected.get("response") and str(selected.get("response")) != default_response:
                     response_text = render_custom_template(
                         str(selected["response"]),
                         actor_id=user.id,
@@ -785,6 +826,10 @@ async def run_action(
                         duration_seconds=result.get("duration_seconds"),
                         reason=str(result.get("reason") or payload.reason or "Причина не указана"),
                         chat_title=chat.title,
+                        actor_name=actor_db.first_name if actor_db else user.first_name,
+                        target_name=target_db.first_name if target_db else "User",
+                        warnings=int(result.get("warnings", target_membership.warnings if target_membership else 0) or 0),
+                        case_id=result.get("case_id"),
                     )
                 else:
                     response_text = moderation_response(
@@ -795,6 +840,25 @@ async def run_action(
                         reason=str(result.get("reason") or payload.reason or "Причина не указана"),
                         show_duration=bool(group_settings.get("show_moderation_duration", True)),
                         show_reason=bool(group_settings.get("show_moderation_reason", True)),
+                        style=style,
+                        custom_templates=custom_templates,
+                        actor_name=actor_db.first_name if actor_db else user.first_name,
+                        actor_username=actor_db.username if actor_db else user.username,
+                        target_name=target_db.first_name if target_db else "User",
+                        target_username=target_db.username if target_db else None,
+                        chat_title=chat.title,
+                        chat_id=chat_id,
+                        warnings=int(result.get("warnings", target_membership.warnings if target_membership else 0) or 0),
+                        warning_limit=int(group_settings.get("warn_threshold", 3)),
+                        case_id=result.get("case_id"),
+                        command_name=str((selected or defaults.get(selected_key) or {}).get("name") or payload.action),
+                        command_key=selected_key or payload.action,
+                        command_description=str((selected or defaults.get(selected_key) or {}).get("description") or "Команда модерации"),
+                        command_number=str(selected_key).removeprefix("anime_") if selected_key and str(selected_key).startswith("anime_") else "—",
+                        command_templates={
+                            "ordinary": (defaults.get(selected_key) or {}).get("ordinary_response") if selected_key else None,
+                            "naruto": (defaults.get(selected_key) or {}).get("naruto_response") if selected_key else None,
+                        },
                     )
                 await bot.send_message(chat_id, response_text)
             except Exception:
@@ -2074,6 +2138,339 @@ async def _write_admin_log(
     )
 
 
+# ---------------------------------------------------------------------------
+# Response-style and command constructor (v23)
+# ---------------------------------------------------------------------------
+
+def _style_payload(row: ResponseStylePack, *, include_templates: bool = True) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "id": row.id,
+        "creator_id": row.creator_id,
+        "name": row.name,
+        "description": row.description,
+        "code": row.code if row.status == "approved" else None,
+        "base_style": row.base_style,
+        "status": row.status,
+        "preview_text": row.preview_text,
+        "moderation_note": row.moderation_note,
+        "submitted_at": _iso(row.submitted_at),
+        "reviewed_at": _iso(row.reviewed_at),
+        "reviewed_by": row.reviewed_by,
+        "uses_count": row.uses_count,
+        "created_at": _iso(row.created_at),
+        "updated_at": _iso(row.updated_at),
+    }
+    if include_templates:
+        result["templates"] = row.templates or {}
+    return result
+
+
+@router.get("/styles/constructor")
+async def style_constructor_catalog(
+    user: TelegramUser = Depends(current_telegram_user),
+) -> dict[str, Any]:
+    return {
+        "variables": STYLE_VARIABLES,
+        "examples": STYLE_EXAMPLES,
+        "built_in_styles": [
+            {"code": code, "name": {"ordinary": "Обычный", "naruto": "Наруто", "minimal": "Минималистичный", "strict": "Строгий"}[code]}
+            for code in ("ordinary", "naruto", "minimal", "strict")
+        ],
+        "moderation_commands": [
+            {"key": f"moderation.{key}", "action": key, "title": title, "ordinary": BUILTIN_STYLE_TEMPLATES["ordinary"].get(key, ""), "naruto": BUILTIN_STYLE_TEMPLATES["naruto"].get(key, "")}
+            for key, title in RESPONSE_ACTION_TITLES.items()
+        ],
+        "key_examples": ["moderation.mute", "moderation.ban", "rp.обнять", "game.расенган", "moderation.default"],
+    }
+
+
+@router.get("/styles/mine")
+async def my_style_packs(
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    rows = (await session.scalars(
+        select(ResponseStylePack).where(ResponseStylePack.creator_id == user.id).order_by(ResponseStylePack.id.desc())
+    )).all()
+    return {"items": [_style_payload(row) for row in rows]}
+
+
+@router.post("/styles", status_code=201)
+async def create_style_pack(
+    payload: StylePackCreate,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await upsert_user(session, user)
+    templates = validate_templates(payload.templates)
+    code = style_code()
+    while await session.scalar(select(ResponseStylePack.id).where(ResponseStylePack.code == code)):
+        code = style_code()
+    row = ResponseStylePack(
+        creator_id=user.id,
+        name=payload.name.strip(),
+        description=payload.description.strip(),
+        code=code,
+        base_style=payload.base_style,
+        templates=templates,
+        preview_text=payload.preview_text.strip(),
+        status="draft",
+    )
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return _style_payload(row)
+
+
+@router.patch("/styles/{style_id}")
+async def update_style_pack(
+    style_id: int,
+    payload: StylePackUpdate,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    row = await session.get(ResponseStylePack, style_id)
+    if not row or row.creator_id != user.id:
+        raise HTTPException(status_code=404, detail="Стиль не найден")
+    if row.status == "approved":
+        raise HTTPException(status_code=409, detail="Одобренный стиль нельзя изменить. Создайте его копию.")
+    update = payload.model_dump(exclude_unset=True)
+    if "templates" in update and update["templates"] is not None:
+        update["templates"] = validate_templates(update["templates"])
+    for key, value in update.items():
+        if isinstance(value, str):
+            value = value.strip()
+        setattr(row, key, value)
+    if row.status in {"pending", "rejected", "returned"}:
+        row.status = "draft"
+        row.moderation_note = None
+    await session.commit()
+    return _style_payload(row)
+
+
+@router.post("/styles/{style_id}/submit")
+async def submit_style_pack(
+    style_id: int,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    row = await session.get(ResponseStylePack, style_id)
+    if not row or row.creator_id != user.id:
+        raise HTTPException(status_code=404, detail="Стиль не найден")
+    if not row.templates:
+        raise HTTPException(status_code=422, detail="Стиль не содержит шаблонов")
+    if row.status == "approved":
+        raise HTTPException(status_code=409, detail="Стиль уже одобрен")
+    row.status = "pending"
+    row.submitted_at = utcnow()
+    row.moderation_note = None
+    await session.commit()
+    return {"ok": True, "status": row.status, "code": None}
+
+
+@router.get("/styles/search")
+async def search_style_pack(
+    code: str = Query(min_length=4, max_length=24),
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    normalized = code.strip().upper()
+    row = await session.scalar(select(ResponseStylePack).where(func.upper(ResponseStylePack.code) == normalized))
+    if not row or row.status != "approved":
+        raise HTTPException(status_code=404, detail="Одобренный стиль с таким кодом не найден")
+    creator = await session.get(User, row.creator_id)
+    result = _style_payload(row, include_templates=False)
+    result["creator"] = {
+        "id": row.creator_id,
+        "name": " ".join(filter(None, [creator.first_name, creator.last_name])) if creator else "Автор стиля",
+        "username": creator.username if creator else None,
+        "avatar_url": f"/api/avatars/{row.creator_id}",
+    }
+    return result
+
+
+@router.get("/chats/{chat_id}/response-style")
+async def chat_response_style(
+    chat_id: int,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    values = await get_merged_settings(session, chat_id)
+    result = {
+        "style": values.get("response_style", "ordinary"),
+        "code": values.get("custom_style_code") or None,
+        "length": values.get("response_length", "full"),
+        "delete_command_message": bool(values.get("delete_command_message", False)),
+        "reply_in_thread": bool(values.get("reply_in_thread", False)),
+    }
+    if result["code"]:
+        row = await session.scalar(select(ResponseStylePack).where(ResponseStylePack.code == result["code"]))
+        result["custom_style"] = _style_payload(row, include_templates=False) if row and row.status == "approved" else None
+    return result
+
+
+@router.put("/chats/{chat_id}/response-style")
+async def apply_chat_response_style(
+    chat_id: int,
+    payload: ChatStyleApplyRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    await ensure_admin(chat_id, user)
+    custom_code = ""
+    if payload.style == "custom":
+        custom_code = (payload.code or "").strip().upper()
+        if not custom_code:
+            raise HTTPException(status_code=422, detail="Введите код кастомного стиля")
+        row = await session.scalar(select(ResponseStylePack).where(func.upper(ResponseStylePack.code) == custom_code))
+        if not row or row.status != "approved":
+            raise HTTPException(status_code=404, detail="Одобренный стиль с таким кодом не найден")
+        row.uses_count = int(row.uses_count or 0) + 1
+    patch = {
+        "response_style": payload.style,
+        "custom_style_code": custom_code,
+        "response_length": payload.length,
+        "delete_command_message": payload.delete_command_message,
+        "reply_in_thread": payload.reply_in_thread,
+        "anime_replies": payload.style == "naruto",
+    }
+    values = await update_chat_settings(session, chat_id, patch)
+    await session.commit()
+    return {key: values.get(key) for key in patch}
+
+
+@router.get("/admin/styles")
+async def admin_style_queue(
+    status_filter: str = Query(default="pending", alias="status"),
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    query = select(ResponseStylePack).order_by(ResponseStylePack.id.desc())
+    if status_filter != "all":
+        query = query.where(ResponseStylePack.status == status_filter)
+    rows = (await session.scalars(query.limit(200))).all()
+    items: list[dict[str, Any]] = []
+    for row in rows:
+        creator = await session.get(User, row.creator_id)
+        item = _style_payload(row)
+        item["creator"] = {
+            "id": row.creator_id,
+            "name": " ".join(filter(None, [creator.first_name, creator.last_name])) if creator else "User",
+            "username": creator.username if creator else None,
+            "avatar_url": f"/api/avatars/{row.creator_id}",
+        }
+        items.append(item)
+    return {"items": items}
+
+
+@router.post("/admin/styles/{style_id}/decision")
+async def admin_style_decision(
+    style_id: int,
+    payload: StylePackModerationRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    row = await session.get(ResponseStylePack, style_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Стиль не найден")
+    row.status = {"approve": "approved", "reject": "rejected", "return": "returned"}[payload.decision]
+    row.moderation_note = payload.note.strip() or None
+    row.reviewed_by = user.id
+    row.reviewed_at = utcnow()
+    await _admin_log(
+        session,
+        admin_id=user.id,
+        action=f"style_{row.status}",
+        entity_type="style",
+        entity_id=row.id,
+        details={
+            "code": row.code if row.status == "approved" else None,
+            "name": row.name,
+            "note": row.moderation_note,
+            "creator_id": row.creator_id,
+        },
+    )
+    await session.commit()
+    return _style_payload(row)
+
+
+ADMIN_EVENT_LABELS: dict[str, str] = {
+    "grant_premium": "Выдан Premium",
+    "premium_granted": "Выдан Premium",
+    "premium_bulk": "Выполнено массовое продление Premium",
+    "coin_add": "Начислены AniCoin",
+    "coin_subtract": "Списаны AniCoin",
+    "coin_set": "Изменён баланс AniCoin",
+    "coins_update": "Изменён баланс AniCoin",
+    "global_ban": "Выдан глобальный бан",
+    "chat_block": "Беседа заблокирована",
+    "chat_started": "Беседа запущена",
+    "chat_paused": "Беседа приостановлена",
+    "chat_settings_update": "Обновлены настройки беседы",
+    "broadcast_created": "Создана рассылка",
+    "promo_created": "Создан промокод",
+    "promo_toggled": "Изменён статус промокода",
+    "style_approved": "Одобрен стиль ответов",
+    "style_rejected": "Отклонён стиль ответов",
+    "style_returned": "Стиль возвращён на доработку",
+    "advertising_approved": "Одобрена реклама",
+    "advertising_rejected": "Отклонена реклама",
+    "support_reply": "Отправлен ответ поддержки",
+    "case_closed": "Закрыто дело",
+    "appeal_accepted": "Принята апелляция",
+    "appeal_rejected": "Отклонена апелляция",
+    "appeal_decision": "Рассмотрена апелляция",
+    "admin_avatar_updated": "Обновлён аватар администратора",
+    "admin_avatar_deleted": "Удалён аватар администратора",
+    "data_export": "Экспортирован отчёт",
+    "direct_message": "Отправлено личное сообщение",
+    "report_status": "Изменён статус жалобы",
+    "system_settings": "Обновлены системные настройки",
+    "system_clear_cache": "Очищен системный кэш",
+    "system_restart": "Запрошен перезапуск сервиса",
+    "system_maintenance": "Включён режим обслуживания",
+    "system_backup": "Создана резервная копия",
+    "test_mode": "Изменён тестовый режим",
+    "anti_raid_enabled": "Включена защита от рейдов",
+    "anti_raid_disabled": "Выключена защита от рейдов",
+    "emergency_enabled": "Включён аварийный режим",
+    "emergency_disabled": "Выключен аварийный режим",
+    "warning_removed": "Снято предупреждение",
+    "restrictions_removed": "Сняты ограничения",
+    "penalty_removed": "Снят штрафной статус",
+    "unban": "Снята блокировка",
+    "purge": "Очищены сообщения",
+}
+
+
+def _event_label(action: str) -> str:
+    normalized = str(action or "").strip().casefold()
+    if normalized in ADMIN_EVENT_LABELS:
+        return ADMIN_EVENT_LABELS[normalized]
+    # Never expose an untranslated internal identifier in the Russian panel.
+    if normalized.endswith("_enabled"):
+        return "Включена системная функция"
+    if normalized.endswith("_disabled"):
+        return "Выключена системная функция"
+    return "Системное событие"
+
+
+def _event_user_id(row: AdminActionLog) -> int:
+    details = row.details or {}
+    # entity_id is a Telegram user ID only for user-scoped events. Chat, style,
+    # case, report and advertising IDs must never be resolved as users.
+    if row.entity_type == "user" and row.entity_id:
+        return int(row.entity_id)
+    for key in ("user_id", "target_user_id", "creator_id"):
+        value = details.get(key)
+        if value is not None and str(value).lstrip("-").isdigit():
+            return int(value)
+    return int(row.admin_id or 0)
+
+
 @router.get("/admin/dashboard")
 async def admin_dashboard(
     user: TelegramUser = Depends(current_telegram_user),
@@ -2106,6 +2503,18 @@ async def admin_dashboard(
         or 0
     )
     revenue = premium_revenue + store_revenue
+<<<<<<< HEAD
+=======
+    revenue_byn, fx_snapshot = await exchange_rates.stars_to_byn(revenue)
+    ad_revenue_stars = int(
+        await session.scalar(
+            select(func.coalesce(func.sum(StorePayment.stars), 0)).where(
+                StorePayment.status == "paid", StorePayment.kind == "advertising"
+            )
+        ) or 0
+    )
+    ad_revenue_byn, _ = await exchange_rates.stars_to_byn(ad_revenue_stars)
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     ani_coin = int(await session.scalar(select(func.coalesce(func.sum(UserWallet.balance), 0))) or 0)
     if not ani_coin:
         ani_coin = int(await session.scalar(select(func.coalesce(func.sum(Membership.coins), 0))) or 0)
@@ -2191,6 +2600,7 @@ async def admin_dashboard(
                 "blocked": block is not None,
                 "status": "Заблокирован" if block else "Активен" if last_seen and as_utc(last_seen) and as_utc(last_seen) >= week_ago else "Неактивен",
                 "chats": chats_for_user,
+                "avatar_url": f"/api/avatars/{row.id}",
             }
         )
 
@@ -2316,21 +2726,39 @@ async def admin_dashboard(
         for row in promo_rows
     ]
 
+    appeals_open = int(await session.scalar(select(func.count()).select_from(Appeal).where(Appeal.status == "new")) or 0)
+    cases_open = int(await session.scalar(select(func.count()).select_from(ModerationCase).where(ModerationCase.status.in_(["open", "appealed", "changed"]))) or 0)
+    threats_open = int(await session.scalar(select(func.count()).select_from(SecurityIncident).where(SecurityIncident.status == "open")) or 0)
+    advertising_pending = int(await session.scalar(select(func.count()).select_from(AdvertisingOrder).where(AdvertisingOrder.status == "pending")) or 0)
+    cases_opened = int(await session.scalar(select(func.count()).select_from(CaseOpening)) or 0)
+    support_open = int(await session.scalar(select(func.count()).select_from(SupportTicket).where(SupportTicket.status == "open")) or 0)
+    styles_pending = int(await session.scalar(select(func.count()).select_from(ResponseStylePack).where(ResponseStylePack.status == "pending")) or 0)
+
     log_rows = (
         await session.scalars(select(AdminActionLog).order_by(AdminActionLog.id.desc()).limit(200))
     ).all()
-    logs_payload = [
-        {
+    logs_payload: list[dict[str, Any]] = []
+    for row in log_rows:
+        event_user_id = _event_user_id(row)
+        event_user = await session.get(User, event_user_id) if event_user_id else None
+        username = f"@{event_user.username}" if event_user and event_user.username else "без username"
+        display_name = " ".join(filter(None, [event_user.first_name, event_user.last_name])) if event_user else "Пользователь"
+        label = _event_label(row.action)
+        logs_payload.append({
             "id": row.id,
             "entity_id": row.entity_id,
             "entity_type": row.entity_type,
+            "user_id": event_user_id or None,
+            "username": username,
+            "display_name": display_name,
+            "avatar_url": f"/api/avatars/{event_user_id}" if event_user_id else None,
             "time": _iso(row.created_at),
-            "text": f"{row.action}" + (f" · {row.entity_type} {row.entity_id}" if row.entity_id is not None else ""),
+            "event": label,
+            "text": f"{label} · {username} {event_user_id}".strip(),
             "tag": "premium" if "premium" in row.action else "chat" if row.entity_type == "chat" else "admin",
             "details": row.details,
-        }
-        for row in log_rows
-    ]
+        })
+
 
     open_reports = sum(1 for row in report_rows if row.status != "closed")
     return {
@@ -2342,15 +2770,29 @@ async def admin_dashboard(
         },
         "stats": {
             "users": user_count,
+            "premiumUsers": premium_users,
             "active24": active_24,
             "active7": active_7,
             "chats": chat_count,
-            "premiumUsers": premium_users,
             "premiumChats": premium_chats,
             "expiringPremium": expiring_premium,
             "revenue": revenue,
+            "revenueStars": revenue,
+            "revenueByn": revenue_byn,
+            "starBynRate": round(fx_snapshot.star_byn, 6),
+            "usdBynRate": round(fx_snapshot.usd_byn, 4),
+            "fxSource": fx_snapshot.source,
             "aniCoin": ani_coin,
             "reports": open_reports,
+            "appeals": appeals_open,
+            "cases": cases_open,
+            "threats": threats_open,
+            "advertising": advertising_pending,
+            "advertisingRevenueStars": ad_revenue_stars,
+            "advertisingRevenueByn": ad_revenue_byn,
+            "caseOpenings": cases_opened,
+            "support": support_open,
+            "stylesPending": styles_pending,
         },
         "users": users_payload,
         "chats": chats_payload,
@@ -2376,15 +2818,86 @@ async def admin_live(
     ensure_bot_admin(user)
     now = utcnow()
     day_ago = now - timedelta(days=1)
+<<<<<<< HEAD
     resources = await resource_monitor.snapshot()
     stats = {
         "users": int(await session.scalar(select(func.count()).select_from(User)) or 0),
         "active24": int(await session.scalar(select(func.count(func.distinct(Membership.user_id))).where(Membership.last_seen_at >= day_ago)) or 0),
         "chats": int(await session.scalar(select(func.count()).select_from(Chat).where(Chat.is_active.is_(True))) or 0),
+=======
+    week_ago = now - timedelta(days=7)
+    resources = await resource_monitor.snapshot()
+
+    active_grant = or_(
+        EntityAccessGrant.is_lifetime.is_(True),
+        EntityAccessGrant.premium_until > now,
+    )
+    premium_users = int(await session.scalar(
+        select(func.count()).select_from(EntityAccessGrant).where(
+            EntityAccessGrant.entity_type == "user", active_grant
+        )
+    ) or 0)
+    premium_chat_grants = int(await session.scalar(
+        select(func.count()).select_from(EntityAccessGrant).where(
+            EntityAccessGrant.entity_type == "chat", active_grant
+        )
+    ) or 0)
+    legacy_premium_chats = int(await session.scalar(
+        select(func.count()).select_from(Chat).where(Chat.premium_until > now)
+    ) or 0)
+    premium_chats = max(premium_chat_grants, legacy_premium_chats)
+
+    premium_revenue = int(await session.scalar(
+        select(func.coalesce(func.sum(Payment.stars), 0))
+    ) or 0)
+    store_revenue = int(await session.scalar(
+        select(func.coalesce(func.sum(StorePayment.stars), 0)).where(StorePayment.status == "paid")
+    ) or 0)
+    revenue_stars = premium_revenue + store_revenue
+    revenue_byn, fx_snapshot = await exchange_rates.stars_to_byn(revenue_stars)
+    ad_revenue_stars = int(await session.scalar(
+        select(func.coalesce(func.sum(StorePayment.stars), 0)).where(
+            StorePayment.status == "paid", StorePayment.kind == "advertising"
+        )
+    ) or 0)
+    ad_revenue_byn, _ = await exchange_rates.stars_to_byn(ad_revenue_stars)
+    ani_coin = int(await session.scalar(
+        select(func.coalesce(func.sum(UserWallet.balance), 0))
+    ) or 0)
+    if not ani_coin:
+        ani_coin = int(await session.scalar(
+            select(func.coalesce(func.sum(Membership.coins), 0))
+        ) or 0)
+
+    stats = {
+        "users": int(await session.scalar(select(func.count()).select_from(User)) or 0),
+        "premiumUsers": premium_users,
+        "active24": int(await session.scalar(select(func.count(func.distinct(Membership.user_id))).where(Membership.last_seen_at >= day_ago)) or 0),
+        "active7": int(await session.scalar(select(func.count(func.distinct(Membership.user_id))).where(Membership.last_seen_at >= week_ago)) or 0),
+        "chats": int(await session.scalar(select(func.count()).select_from(Chat).where(Chat.is_active.is_(True))) or 0),
+        "premiumChats": premium_chats,
+        "revenue": revenue_stars,
+        "revenueStars": revenue_stars,
+        "revenueByn": revenue_byn,
+        "starBynRate": round(fx_snapshot.star_byn, 6),
+        "usdBynRate": round(fx_snapshot.usd_byn, 4),
+        "fxSource": fx_snapshot.source,
+        "aniCoin": ani_coin,
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         "reports": int(await session.scalar(select(func.count()).select_from(Report).where(Report.status.in_(["new", "in_progress"]))) or 0),
         "cases": int(await session.scalar(select(func.count()).select_from(ModerationCase).where(ModerationCase.status.in_(["open", "appealed", "changed"]))) or 0),
         "appeals": int(await session.scalar(select(func.count()).select_from(Appeal).where(Appeal.status == "new")) or 0),
         "securityAlerts": int(await session.scalar(select(func.count()).select_from(SecurityIncident).where(SecurityIncident.status == "open")) or 0),
+<<<<<<< HEAD
+=======
+        "threats": int(await session.scalar(select(func.count()).select_from(SecurityIncident).where(SecurityIncident.status == "open")) or 0),
+        "advertising": int(await session.scalar(select(func.count()).select_from(AdvertisingOrder).where(AdvertisingOrder.status == "pending")) or 0),
+        "advertisingRevenueStars": ad_revenue_stars,
+        "advertisingRevenueByn": ad_revenue_byn,
+        "caseOpenings": int(await session.scalar(select(func.count()).select_from(CaseOpening)) or 0),
+        "support": int(await session.scalar(select(func.count()).select_from(SupportTicket).where(SupportTicket.status == "open")) or 0),
+        "stylesPending": int(await session.scalar(select(func.count()).select_from(ResponseStylePack).where(ResponseStylePack.status == "pending")) or 0),
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         "activeShifts": int(await session.scalar(select(func.count()).select_from(ModeratorShift).where(ModeratorShift.starts_at <= now, ModeratorShift.ends_at >= now, ModeratorShift.status.in_(["scheduled", "active"]))) or 0),
         "probations": int(await session.scalar(select(func.count()).select_from(StaffProbation).where(StaffProbation.status == "active")) or 0),
     }
@@ -2645,7 +3158,16 @@ async def admin_response_style(
     user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     ensure_bot_admin(user)
+<<<<<<< HEAD
     patch = {"response_style": payload.style, "response_length": payload.length, "delete_command_message": payload.delete_command_message, "reply_in_thread": payload.reply_in_thread, "anime_replies": payload.style == "naruto"}
+=======
+    if payload.style == "custom":
+        raise HTTPException(
+            status_code=422,
+            detail="Для кастомного стиля используйте поиск по коду в панели выбранной беседы",
+        )
+    patch = {"response_style": payload.style, "custom_style_code": "", "response_length": payload.length, "delete_command_message": payload.delete_command_message, "reply_in_thread": payload.reply_in_thread, "anime_replies": payload.style == "naruto"}
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     values = await update_chat_settings(session, chat_id, patch)
     await session.commit()
     return {key: values[key] for key in patch}

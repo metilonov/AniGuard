@@ -423,15 +423,12 @@ svg{display:block}
 .button-grid{display:grid;gap:10px}.button-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(max-width:520px){.store-kpi-grid,.button-grid.two{grid-template-columns:1fr}}
 
-<<<<<<< HEAD
-=======
 
 .event-avatar{width:46px;height:46px}
 .event-avatar .avatar{width:46px;height:46px;min-width:46px;flex-basis:46px;border-radius:15px;font-size:13px}
 .event-list .row{grid-template-columns:46px minmax(0,1fr) auto}
 .metric b{overflow-wrap:anywhere}
 @media(max-width:420px){.metric b{font-size:19px}}
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 </style>
 </head>
 <body>
@@ -572,7 +569,7 @@ svg{display:block}
 
 <div id="toast" class="toast"></div>
 
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>window.Telegram={WebApp:{ready(){},expand(){},initData:""}};</script>
 <script>
 (() => {
   const $ = (s, root=document) => root.querySelector(s);
@@ -642,7 +639,66 @@ svg{display:block}
     return new URLSearchParams(location.search).get('dev_user_id') || '';
   }
 
+  const DEMO_MODE = true;
+  const demoStartedAt = Date.now() - 3 * 86400000 - 5 * 3600000;
+  const demoState = {
+    cases:[{id:1,code:'AG-000001',chat_id:-1001234567890,target_id:741852963,actor_id:123456789,action:'mute',reason:'Оскорбление участника',duration_seconds:86400,status:'open',severity:'high',evidence_count:1,created_at:new Date(Date.now()-4200000).toISOString()}],
+    appeals:[{id:1,case_id:1,chat_id:-1001234567890,user_id:741852963,text:'Наказание выдано по ошибке',status:'new',decision:null,decision_note:null,reviewer_id:null,created_at:new Date(Date.now()-1800000).toISOString()}],
+    backups:[{id:1,chat_id:-1001234567890,kind:'automatic',checksum:'13f0a9b4c180d4b2e711',created_by:0,created_at:new Date(Date.now()-3600000).toISOString(),restored_at:null}],
+    shifts:[{id:1,chat_id:-1001234567890,user_id:555111222,assigned_by:123456789,starts_at:new Date(Date.now()-3600000).toISOString(),ends_at:new Date(Date.now()+7200000).toISOString(),temporary_role:'moderator',status:'active',reports_handled:8,warnings_issued:4,mutes_issued:1}],
+  };
+
+  function demoResources(){
+    const tick=Date.now()/1000;
+    const cpu=18+Math.sin(tick/2.7)*9+Math.sin(tick/7)*4;
+    const memory=648+Math.sin(tick/5)*34;
+    const disk=2960;
+    const uptime=Math.floor((Date.now()-demoStartedAt)/1000);
+    const days=Math.floor(uptime/86400), hours=Math.floor((uptime%86400)/3600), minutes=Math.floor((uptime%3600)/60);
+    return {provider:'cgroup',status:'online',cpu_percent:Math.max(1,cpu),cpu_limit:4,cpu_source:'cgroup-v2',memory_usage_mb:memory,memory_limit_mb:2048,memory_percent:memory/2048*100,memory_source:'cgroup-v2',disk_usage_mb:disk,disk_limit_mb:15360,disk_percent:disk/15360*100,uptime_seconds:uptime,uptime:`${days} дн. ${hours} ч. ${minutes} мин.`,updated_at:new Date().toISOString(),latency_ms:1,error:null};
+  }
+
+  function demoDashboard(){
+    return {
+      admin:{id:123456789,name:'AniGuard Admin',username:'aniguard_owner',avatar_url:null},
+      stats:{users:18420,premiumUsers:1320,active24:6380,active7:11320,chats:86,premiumChats:44,expiringPremium:31,revenue:8420,revenueStars:8420,revenueByn:361.12,starBynRate:0.042888,aniCoin:1284000,reports:7,appeals:3,cases:12,threats:2,advertising:3,advertisingRevenueStars:620,advertisingRevenueByn:26.59,caseOpenings:128,support:2,stylesPending:1},
+      users:[],
+      chats:[{id:-1001234567890,name:'AniGuard Community',title:'AniGuard Community',members:8421,active7:3184,botStatus:'Активен',antiSpam:true,captcha:true,premium:true,premiumUntil:new Date(Date.now()+30*86400000).toISOString(),owner:'@aniguard_owner',username:'aniguard_chat',created:new Date(Date.now()-300*86400000).toISOString()}],
+      payments:[],
+      reports:[{id:'REP-12',rawId:12,type:'Жалоба · спам',text:'Повторная реклама',status:'Новая',chatId:-1001234567890,userId:111,targetId:222,duplicates:4,date:new Date(Date.now()-900000).toISOString()}],
+      tickets:[],promos:[],logs:[{id:1,event:'Пользователю выдан Premium',username:'@username',user_id:741852963,display_name:'Дмитрий Морозов',avatar_url:'',time:new Date(Date.now()-180000).toISOString(),tag:'premium'},{id:2,event:'Рекламный заказ отправлен на модерацию',username:'@advertiser',user_id:555111222,display_name:'Алексей',avatar_url:'',time:new Date(Date.now()-420000).toISOString(),tag:'payment'}],
+      settings:{maintenance:false,registration:true,premiumInheritance:true,paymentNotify:true,autoReports:true,themeAuto:false,backupAlerts:true}
+    };
+  }
+
+  async function demoApi(path, options={}){
+    await new Promise(resolve=>setTimeout(resolve,35));
+    const method=(options.method||'GET').toUpperCase();
+    if(path==='/api/me') return {is_bot_admin:true,id:123456789};
+    if(path==='/api/admin/dashboard') return demoDashboard();
+    if(path==='/api/admin/styles?status=pending') return {items:[{id:41,creator_id:741852963,name:'Стиль Песчаной деревни',description:'Авторские ответы для модерации и RP-команд.',code:'AGS-SUNA2026',base_style:'naruto',status:'pending',templates:{'moderation.mute':'🏜 <b>Песчаная печать активирована</b>{newline}Цель: {user}{newline}Срок: {duration}{newline}Причина: {reason}','rp.обнять':'🤗 {actor} укрывает {target} песчаным щитом дружбы!'},creator:{id:741852963,name:'Дмитрий Морозов',username:'username',avatar_url:''}}]};
+    if(/^\/api\/admin\/styles\/\d+\/decision$/.test(path) && method==='POST') return {ok:true,status:JSON.parse(options.body||'{}').decision};
+    if(path==='/api/admin/store/overview') return {pending_ads:3,open_tickets:2,case_openings:128,coin_sales_stars:1420,ad_sales_stars:620,audience:{channel:12000,bot:18420,rewarded:6380}};
+    if(path==='/api/admin/live') return {ok:true,server_time:new Date().toISOString(),refresh_interval_ms:1000,stats:{users:18420,premiumUsers:1320,active24:6380,active7:11320,chats:86,premiumChats:44,revenue:8420,revenueStars:8420,revenueByn:361.12,starBynRate:0.042888,aniCoin:1284000,reports:7,cases:demoState.cases.filter(x=>x.status==='open').length,appeals:demoState.appeals.filter(x=>x.status==='new').length,securityAlerts:1,threats:1,advertising:3,advertisingRevenueStars:620,advertisingRevenueByn:26.59,caseOpenings:128,support:2,stylesPending:1,activeShifts:1,probations:1},resources:demoResources(),incidents:[{id:1,chat_id:-1001234567890,kind:'anti_raid',severity:'warning',actor_id:null,created_at:new Date(Date.now()-600000).toISOString()}]};
+    if(path.startsWith('/api/admin/system/resources/history')) { const samples=[]; for(let i=60;i>=0;i--){const t=Date.now()-i*10000;samples.push({time:new Date(t).toISOString(),cpu:20+Math.sin(i/5)*12,memory_mb:640+Math.sin(i/8)*40,memory_percent:(640+Math.sin(i/8)*40)/20.48,disk_mb:2960,disk_percent:19.3,uptime_seconds:100000});} return {period_minutes:60,samples}; }
+    if(path==='/api/admin/cases') return {items:demoState.cases};
+    if(/^\/api\/admin\/cases\/\d+$/.test(path)){const id=Number(path.split('/').pop());const row=demoState.cases.find(x=>x.id===id);return {case:row,evidence:[{id:1,message_id:4821,author_id:741852963,text:'Фрагмент сообщения, сохранённый до удаления.',media:[],created_at:row.created_at}],appeals:demoState.appeals.filter(x=>x.case_id===id)};}
+    if(path==='/api/admin/appeals') return {items:demoState.appeals};
+    if(path==='/api/admin/security/incidents') return {items:[{id:1,chat_id:-1001234567890,kind:'anti_raid',severity:'warning',status:'open',actor_id:null,details:{joins:11,window_seconds:30},created_at:new Date(Date.now()-600000).toISOString(),resolved_at:null},{id:2,chat_id:-1001234567890,kind:'admin_abuse',severity:'critical',status:'resolved',actor_id:555111222,details:{actions:12},created_at:new Date(Date.now()-86400000).toISOString(),resolved_at:new Date(Date.now()-82800000).toISOString()}]};
+    if(path==='/api/admin/staff/probations') return {items:[{id:1,chat_id:-1001234567890,user_id:555111222,role:'junior_moderator',status:'active',starts_at:new Date(Date.now()-3*86400000).toISOString(),ends_at:new Date(Date.now()+4*86400000).toISOString(),actions_count:14,reversed_actions:1,complaints_count:0}]};
+    if(path==='/api/admin/staff/performance') return {items:[{id:1,chat_id:-1001234567890,user_id:555111222,rating:92,actions_count:148,confirmed_actions:141,reversed_actions:3,accepted_appeals:2,complaints_count:1,suspended_until:null}]};
+    if(path==='/api/admin/staff/shifts') return {items:demoState.shifts};
+    if(path==='/api/admin/backups') return {items:demoState.backups};
+    if(path==='/api/admin/weekly-reports') return {items:[]};
+    if(path.includes('/weekly-report') && method==='POST') return {id:2,payload:{new_members:312,moderation_actions:126,reports:84,warnings:42,mutes:11,bans:3,appeals:5,accepted_appeals:1,top_moderator_id:555111222}};
+    if(path.includes('/backups') && method==='POST' && !path.includes('/restore')) { const id=demoState.backups.length+1; demoState.backups.unshift({id,chat_id:-1001234567890,kind:'manual',checksum:'demo'+Date.now(),created_by:123456789,created_at:new Date().toISOString(),restored_at:null}); return {id,checksum:demoState.backups[0].checksum}; }
+    if(path.includes('/cases/') && path.endsWith('/close') && method==='POST'){const id=Number(path.split('/')[4]);const row=demoState.cases.find(x=>x.id===id);if(row)row.status='closed';return {id,status:'closed'};}
+    if(path.includes('/appeals/') && path.endsWith('/decision') && method==='POST'){const id=Number(path.split('/')[4]);const body=JSON.parse(options.body||'{}');const row=demoState.appeals.find(x=>x.id===id);if(row)row.status=body.decision==='accept'?'accepted':body.decision==='change'?'changed':'rejected';return {id,status:row?.status||'accepted'};}
+    return {ok:true,id:Date.now(),status:'saved'};
+  }
+
   async function api(path, options={}){
+    if (DEMO_MODE) return demoApi(path, options);
     const headers = new Headers(options.headers || {});
     if (telegramInitData()) headers.set('X-Telegram-Init-Data', telegramInitData());
     else if (devUserId()) headers.set('X-Dev-User-Id', devUserId());
@@ -709,19 +765,11 @@ svg{display:block}
     setText('liveDiskMeta', `${Number(r.disk_percent || 0).toFixed(2)}% лимита · только файлы AniGuard`);
     setText('liveUptime', r.uptime || '—');
     setText('liveProvider', resourceProviderLabel(r));
-    setText('liveResourceStatus', r.error || `API AniGuard через ${location.host || 'домен проекта'} · работает`);
+    setText('liveResourceStatus', r.error || 'API AniGuard через aniguard.bothost.tech · работает');
     setText('liveUpdated', payload.server_time ? new Date(payload.server_time).toLocaleTimeString('ru-RU') : '—');
     const dot = $('#resourceDot'); if (dot) dot.classList.toggle('degraded', r.status !== 'online');
     [['cpuBar',r.cpu_percent],['ramBar',r.memory_percent],['diskBar',r.disk_percent]].forEach(([id,value]) => { const node=$('#'+id); if(node){ node.className=`resource-bar ${resourceClass(Number(value||0))}`; const span=node.querySelector('span'); if(span) span.style.width=pct(value)+'%'; }});
-<<<<<<< HEAD
-    if (data.currentPage === 'overview') {
-      setText('liveCasesCount', fmt(data.liveStats.cases || 0));
-      setText('liveAppealsCount', fmt(data.liveStats.appeals || 0));
-      setText('liveAlertsCount', fmt(data.liveStats.securityAlerts || 0));
-    }
-=======
     if (data.currentPage === 'overview') renderOverview();
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
   }
 
   async function loadLiveData(){
@@ -739,7 +787,7 @@ svg{display:block}
   }
 
   async function loadRemoteData(){
-    if (!telegramInitData() && !devUserId()) throw new Error('Откройте админ-панель кнопкой из команды /admin в Telegram. Для DEV_MODE можно добавить ?dev_user_id=ВАШ_ID.');
+    if (!DEMO_MODE && !telegramInitData() && !devUserId()) throw new Error('Откройте админ-панель кнопкой из команды /admin в Telegram. Для DEV_MODE можно добавить ?dev_user_id=ВАШ_ID.');
     const me = await api('/api/me');
     if (!me.is_bot_admin) throw new Error('Доступ разрешён только владельцу AniGuard.');
     const [dashboard, storeOverview] = await Promise.all([
@@ -857,24 +905,6 @@ svg{display:block}
     const stylesPending = Number(s.stylesPending || 0);
     $('#overviewRoot').innerHTML = `
       <div class="metrics">
-<<<<<<< HEAD
-        ${metric('Пользователей', fmt(s.users), 'Всего зарегистрировано')}
-        ${metric('Активны 24 ч.', fmt(s.active24), 'Онлайн-аудитория')}
-        ${metric('Активны 7 дней', fmt(s.active7), 'Неделя активности')}
-        ${metric('Бесед', fmt(s.chats), 'Подключено')}
-        ${metric('Premium юзеров', fmt(s.premiumUsers), 'С активной подпиской')}
-        ${metric('Premium бесед', fmt(s.premiumChats), 'Группы и наследование')}
-        ${metric('Доход', fmt(s.revenue) + ' Stars', 'Текущий месяц')}
-        ${metric('AniCoin', fmt(s.aniCoin), 'В обороте')}
-        ${metric('Жалобы', fmt(s.reports || 0), 'Требуют проверки')}
-        <div class="metric"><small>Дела</small><b id="liveCasesCount">${fmt(data.liveStats.cases || 0)}</b><em>Открытые расследования</em></div>
-        <div class="metric"><small>Апелляции</small><b id="liveAppealsCount">${fmt(data.liveStats.appeals || 0)}</b><em>Ждут решения</em></div>
-        <div class="metric"><small>Угрозы</small><b id="liveAlertsCount">${fmt(data.liveStats.securityAlerts || 0)}</b><em>События безопасности</em></div>
-        ${metric('Реклама', fmt(data.storeOverview.pending_ads), 'Заказов на модерации')}
-        ${metric('Поддержка', fmt(data.storeOverview.open_tickets), 'Открытых диалогов')}
-        ${metric('Кейсы', fmt(data.storeOverview.case_openings), 'Всего открытий')}
-        ${metric('Доход магазина', fmt(Number(data.storeOverview.coin_sales_stars || 0) + Number(data.storeOverview.ad_sales_stars || 0)) + ' Stars', 'AniCoin и реклама')}
-=======
         ${metric('Пользователей', fmt(s.users || 0), 'Всего зарегистрировано')}
         ${metric('Premium пользователей', fmt(s.premiumUsers || 0), 'С активной подпиской')}
         ${metric('Активные 24 часа', fmt(s.active24 || 0), 'За последние сутки')}
@@ -892,7 +922,6 @@ svg{display:block}
         ${metric('Доход с рекламы', `${fmt(adStars)} Stars | ${Number(adByn).toFixed(2)} BYN`, 'Оплаченные рекламные заказы')}
         ${metric('Кейсы', fmt(caseOpenings), 'Всего открытий')}
         ${metric('Поддержка', fmt(support), 'Открытых диалогов')}
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
       </div>
 
       <div class="section-head"><h2>Быстрые действия</h2><span>Частые задачи</span></div>
@@ -919,15 +948,6 @@ svg{display:block}
         <div class="card"><h3>История кейсов</h3><p>Открытия Premium-кейса, награды и списания AniCoin.</p><div class="card-actions"><button class="secondary" data-action="case-history">Открыть</button></div></div>
         <div class="card"><h3>Операции AniCoin</h3><p>Покупки, списания за кейсы и ручные изменения баланса.</p><div class="card-actions"><button class="secondary" data-action="wallet-history">Открыть</button></div></div>
         <div class="card"><h3>Настройки рекламы</h3><p>Аудитория и параметры расчёта рекламной стоимости.</p><div class="card-actions"><button class="secondary" data-action="advertising-settings">Настроить</button></div></div>
-      </div>
-
-      <div class="section-head"><h2>Магазин и поддержка</h2><span>Новые серверные разделы</span></div>
-      <div class="cards">
-        <div class="card"><h3>Модерация рекламы</h3><p>Проверка текста, ссылки, аудитории и стоимости перед оплатой.</p><div class="card-actions"><button class="primary" data-action="store-ads">Открыть (${fmt(data.storeOverview.pending_ads)})</button></div></div>
-        <div class="card"><h3>Чат поддержки</h3><p>Прямые обращения пользователей из Mini App и ответы администратора.</p><div class="card-actions"><button class="secondary" data-action="support-inbox">Открыть (${fmt(data.storeOverview.open_tickets)})</button></div></div>
-        <div class="card"><h3>История кейсов</h3><p>Результаты Premium кейса, награды и расходы AniCoin.</p><div class="card-actions"><button class="secondary" data-action="case-history">Открыть</button></div></div>
-        <div class="card"><h3>Операции AniCoin</h3><p>Покупки, списания за кейсы и изменения баланса пользователей.</p><div class="card-actions"><button class="secondary" data-action="wallet-history">Открыть</button></div></div>
-        <div class="card"><h3>Настройки рекламы</h3><p>Количество живых пользователей канала для расчёта цены.</p><div class="card-actions"><button class="secondary" data-action="advertising-settings">Настроить</button></div></div>
       </div>
 
       <div class="section-head"><h2>Последние события</h2><span>${data.logs.length} записей</span></div>
@@ -1812,8 +1832,6 @@ svg{display:block}
     openSheet(title,'Настройка выбранной беседы',`<div class="form">${body}</div>`);
   }
 
-<<<<<<< HEAD
-=======
   async function styleModerationSheet(){
     const payload = await api('/api/admin/styles?status=pending');
     const items = payload.items || [];
@@ -1827,7 +1845,7 @@ svg{display:block}
               ${avatarMarkup(creator.name || 'Автор стиля', creator.avatar_url || '')}
               <div style="min-width:0">
                 <div class="user-name">${escapeHtml(item.name)}</div>
-                <span class="user-id">Код будет выдан после одобрения · база: ${escapeHtml(item.base_style)}</span>
+                <span class="user-id">Код: ${escapeHtml(item.code)} · база: ${escapeHtml(item.base_style)}</span>
                 <span class="user-username">${creator.username ? '@' + escapeHtml(creator.username) : 'без username'} · ID ${escapeHtml(creator.id || item.creator_id)}</span>
               </div>
             </div>
@@ -1845,7 +1863,6 @@ svg{display:block}
     `);
   }
 
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
   async function handleAction(name){
     if (name === 'grant-premium') premiumForm();
     if (name === 'coin-manager') coinsForm();
@@ -1957,8 +1974,6 @@ svg{display:block}
         const actionNode = e.target.closest('[data-action]');
         if (actionNode) await handleAction(actionNode.dataset.action);
 
-<<<<<<< HEAD
-=======
         const styleDecisionNode = e.target.closest('[data-style-decision]');
         if (styleDecisionNode) {
           const styleId = Number(styleDecisionNode.dataset.styleId);
@@ -1969,7 +1984,6 @@ svg{display:block}
           showToast('Решение по стилю сохранено');
         }
 
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         const opsCaseNode = e.target.closest('[data-ops-case]');
         if (opsCaseNode) await operationCaseDetails(Number(opsCaseNode.dataset.opsCase));
 

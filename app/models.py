@@ -277,6 +277,27 @@ class GameCommand(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
 
+class ResponseStylePack(Base):
+    __tablename__ = "response_style_packs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    creator_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    description: Mapped[str] = mapped_column(Text, default="")
+    code: Mapped[str] = mapped_column(String(24), unique=True, index=True)
+    base_style: Mapped[str] = mapped_column(String(24), default="ordinary")
+    status: Mapped[str] = mapped_column(String(24), default="draft", index=True)
+    templates: Mapped[dict[str, str]] = mapped_column(JSON, default=dict)
+    preview_text: Mapped[str] = mapped_column(Text, default="")
+    moderation_note: Mapped[str | None] = mapped_column(Text)
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reviewed_by: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    uses_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class AdminActionLog(Base):
     __tablename__ = "admin_action_logs"
 

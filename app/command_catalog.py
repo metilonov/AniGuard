@@ -22,7 +22,13 @@ def _cmd(
     amount: int | None = None,
     special: str | None = None,
     target: bool | None = None,
+<<<<<<< HEAD
     response: str = "Готово.",
+=======
+    response: str = "✅ Команда выполнена.",
+    ordinary_response: str | None = None,
+    naruto_response: str | None = None,
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     patch: dict[str, Any] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     return key, {
@@ -38,6 +44,11 @@ def _cmd(
         "special": special,
         "target_required": target,
         "response": response,
+<<<<<<< HEAD
+=======
+        "ordinary_response": ordinary_response,
+        "naruto_response": naruto_response,
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         "settings_patch": patch or {},
     }
 
@@ -65,6 +76,59 @@ _ENTRIES: list[tuple[str, dict[str, Any]]] = [
     _cmd("unrestrict_commands", "Разрешить команды", "разрешить команды", "Снять запрет команд", "unrestrict_commands", aliases=("uncommandsban",), target=True, response="Команды разрешены: {user}."),
 ]
 
+<<<<<<< HEAD
+=======
+_ACTION_ICONS = {
+    "warn": ("⚠️", "📜"),
+    "unwarn": ("✅", "✨"),
+    "mute": ("🔇", "🤐"),
+    "unmute": ("🔊", "🕊"),
+    "ban": ("⛔", "🌑"),
+    "unban": ("♻️", "🍃"),
+    "kick": ("🚪", "💨"),
+    "quarantine": ("🛡", "🌀"),
+    "unquarantine": ("✅", "✨"),
+    "purge": ("🧹", "🌪"),
+    "slow": ("🐢", "⏳"),
+    "lock": ("🔒", "🟣"),
+    "unlock": ("🔓", "🍃"),
+    "restrict_media": ("🖼", "🔏"),
+    "unrestrict_media": ("✅", "✨"),
+    "restrict_links": ("🔗", "🔏"),
+    "unrestrict_links": ("✅", "✨"),
+    "restrict_commands": ("⌨️", "🔏"),
+    "unrestrict_commands": ("✅", "✨"),
+}
+
+
+def _expanded_command_responses(number: int, name: str, description: str, action: str) -> tuple[str, str]:
+    ordinary_icon, naruto_icon = _ACTION_ICONS.get(action, ("✅", "🍥"))
+    ordinary = (
+        f"{ordinary_icon} <b>Команда «{name}» выполнена</b>\n\n"
+        f"📌 Результат: {description}\n"
+        "👤 Пользователь: {user}\n"
+        "🛡 Модератор: {admin}\n"
+        "⏳ Срок: {duration}\n"
+        "📝 Причина: {reason}\n"
+        "📁 Дело: {case_code}\n"
+        "🕒 Время: {datetime}\n\n"
+        f"Идентификатор команды: N-{number:03d}. Действие зарегистрировано в журнале AniGuard."
+    )
+    naruto = (
+        f"{naruto_icon} <b>Техника «{name}» активирована!</b>\n\n"
+        f"📜 Эффект дзюцу: {description}\n"
+        "🥷 Цель техники: {user}\n"
+        "⚔️ Технику применил: {admin}\n"
+        "⏳ Действие печати: {duration}\n"
+        "🗯 Причина: {reason}\n"
+        "📁 Свиток дела: {case_code}\n"
+        "🕒 Печать времени: {datetime}\n\n"
+        f"🍃 Протокол техники N-{number:03d} сохранён советом деревни AniGuard."
+    )
+    return ordinary, naruto
+
+
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 # 101–180. Advanced or destructive tools are Premium. Unsupported Telegram API
 # operations are represented by safe, explicit handlers instead of pretending
 # that IP bans, cross-platform bans or chat recreation are possible.
@@ -184,6 +248,10 @@ for number, name, trigger, description, action, premium, duration, amount, speci
         aliases.extend(["печать_смерти_ре́аппера", "печать смерти реаппера"])
     if number == 179:
         aliases.extend(["барьер_четырёх_фиолетовых", "барьер четырёх фиолетовых"])
+<<<<<<< HEAD
+=======
+    ordinary_response, naruto_response = _expanded_command_responses(number, name, description, action)
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     _ENTRIES.append(_cmd(
         f"anime_{number}",
         name,
@@ -197,7 +265,13 @@ for number, name, trigger, description, action, premium, duration, amount, speci
         amount=amount,
         special=special,
         target=target,
+<<<<<<< HEAD
         response="Готово: {command}.",
+=======
+        response=ordinary_response,
+        ordinary_response=ordinary_response,
+        naruto_response=naruto_response,
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         patch=_MODE_PATCHES.get(number),
     ))
 

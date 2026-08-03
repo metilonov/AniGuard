@@ -278,7 +278,11 @@ class AdminShiftCreateRequest(BaseModel):
 
 
 class AdminResponseStyleRequest(BaseModel):
+<<<<<<< HEAD
     style: Literal["ordinary", "naruto", "minimal", "strict"] = "naruto"
+=======
+    style: Literal["ordinary", "naruto", "minimal", "strict", "custom"] = "naruto"
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     length: Literal["short", "full"] = "full"
     delete_command_message: bool = False
     reply_in_thread: bool = False
@@ -292,3 +296,35 @@ class AdminProbationDecisionRequest(BaseModel):
     decision: Literal["confirm", "reject", "extend"]
     note: str = Field(default="", max_length=1000)
     extend_days: int = Field(default=7, ge=1, le=365)
+<<<<<<< HEAD
+=======
+
+
+class StylePackCreate(BaseModel):
+    name: str = Field(min_length=2, max_length=80)
+    description: str = Field(default="", max_length=1000)
+    base_style: Literal["ordinary", "naruto", "minimal", "strict"] = "ordinary"
+    templates: dict[str, str] = Field(default_factory=dict)
+    preview_text: str = Field(default="", max_length=2000)
+
+
+class StylePackUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=80)
+    description: str | None = Field(default=None, max_length=1000)
+    base_style: Literal["ordinary", "naruto", "minimal", "strict"] | None = None
+    templates: dict[str, str] | None = None
+    preview_text: str | None = Field(default=None, max_length=2000)
+
+
+class StylePackModerationRequest(BaseModel):
+    decision: Literal["approve", "reject", "return"]
+    note: str = Field(default="", max_length=1500)
+
+
+class ChatStyleApplyRequest(BaseModel):
+    style: Literal["ordinary", "naruto", "minimal", "strict", "custom"]
+    code: str | None = Field(default=None, max_length=24)
+    length: Literal["short", "full"] = "full"
+    delete_command_message: bool = False
+    reply_in_thread: bool = False
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)

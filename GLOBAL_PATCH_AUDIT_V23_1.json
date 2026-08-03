@@ -1,0 +1,23 @@
+{
+  "version": "23.1",
+  "base_version": "23",
+  "completed_residual_items": 11,
+  "features": {
+    "unique_naruto_command_responses": 180,
+    "generic_done_removed": true,
+    "custom_style_priority": true,
+    "custom_moderation_style_support": true,
+    "free_constructor_keys": true,
+    "full_style_moderation_preview": true,
+    "code_revealed_after_approval_only": true,
+    "event_user_resolution_fixed": true,
+    "russian_event_fallback": true,
+    "env_example_restored": true,
+    "case_ratio_exact_9_16": true
+  },
+  "validation": {
+    "pytest": "88 passed",
+    "python_compileall": "passed",
+    "javascript_syntax": "passed"
+  }
+}

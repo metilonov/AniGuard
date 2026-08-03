@@ -62,6 +62,7 @@ from app.models import (
     SecurityIncident,
     WeeklyReportSnapshot,
     RPCommand,
+    ResponseStylePack,
     User,
 )
 from app.durations import clean_reason, format_duration_ru, parse_duration_prefix
@@ -76,6 +77,10 @@ from app.feature_services import (
 from app.moderation_parser import TIMED_ACTIONS, detect_action, parse_moderation_command
 from app.pricing import PREMIUM_PLANS, get_plan
 from app.store import complete_store_payment, validate_store_payment
+<<<<<<< HEAD
+=======
+from app.response_styles import build_context, render_action_response, render_template
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 from app.roles import (
     PENALTY_DEFINITIONS,
     ROLE_DEFINITIONS,
@@ -503,7 +508,21 @@ def moderation_response(
     reason: str,
     show_duration: bool = True,
     show_reason: bool = True,
+    style: str = "ordinary",
+    custom_templates: dict[str, Any] | None = None,
+    actor_name: str = "Admin",
+    actor_username: str | None = None,
+    target_name: str = "User",
+    target_username: str | None = None,
+    chat_title: str = "Беседа",
+    chat_id: int | None = None,
+    warnings: int = 0,
+    warning_limit: int = 3,
+    case_id: int | None = None,
+    command_name: str | None = None,
+    **extra: Any,
 ) -> str:
+<<<<<<< HEAD
     target = profile_link(target_id, "User")
     title = html.escape(ACTION_TITLES.get(action, action))
     parts = [f"<b>{title}:</b> {target}"]
@@ -513,6 +532,30 @@ def moderation_response(
     if show_reason and clean and clean.casefold() != "причина не указана":
         parts.append(html.escape(clean))
     return " · ".join(parts)
+=======
+    clean_reason_value = reason if show_reason else "Скрыто настройками беседы"
+    effective_duration = duration_seconds if show_duration else None
+    return render_action_response(
+        style=style,
+        action=action,
+        custom_templates=custom_templates,
+        actor_id=actor_id,
+        actor_name=actor_name,
+        admin_username=(f"@{actor_username}" if actor_username and not actor_username.startswith("@") else actor_username) or "—",
+        target_id=target_id,
+        target_name=target_name,
+        username=(f"@{target_username}" if target_username and not target_username.startswith("@") else target_username) or "—",
+        duration_seconds=effective_duration,
+        reason=clean_reason_value,
+        chat_title=chat_title,
+        chat_id=chat_id,
+        warnings=warnings,
+        warning_limit=warning_limit,
+        case_id=case_id,
+        command=command_name or f"/{action}",
+        **extra,
+    )
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 
 
 def render_custom_template(
@@ -524,20 +567,113 @@ def render_custom_template(
     duration_seconds: int | None,
     reason: str,
     chat_title: str,
+    actor_name: str = "Admin",
+    target_name: str = "User",
+    **extra: Any,
 ) -> str:
-    escaped = html.escape(template)
-    replacements = {
-        "{admin}": profile_link(actor_id, "Admin"),
-        "{user}": profile_link(target_id, "User"),
-        "{command}": html.escape(command_name),
-        "{duration}": html.escape(format_duration_ru(duration_seconds)),
-        "{reason}": html.escape(reason or "Причина не указана"),
-        "{chat}": html.escape(chat_title),
-        "{group}": html.escape(chat_title),
+    context = build_context(
+        actor_id=actor_id,
+        actor_name=actor_name,
+        target_id=target_id,
+        target_name=target_name,
+        command=command_name,
+        duration_seconds=duration_seconds,
+        reason=reason,
+        chat_title=chat_title,
+        **extra,
+    )
+    return render_template(template, context, custom=True)
+
+
+
+
+def _builtin_command_response_context(command: dict[str, Any], key: str, name: str) -> dict[str, Any]:
+    return {
+        "command_key": key,
+        "command": name,
+        "command_description": str(command.get("description") or "Описание не указано"),
+        "command_number": str(key).removeprefix("anime_") if str(key).startswith("anime_") else "—",
+        "command_templates": {
+            "ordinary": command.get("ordinary_response"),
+            "naruto": command.get("naruto_response"),
+        },
     }
-    for placeholder, value in replacements.items():
-        escaped = escaped.replace(placeholder, value)
-    return escaped
+
+async def _chat_style(session, settings_data: dict[str, Any]) -> tuple[str, dict[str, Any] | None]:
+    style = str(settings_data.get("response_style") or "ordinary")
+    if style != "custom":
+        return style, None
+    code = str(settings_data.get("custom_style_code") or "").strip().upper()
+    if not code:
+        return "ordinary", None
+    row = await session.scalar(
+        select(ResponseStylePack).where(
+            func.upper(ResponseStylePack.code) == code,
+            ResponseStylePack.status == "approved",
+        )
+    )
+    if row is None:
+        return "ordinary", None
+    return "custom", dict(row.templates or {})
+
+
+async def _answer_styled_action(
+    message: Message,
+    action: str,
+    *,
+    target_id: int | None = None,
+    reason: str = "Причина не указана",
+    duration_seconds: int | None = None,
+    **extra: Any,
+) -> None:
+    async with SessionFactory() as session:
+        settings_data = await get_merged_settings(session, message.chat.id)
+        style, custom_templates = await _chat_style(session, settings_data)
+        actor_user = await session.get(User, message.from_user.id) if message.from_user else None
+        effective_target = int(target_id or (message.from_user.id if message.from_user else 0))
+        target_user = await session.get(User, effective_target) if effective_target else None
+        membership = await session.scalar(
+            select(Membership).where(Membership.chat_id == message.chat.id, Membership.user_id == effective_target)
+        ) if effective_target else None
+    text = render_action_response(
+        style=style,
+        action=action,
+        custom_templates=custom_templates,
+        actor_id=message.from_user.id if message.from_user else None,
+        actor_name=actor_user.first_name if actor_user else (message.from_user.first_name if message.from_user else "Admin"),
+        admin_username=(f"@{actor_user.username}" if actor_user and actor_user.username else "—"),
+        target_id=effective_target or None,
+        target_name=target_user.first_name if target_user else (message.from_user.first_name if message.from_user else "User"),
+        username=(f"@{target_user.username}" if target_user and target_user.username else "—"),
+        duration_seconds=duration_seconds,
+        reason=reason,
+        chat_title=message.chat.title or "Беседа",
+        chat_id=message.chat.id,
+        warnings=int(membership.warnings if membership else 0),
+        warning_limit=int(settings_data.get("warn_threshold", 3)),
+        **extra,
+    )
+    await message.answer(text)
+
+
+
+def _pack_template(templates: dict[str, Any] | None, kind: str, *names: str) -> str | None:
+    if not templates:
+        return None
+    keys: list[str] = []
+    for name in names:
+        normalized = _normalize_phrase(name)
+        keys.extend([
+            f"{kind}.{normalized}",
+            f"{kind}.{normalized.replace(' ', '_')}",
+            f"{kind}.{str(name).strip().casefold()}",
+        ])
+    keys.extend([f"{kind}.default", "default"])
+    for key in keys:
+        value = templates.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return None
 
 
 async def ensure_target_can_be_moderated(chat_id: int, target_id: int) -> None:
@@ -954,8 +1090,20 @@ async def submit_appeal(message: Message, raw_reason: str | None) -> None:
             message_id=message.message_id, reason=f"Апелляция #{appeal.id}: {reason}", category="апелляция",
         )
         await session.commit()
+<<<<<<< HEAD
     case_text = f" по делу AG-{appeal.case_id:06d}" if appeal.case_id else ""
     await message.answer(f"✅ Апелляция #{appeal.id}{case_text} зарегистрирована и передана администрации.")
+=======
+    await _answer_styled_action(
+        message,
+        "appeal",
+        target_id=message.from_user.id,
+        reason=reason,
+        appeal_id=appeal.id,
+        case_id=appeal.case_id,
+        report_id=f"AG-{report.id}",
+    )
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 
 
 @router.message(Command("appeal"))
@@ -1278,6 +1426,12 @@ async def moderation_command(
                 source_message_id=message.reply_to_message.message_id if message.reply_to_message else message.message_id,
                 evidence=_message_evidence(message),
             )
+            actor_user = await session.get(User, message.from_user.id)
+            target_user = await session.get(User, target_id)
+            target_membership = await session.scalar(
+                select(Membership).where(Membership.chat_id == message.chat.id, Membership.user_id == target_id)
+            )
+            style, custom_templates = await _chat_style(session, settings_data)
             await session.commit()
 
         await message.answer(
@@ -1289,6 +1443,19 @@ async def moderation_command(
                 reason=reason,
                 show_duration=bool(settings_data.get("show_moderation_duration", True)),
                 show_reason=bool(settings_data.get("show_moderation_reason", True)),
+                style=style,
+                custom_templates=custom_templates,
+                actor_name=(actor_user.first_name if actor_user else message.from_user.first_name),
+                actor_username=(actor_user.username if actor_user else message.from_user.username),
+                target_name=(target_user.first_name if target_user else "User"),
+                target_username=(target_user.username if target_user else None),
+                chat_title=message.chat.title or "Беседа",
+                chat_id=message.chat.id,
+                warnings=int(result.get("warnings", target_membership.warnings if target_membership else 0) or 0),
+                warning_limit=int(settings_data.get("warn_threshold", 3)),
+                case_id=result.get("case_id"),
+                command_name=f"/{parsed.action}",
+                message_id=message.reply_to_message.message_id if message.reply_to_message else message.message_id,
             )
         )
     except Exception as exc:
@@ -1416,6 +1583,12 @@ async def purge_handler(message: Message, command: CommandObject) -> None:
                 details={"count": count},
             )
             await session.commit()
+        await _answer_styled_action(
+            message,
+            "purge",
+            reason="Массовая очистка сообщений",
+            deleted_count=count,
+        )
     except Exception as exc:
         await send_admin_error(message, exc)
 
@@ -1437,7 +1610,13 @@ async def slow_handler(message: Message, command: CommandObject) -> None:
                 reason="Изменение медленного режима",
             )
             await session.commit()
-        await message.answer("Медленный режим отключён." if delay == 0 else f"Задержка установлена: {delay} сек.")
+        await _answer_styled_action(
+            message,
+            "slow",
+            reason="Медленный режим отключён" if delay == 0 else "Ограничение частоты сообщений",
+            slow_seconds=delay,
+            status="Отключено" if delay == 0 else "Активно",
+        )
     except Exception as exc:
         await send_admin_error(message, exc)
 
@@ -1456,7 +1635,11 @@ async def chat_state_action(message: Message, action: str) -> None:
                 reason="Чат закрыт" if action == "lock" else "Чат открыт",
             )
             await session.commit()
-        await message.answer("Чат закрыт для участников." if action == "lock" else "Чат снова открыт.")
+        await _answer_styled_action(
+            message,
+            action,
+            reason="Экстренное ограничение общения" if action == "lock" else "Обычный режим общения восстановлен",
+        )
     except Exception as exc:
         await send_admin_error(message, exc)
 
@@ -1496,8 +1679,20 @@ async def submit_smart_report(message: Message, raw: str | None) -> None:
             category=category,
         )
         await session.commit()
+<<<<<<< HEAD
     duplicate_text = f" · объединено жалоб: {report.duplicate_count}" if int(report.duplicate_count or 1) > 1 else ""
     await message.answer(f"Жалоба AG-{report.id} создана и передана модераторам{duplicate_text}.")
+=======
+    await _answer_styled_action(
+        message,
+        "report",
+        target_id=message.reply_to_message.from_user.id,
+        reason=reason,
+        report_id=f"AG-{report.id}",
+        message_id=message.reply_to_message.message_id,
+        status=f"Объединено сигналов: {int(report.duplicate_count or 1)}",
+    )
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 
 
 @router.message(Command("report"))
@@ -2684,7 +2879,11 @@ async def _send_compact_command_result(
     reason: str = "",
     chat_title: str = "",
 ) -> None:
+<<<<<<< HEAD
     response = str(command.get("response") or "Готово.")
+=======
+    response = str(command.get("response") or "✅ Команда выполнена и записана в журнал AniGuard.")
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     if target_id is None:
         text = html.escape(response).replace("{command}", html.escape(str(command.get("name") or "команда")))
         text = text.replace("{reason}", html.escape(reason or ""))
@@ -3330,6 +3529,11 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
             for key, value in stored.items():
                 if key in configured and isinstance(value, dict):
                     configured[key].update({field: field_value for field, field_value in value.items() if field in {"name", "trigger", "action", "response"}})
+<<<<<<< HEAD
+=======
+                    if "response" in value:
+                        configured[key]["_response_overridden"] = True
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 
         matched = match_builtin_command(text, configured)
         if matched is None:
@@ -3352,7 +3556,12 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
 
         action = str(config.get("action") or matched_key)
         name = str(config.get("name") or matched_key)
+<<<<<<< HEAD
         response = str(config.get("response") or "Готово.")
+=======
+        response = str(config.get("response") or "")
+        style, custom_style_templates = await _chat_style(session, settings_data)
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         target_required = config.get("target_required")
         if target_required is None:
             target_required = action in {"warn", "unwarn", "mute", "unmute", "ban", "unban", "kick", "quarantine", "unquarantine", "restrict_media", "unrestrict_media", "restrict_links", "unrestrict_links", "restrict_commands", "unrestrict_commands"}
@@ -3382,7 +3591,27 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
         if special_handled:
             await session.commit()
             if special_result:
+<<<<<<< HEAD
                 await message.answer(html.escape(special_result))
+=======
+                if style != "custom" and config.get("_response_overridden") and response:
+                    await _send_compact_command_result(message, command=config, target_id=target_id, reason=special_result, chat_title=chat.title)
+                else:
+                    await message.answer(render_action_response(
+                        style=style,
+                        action=action if action in ACTION_TITLES else "case",
+                        custom_templates=custom_style_templates,
+                        actor_id=message.from_user.id,
+                        actor_name=message.from_user.first_name,
+                        target_id=target_id or message.from_user.id,
+                        target_name="User" if target_id else message.from_user.first_name,
+                        reason=special_result,
+                        chat_title=chat.title,
+                        chat_id=chat.id,
+                        status="Выполнено",
+                        **_builtin_command_response_context(config, matched_key, name),
+                    ))
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
             return True
 
         if action == "purge":
@@ -3391,14 +3620,35 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
             deleted = await _delete_recent_messages(chat.id, message.message_id, amount)
             await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="purge", amount=max(1, min(amount, 100)), reason=f"Удалено: {deleted}", premium_override=True)
             await session.commit()
+<<<<<<< HEAD
             await message.answer(f"Удалено: {deleted}.")
+=======
+            await message.answer(render_action_response(
+                style=style, action="purge", custom_templates=custom_style_templates,
+                actor_id=message.from_user.id, actor_name=message.from_user.first_name,
+                target_id=message.from_user.id, target_name=message.from_user.first_name,
+                reason=name, chat_title=chat.title, chat_id=chat.id, deleted_count=deleted,
+                **_builtin_command_response_context(config, matched_key, name),
+            ))
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
             return True
 
         if action in {"slow", "lock", "unlock"}:
             amount = int(config.get("fixed_amount") or 15) if action == "slow" else None
             await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action=action, amount=amount, reason=name, premium_override=premium)
             await session.commit()
+<<<<<<< HEAD
             await _send_compact_command_result(message, command=config, reason=name, chat_title=chat.title)
+=======
+            await message.answer(render_action_response(
+                style=style, action=action, custom_templates=custom_style_templates,
+                actor_id=message.from_user.id, actor_name=message.from_user.first_name,
+                target_id=message.from_user.id, target_name=message.from_user.first_name,
+                reason=name, chat_title=chat.title, chat_id=chat.id,
+                slow_seconds=amount or 0,
+                **_builtin_command_response_context(config, matched_key, name),
+            ))
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
             return True
 
         if target_id is not None and action not in {"unwarn", "unmute", "unban", "unquarantine", "unrestrict_media", "unrestrict_links", "unrestrict_commands"}:
@@ -3420,7 +3670,10 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
             source_message_id=message.reply_to_message.message_id if message.reply_to_message else message.message_id,
             evidence=_message_evidence(message),
         )
+        target_user = await session.get(User, target_id) if target_id else None
+        target_member = await session.scalar(select(Membership).where(Membership.chat_id == chat.id, Membership.user_id == target_id)) if target_id else None
         await session.commit()
+<<<<<<< HEAD
         await _send_compact_command_result(
             message,
             command={**config, "response": response},
@@ -3429,6 +3682,38 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
             reason=reason,
             chat_title=chat.title,
         )
+=======
+        if style != "custom" and config.get("_response_overridden") and response:
+            await _send_compact_command_result(
+                message,
+                command={**config, "response": response},
+                target_id=target_id,
+                duration_seconds=result.get("duration_seconds"),
+                reason=reason,
+                chat_title=chat.title,
+            )
+        else:
+            await message.answer(moderation_response(
+                actor_id=message.from_user.id,
+                target_id=target_id or message.from_user.id,
+                action=action,
+                duration_seconds=result.get("duration_seconds"),
+                reason=reason,
+                style=style,
+                custom_templates=custom_style_templates,
+                actor_name=message.from_user.first_name,
+                actor_username=message.from_user.username,
+                target_name=target_user.first_name if target_user else "User",
+                target_username=target_user.username if target_user else None,
+                chat_title=chat.title,
+                chat_id=chat.id,
+                warnings=int(result.get("warnings", target_member.warnings if target_member else 0) or 0),
+                warning_limit=int(settings_data.get("warn_threshold", 3)),
+                case_id=result.get("case_id"),
+                command_name=name,
+                **_builtin_command_response_context(config, matched_key, name),
+            ))
+>>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         return True
 
 
@@ -3483,6 +3768,7 @@ async def try_custom_command(message: Message, chat: Chat, membership: Membershi
             return True
 
         settings_data = await get_merged_settings(session, chat.id)
+        style, custom_style_templates = await _chat_style(session, settings_data)
         default_duration = command.duration_seconds
         if default_duration is None:
             default_duration = int(settings_data.get(DEFAULT_DURATION_KEYS.get(command.action_type, "default_mute_seconds"), 604800))
@@ -3526,9 +3812,26 @@ async def try_custom_command(message: Message, chat: Chat, membership: Membershi
                 await message.delete()
             except Exception:
                 pass
-        await bot.send_message(
-            chat.id,
-            render_custom_template(
+        if style == "custom":
+            response_text = render_action_response(
+                style=style,
+                action=command.action_type,
+                custom_templates=custom_style_templates,
+                actor_id=message.from_user.id,
+                actor_name=message.from_user.first_name,
+                target_id=target_id,
+                target_name="User",
+                duration_seconds=result.get("duration_seconds"),
+                reason=reason,
+                chat_title=chat.title,
+                chat_id=chat.id,
+                case_id=result.get("case_id"),
+                command=command.name,
+                command_key=f"custom_{command.id}",
+                command_description=f"Пользовательская команда модерации: {command.action_type}",
+            )
+        else:
+            response_text = render_custom_template(
                 command.response_template,
                 actor_id=message.from_user.id,
                 target_id=target_id,
@@ -3536,8 +3839,86 @@ async def try_custom_command(message: Message, chat: Chat, membership: Membershi
                 duration_seconds=result.get("duration_seconds"),
                 reason=reason,
                 chat_title=chat.title,
-            ),
+                case_id=result.get("case_id"),
+            )
+        await bot.send_message(chat.id, response_text)
+        return True
+
+
+
+async def try_builtin_game_action(message: Message, chat: Chat, membership: Membership) -> bool:
+    """Run one of the built-in Naruto game actions.
+
+    Slash is optional, underscores/spaces are interchangeable. For names shared
+    with moderation commands, moderators receive moderation by default and can
+    force the game version with `игра <команда>` or `/игра_<команда>`.
+    """
+    text = (message.text or "").strip()
+    if not text or not message.from_user:
+        return False
+    matched = match_game_action(text)
+    if matched is None:
+        return False
+    key, command, remainder, forced = matched
+
+    role = await member_role(chat.id, membership.user_id)
+    if not forced and is_moderation_collision(str(command.get("trigger") or "")) and is_staff_role(role):
+        return False
+
+    async with SessionFactory() as session:
+        settings_data = await get_merged_settings(session, chat.id)
+        style, custom_style_templates = await _chat_style(session, settings_data)
+        restrictions = await active_restrictions(session, chat_id=chat.id, user_id=membership.user_id)
+        if "commands" in restrictions:
+            await message.reply("Команды временно недоступны.")
+            return True
+        if bool(command.get("premium")) and not await has_premium_access(session, chat_id=chat.id, user_id=membership.user_id):
+            await message.reply("Для этой игровой техники нужен AniGuard Premium.")
+            return True
+
+        target_id, target_name = await resolve_rp_target(message, remainder)
+        if bool(command.get("target_required")) and target_id is None and target_name == "себя":
+            await message.reply("Ответьте на сообщение пользователя или укажите @username.")
+            return True
+
+        now_mono = time.monotonic()
+        cooldown_key = (chat.id, membership.user_id, key)
+        cooldown = int(command.get("cooldown_seconds") or 0)
+        remaining = cooldown - (now_mono - _builtin_game_action_cooldowns.get(cooldown_key, 0))
+        if remaining > 0:
+            await message.reply(f"Техника будет доступна через {int(remaining) + 1} сек.")
+            return True
+
+        actor = profile_link(message.from_user.id, message.from_user.first_name)
+        target = profile_link(target_id, target_name) if target_id else html.escape(target_name)
+        override = _pack_template(custom_style_templates, "game", str(command.get("trigger") or key), key)
+        if override:
+            response = render_template(override, build_context(
+                actor_id=message.from_user.id, actor_name=message.from_user.first_name,
+                target_id=target_id, target_name=target_name, chat_title=chat.title,
+                command=str(command.get("trigger") or key), text=remainder,
+                xp=int(command.get("reward_xp") or 0), coins=int(command.get("reward_coins") or 0),
+            ), custom=True)
+        else:
+            response = html.escape(str(command.get("response") or ""))
+            response = response.replace("{actor}", actor).replace("{user}", actor).replace("{target}", target)
+
+        db_member = await session.scalar(
+            select(Membership).where(Membership.chat_id == chat.id, Membership.user_id == membership.user_id)
         )
+        if db_member:
+            db_member.xp += int(command.get("reward_xp") or 0)
+            db_member.coins += int(command.get("reward_coins") or 0)
+        if target_id and int(command.get("number") or 0) == 96:
+            target_member = await session.scalar(
+                select(Membership).where(Membership.chat_id == chat.id, Membership.user_id == target_id)
+            )
+            if target_member:
+                target_member.xp += 100
+
+        _builtin_game_action_cooldowns[cooldown_key] = now_mono
+        await session.commit()
+        await message.answer(response)
         return True
 
 
@@ -3612,6 +3993,8 @@ async def try_game_command(message: Message, chat: Chat, membership: Membership)
     if not text or text.startswith("/"):
         return False
     async with SessionFactory() as session:
+        settings_data = await get_merged_settings(session, chat.id)
+        style, custom_style_templates = await _chat_style(session, settings_data)
         commands = (
             await session.scalars(
                 select(GameCommand).where(GameCommand.chat_id == chat.id, GameCommand.enabled.is_(True))
@@ -3669,17 +4052,26 @@ async def try_game_command(message: Message, chat: Chat, membership: Membership)
         variants = [command.response_template, *(command.response_variants or [])]
         template = random.choice([item for item in variants if item.strip()])
         target_id, target_name = await resolve_rp_target(message, remainder)
-        response = html.escape(template)
-        replacements = {
-            "{user}": profile_link(message.from_user.id, message.from_user.first_name),
-            "{target}": profile_link(target_id, target_name) if target_id else html.escape(target_name),
-            "{text}": html.escape(remainder),
-            "{chat}": html.escape(chat.title),
-            "{xp}": str(command.reward_xp),
-            "{coins}": str(command.reward_coins),
-        }
-        for placeholder, value in replacements.items():
-            response = response.replace(placeholder, value)
+        override = _pack_template(custom_style_templates, "game", command.trigger, command.name)
+        if override:
+            response = render_template(override, build_context(
+                actor_id=message.from_user.id, actor_name=message.from_user.first_name,
+                target_id=target_id, target_name=target_name, chat_title=chat.title,
+                command=command.trigger, text=remainder, xp=command.reward_xp, coins=command.reward_coins,
+            ), custom=True)
+        else:
+            response = html.escape(template)
+            replacements = {
+                "{user}": profile_link(message.from_user.id, message.from_user.first_name),
+                "{actor}": profile_link(message.from_user.id, message.from_user.first_name),
+                "{target}": profile_link(target_id, target_name) if target_id else html.escape(target_name),
+                "{text}": html.escape(remainder),
+                "{chat}": html.escape(chat.title),
+                "{xp}": str(command.reward_xp),
+                "{coins}": str(command.reward_coins),
+            }
+            for placeholder, value in replacements.items():
+                response = response.replace(placeholder, value)
         _game_cooldowns[cooldown_key] = now_mono
         await session.commit()
         await message.answer(response)
@@ -3707,6 +4099,7 @@ async def try_rp_command(message: Message, chat: Chat, membership: Membership) -
         return False
     async with SessionFactory() as session:
         settings_data = await get_merged_settings(session, chat.id)
+        style, custom_style_templates = await _chat_style(session, settings_data)
         if not settings_data["rp_enabled"]:
             return False
         commands = (
@@ -3768,12 +4161,20 @@ async def try_rp_command(message: Message, chat: Chat, membership: Membership) -
         actor_name = message.from_user.first_name
         variants = [command.response_template, *(command.response_variants or [])]
         template = random.choice([variant for variant in variants if variant.strip()])
-        response = (
-            template.replace("{actor}", html.escape(actor_name))
-            .replace("{target}", html.escape(target_name))
-            .replace("{text}", html.escape(remainder))
-            .replace("{chat}", html.escape(chat.title))
-        )
+        override = _pack_template(custom_style_templates, "rp", command.name, *(command.aliases or []))
+        if override:
+            response = render_template(override, build_context(
+                actor_id=message.from_user.id, actor_name=actor_name,
+                target_id=target_id, target_name=target_name, chat_title=chat.title,
+                command=command.name, text=remainder, xp=command.reward_xp, coins=command.reward_coins,
+            ), custom=True)
+        else:
+            response = (
+                template.replace("{actor}", html.escape(actor_name))
+                .replace("{target}", html.escape(target_name))
+                .replace("{text}", html.escape(remainder))
+                .replace("{chat}", html.escape(chat.title))
+            )
         _rp_cooldowns[cooldown_key] = now_mono
         if membership_db:
             membership_db.xp += command.reward_xp

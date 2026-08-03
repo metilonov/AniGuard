@@ -77,13 +77,14 @@ def test_v20_tables_are_registered() -> None:
     }
 
 
-def test_monitor_source_contains_agent_and_local_fallback() -> None:
+def test_monitor_source_uses_local_container_and_domain_api() -> None:
     source = Path("app/monitoring.py").read_text(encoding="utf-8")
-    assert "http://agent:8000" in Path("app/config.py").read_text(encoding="utf-8")
-    assert "_parse_memory_mb" in source
-    assert "_parse_uptime_seconds" in source
+    config = Path("app/config.py").read_text(encoding="utf-8")
     assert "_collect_local" in source
     assert "resource-monitor-1s" in source
+    assert "/api/admin/live" in source
+    assert "http://agent:8000" not in source
+    assert "BOTHOST_AGENT_URL" not in config
 
 
 def test_admin_panel_has_one_second_live_updates_and_18_cards() -> None:

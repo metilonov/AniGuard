@@ -287,8 +287,8 @@ node --check app/static/app.js
 
 The current build includes server-side AniCoin purchases, the Premium case, advertising moderation and a persistent support chat. The owner panel exposes dedicated tools for pending advertising, support tickets, case history and wallet transactions. See `STORE_ADMIN_INTEGRATION.md` for the routes and payment flow.
 
-## AniGuard v20: 18 операционных систем и мониторинг
+## AniGuard v22: 18 операционных систем и мониторинг через домен проекта
 
 В v20 добавлены дела нарушений, апелляции, лестница наказаний, испытательный срок персонала, рейтинг администрации, индивидуальные права, антирейд, экстренный режим, доказательства, умные жалобы, смены, еженедельные отчёты, резервные копии, тестовый режим, конструктор правил, контроль злоупотреблений, карточка беседы и настраиваемый стиль ответов.
 
-Админ-панель получает live-статистику и ресурсы BotHost через `/api/admin/live` один раз в секунду. Подробности находятся в `OPERATIONS_AND_MONITORING_V20.md`.
+Админ-панель получает live-статистику через собственный защищённый `/api/admin/live` один раз в секунду. CPU и RAM читаются из cgroup текущего контейнера AniGuard, без обращений к агентам BotHost. Подробности находятся в `DOMAIN_API_MONITORING_V22.md`.

@@ -20,18 +20,23 @@ def test_v21_disk_is_project_scoped() -> None:
     assert 'disk_scope="project-directory"' in source
 
 
-def test_v21_agent_fallback_configuration_is_present() -> None:
+def test_v22_uses_project_domain_without_agent_configuration() -> None:
     config = Path("app/config.py").read_text(encoding="utf-8")
     env_example = Path(".env.example").read_text(encoding="utf-8")
+    monitoring = Path("app/monitoring.py").read_text(encoding="utf-8")
     for name in (
+        "BOTHOST_AGENT_URL",
         "BOTHOST_AGENT_FALLBACK_URLS",
         "BOTHOST_AGENT_TIMEOUT_SECONDS",
         "BOTHOST_AGENT_RETRY_SECONDS",
-        "BOTHOST_PROJECT_DIR",
-        "BOTHOST_DISK_SCAN_INTERVAL_SECONDS",
     ):
+        assert name not in config
+        assert name not in env_example
+        assert name not in monitoring
+    for name in ("BOTHOST_PROJECT_DIR", "BOTHOST_DISK_SCAN_INTERVAL_SECONDS"):
         assert name in config
         assert name in env_example
+    assert "/api/admin/live" in monitoring
 
 
 def test_v21_admin_labels_bot_scoped_metrics() -> None:

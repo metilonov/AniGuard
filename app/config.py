@@ -27,15 +27,8 @@ class Settings(BaseSettings):
     port: int = Field(default=3000, alias="PORT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
-    # BotHost resource monitoring. BOT_ID is injected by BotHost at runtime.
-    bothost_agent_url: str = Field(default="http://agent:8000", alias="BOTHOST_AGENT_URL")
-    bothost_agent_fallback_urls: str = Field(
-        default="http://agent.bothost.ru,http://msk1.bothost.ru",
-        alias="BOTHOST_AGENT_FALLBACK_URLS",
-    )
-    bothost_agent_timeout_seconds: float = Field(default=1.2, alias="BOTHOST_AGENT_TIMEOUT_SECONDS")
-    bothost_agent_retry_seconds: float = Field(default=10.0, alias="BOTHOST_AGENT_RETRY_SECONDS")
-    bothost_bot_id: str = Field(default="", alias="BOT_ID")
+    # BotHost limits. Runtime usage is collected from this container's cgroup
+    # and served to the browser through AniGuard's own domain/API.
     bothost_ram_limit_mb: int = Field(default=2048, alias="BOTHOST_RAM_LIMIT_MB")
     bothost_cpu_limit: float = Field(default=4.0, alias="BOTHOST_CPU_LIMIT")
     bothost_disk_limit_gb: float = Field(default=15.0, alias="BOTHOST_DISK_LIMIT_GB")
@@ -88,16 +81,6 @@ class Settings(BaseSettings):
         if isinstance(value, (list, tuple, set)):
             return {int(item) for item in value}
         raise ValueError("Значение должно содержать один или несколько числовых Telegram ID")
-
-    @field_validator("bothost_agent_timeout_seconds")
-    @classmethod
-    def minimum_agent_timeout(cls, value: float) -> float:
-        return max(0.3, min(10.0, float(value)))
-
-    @field_validator("bothost_agent_retry_seconds")
-    @classmethod
-    def minimum_agent_retry(cls, value: float) -> float:
-        return max(2.0, float(value))
 
     @field_validator("bothost_disk_scan_interval_seconds")
     @classmethod

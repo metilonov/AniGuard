@@ -2,14 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import os
-import re
 import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
-import aiohttp
 from sqlalchemy import delete
 
 from app.config import get_settings
@@ -22,54 +20,6 @@ settings = get_settings()
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
-
-def _parse_memory_mb(value: Any) -> float:
-    if value is None:
-        return 0.0
-    if isinstance(value, (int, float)):
-        number = float(value)
-        # Numeric agent fields are commonly bytes. Keep small numbers as MB for
-        # compatibility with older Bothost responses.
-        return number / (1024 * 1024) if number > 1024 * 1024 else number
-    raw = str(value).strip().replace(",", ".")
-    match = re.search(r"(-?\d+(?:\.\d+)?)\s*([KMGT]?B)?", raw, re.I)
-    if not match:
-        return 0.0
-    number = float(match.group(1))
-    unit = (match.group(2) or "MB").upper()
-    factor = {
-        "B": 1 / (1024 * 1024),
-        "KB": 1 / 1024,
-        "MB": 1,
-        "GB": 1024,
-        "TB": 1024 * 1024,
-    }.get(unit, 1)
-    return number * factor
-
-
-def _parse_uptime_seconds(value: Any) -> int:
-    if value is None:
-        return 0
-    if isinstance(value, (int, float)):
-        return max(0, int(value))
-    raw = str(value).strip().lower()
-    total = 0
-    patterns = [
-        (r"(\d+)\s*(?:д|дн|day)", 86400),
-        (r"(\d+)\s*(?:ч|час|hour|h)", 3600),
-        (r"(\d+)\s*(?:м|мин|minute|min)", 60),
-        (r"(\d+)\s*(?:с|сек|second|sec)", 1),
-    ]
-    for pattern, factor in patterns:
-        match = re.search(pattern, raw)
-        if match:
-            total += int(match.group(1)) * factor
-    if total:
-        return total
-    try:
-        return max(0, int(float(raw)))
-    except ValueError:
-        return 0
 
 
 def format_uptime(seconds: int) -> str:
@@ -105,19 +55,6 @@ def _read_int(path: Path) -> int | None:
     except (ValueError, IndexError):
         return None
 
-
-def _unique(values: Iterable[str]) -> list[str]:
-    result: list[str] = []
-    seen: set[str] = set()
-    for value in values:
-        normalized = str(value or "").strip().rstrip("/")
-        if not normalized or normalized in seen:
-            continue
-        if not normalized.startswith(("http://", "https://")):
-            continue
-        seen.add(normalized)
-        result.append(normalized)
-    return result
 
 
 def _directory_size_bytes(root: Path) -> int:
@@ -170,7 +107,7 @@ class ResourceState:
     uptime: str = "0 сек."
     updated_at: str = ""
     latency_ms: float = 0.0
-    agent_url: str | None = None
+    agent_url: str | None = None  # kept for response compatibility; always None in v22
     error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -178,14 +115,15 @@ class ResourceState:
 
 
 class ResourceMonitor:
-    """Collect resource usage for the AniGuard bot, not the whole server.
+    """Collect resource usage for the AniGuard container only.
 
     Priority:
-      1. Bothost per-bot stats for the current BOT_ID.
-      2. Linux cgroup metrics for this container.
-      3. The current Python process as the last fallback.
+      1. Linux cgroup metrics for the current AniGuard container.
+      2. The current Python process as the last fallback.
 
-    The admin browser and collector refresh every second. Project-directory
+    No requests are sent to BotHost agent hosts. The browser reads these metrics
+    from AniGuard's own protected ``/api/admin/live`` endpoint through the
+    project's public domain. CPU/RAM refresh every second; project-directory
     disk usage is cached because walking every file once per second is wasteful.
     """
 
@@ -205,9 +143,6 @@ class ResourceMonitor:
         self._stop = asyncio.Event()
         self._last_persist = 0.0
         self._last_prune = 0.0
-        self._active_agent_url: str | None = None
-        self._next_agent_probe = 0.0
-        self._last_agent_error: str | None = None
         self._disk_cache_mb = 0.0
         self._last_disk_scan = 0.0
 
@@ -259,134 +194,12 @@ class ResourceMonitor:
             elapsed = time.monotonic() - started
             await asyncio.sleep(max(0.05, settings.resource_poll_interval_seconds - elapsed))
 
-    def _agent_candidates(self) -> list[str]:
-        configured_fallbacks = str(settings.bothost_agent_fallback_urls or "").split(",")
-        return _unique([
-            settings.bothost_agent_url,
-            *configured_fallbacks,
-            "http://agent:8000",
-            "http://agent.bothost.ru",
-            "http://msk1.bothost.ru",
-        ])
-
-    async def _fetch_agent(self, base_url: str) -> dict[str, Any]:
-        url = f"{base_url.rstrip('/')}/api/bots/{settings.bothost_bot_id}/stats"
-        timeout = aiohttp.ClientTimeout(total=settings.bothost_agent_timeout_seconds)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url, headers={"X-Bot-ID": settings.bothost_bot_id}) as response:
-                payload = await response.json(content_type=None)
-                if response.status >= 400:
-                    message = None
-                    if isinstance(payload, dict):
-                        message = payload.get("detail") or payload.get("error") or payload.get("msg")
-                    raise RuntimeError(str(message or f"HTTP {response.status}"))
-                if not isinstance(payload, dict):
-                    raise RuntimeError("Некорректный ответ API")
-                if payload.get("ok") is False:
-                    raise RuntimeError(str(payload.get("msg") or payload.get("error") or "API вернул ошибку"))
-                return payload
-
-    async def _discover_agent(self) -> tuple[str, dict[str, Any]]:
-        candidates = self._agent_candidates()
-        if not candidates:
-            raise RuntimeError("URL агента не настроен")
-
-        tasks = {asyncio.create_task(self._fetch_agent(url)): url for url in candidates}
-        pending = set(tasks)
-        errors: list[str] = []
-        try:
-            while pending:
-                done, pending = await asyncio.wait(pending, return_when=asyncio.FIRST_COMPLETED)
-                for task in done:
-                    base_url = tasks[task]
-                    try:
-                        payload = task.result()
-                    except Exception as exc:
-                        errors.append(f"{base_url}: {exc}")
-                        continue
-                    for remaining in pending:
-                        remaining.cancel()
-                    await asyncio.gather(*pending, return_exceptions=True)
-                    return base_url, payload
-        finally:
-            for task in pending:
-                task.cancel()
-            if pending:
-                await asyncio.gather(*pending, return_exceptions=True)
-
-        raise RuntimeError("; ".join(errors) or "Агент недоступен")
-
-    async def _agent_payload(self) -> tuple[str, dict[str, Any]] | None:
-        now = time.monotonic()
-        if self._active_agent_url:
-            try:
-                return self._active_agent_url, await self._fetch_agent(self._active_agent_url)
-            except Exception as exc:
-                self._last_agent_error = f"{self._active_agent_url}: {exc}"
-                self._active_agent_url = None
-
-        if now < self._next_agent_probe:
-            return None
-
-        try:
-            base_url, payload = await self._discover_agent()
-        except Exception as exc:
-            self._last_agent_error = str(exc)
-            self._next_agent_probe = now + settings.bothost_agent_retry_seconds
-            return None
-
-        self._active_agent_url = base_url
-        self._last_agent_error = None
-        self._next_agent_probe = 0.0
-        return base_url, payload
-
     async def _collect(self) -> ResourceState:
-        local = self._collect_local()
-        if not settings.bothost_bot_id:
-            local.error = "BOT_ID не найден; показаны метрики контейнера/процесса AniGuard"
-            return local
-
+        """Collect local container metrics and expose them through AniGuard API."""
         started = time.perf_counter()
-        result = await self._agent_payload()
-        if result is None:
-            local.provider = f"{local.provider}-fallback"
-            local.status = "degraded"
-            local.latency_ms = round((time.perf_counter() - started) * 1000, 1)
-            local.error = f"BotHost API недоступен: {self._last_agent_error or 'повторное подключение'}"
-            return local
-
-        base_url, payload = result
-        stats = payload.get("stats")
-        if not isinstance(stats, dict):
-            stats = payload
-
-        try:
-            cpu = float(stats.get("cpu_percent", stats.get("cpu", local.cpu_percent)) or 0)
-        except (TypeError, ValueError):
-            cpu = local.cpu_percent
-        memory_mb = _parse_memory_mb(
-            stats.get("memory_usage", stats.get("memory_usage_mb", stats.get("memory", local.memory_usage_mb)))
-        )
-        try:
-            memory_percent = float(stats.get("memory_percent", 0) or 0)
-        except (TypeError, ValueError):
-            memory_percent = 0.0
-        if memory_percent <= 0 and local.memory_limit_mb:
-            memory_percent = memory_mb / local.memory_limit_mb * 100
-        uptime_seconds = _parse_uptime_seconds(stats.get("uptime_seconds", stats.get("uptime"))) or local.uptime_seconds
-
-        local.provider = "bothost"
-        local.status = "online"
-        local.cpu_percent = round(max(0.0, cpu), 2)
-        local.cpu_source = "bothost-bot-container"
-        local.memory_usage_mb = round(max(0.0, memory_mb), 2)
-        local.memory_percent = round(max(0.0, memory_percent), 2)
-        local.memory_source = "bothost-bot-container"
-        local.uptime_seconds = uptime_seconds
-        local.uptime = format_uptime(uptime_seconds)
-        local.updated_at = utcnow().isoformat()
+        local = self._collect_local()
         local.latency_ms = round((time.perf_counter() - started) * 1000, 1)
-        local.agent_url = base_url
+        local.agent_url = None
         local.error = None
         return local
 

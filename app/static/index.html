@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#ffffff">
   <title>AniGuard</title>
-  <meta name="aniguard-build" content="commands-catalog-v16">
+  <meta name="aniguard-build" content="wiki-admin-grid-v23.2">
   <style>
 :root {
   --bg: var(--tg-theme-bg-color, #f2f3f5);
@@ -1279,6 +1279,24 @@ html[data-theme="dark"] {
 
 /* AniGuard v23: command/style constructor and portrait case reel */
 .account-menu-icon.constructor{color:#f3b34f;background:color-mix(in srgb,#f3b34f 15%,transparent)}
+
+.account-menu-icon.wiki{color:#58c7d8;background:color-mix(in srgb,#58c7d8 15%,transparent)}
+.wiki-shell{display:grid;gap:14px}
+.wiki-hero{padding:17px;border:1px solid var(--separator);border-radius:24px;background:linear-gradient(145deg,color-mix(in srgb,var(--button) 13%,var(--secondary-bg)),var(--secondary-bg))}
+.wiki-hero h3{margin:0 0 7px;font-size:19px}.wiki-hero p{margin:0;color:var(--hint);line-height:1.5}
+.wiki-search-wrap{position:sticky;top:0;z-index:2;padding:4px 0 8px;background:var(--secondary-bg)}
+.wiki-search{width:100%;min-height:49px;padding:0 15px;border:1px solid var(--separator);border-radius:17px;background:var(--bg);color:var(--text);outline:none}
+.wiki-search:focus{border-color:var(--button);box-shadow:0 0 0 3px color-mix(in srgb,var(--button) 12%,transparent)}
+.wiki-section{overflow:hidden;border:1px solid var(--separator);border-radius:22px;background:var(--secondary-bg)}
+.wiki-section>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px;cursor:pointer;font-weight:850;list-style:none}
+.wiki-section>summary::-webkit-details-marker{display:none}.wiki-section>summary small{color:var(--hint);font-weight:700}
+.wiki-section-body{display:grid;gap:9px;padding:0 11px 12px}
+.wiki-guide{padding:14px;border-radius:18px;background:var(--bg);border:1px solid var(--separator)}
+.wiki-guide h4{margin:0 0 7px}.wiki-guide p,.wiki-guide li{color:var(--hint);font-size:13px;line-height:1.55}.wiki-guide ol{margin:8px 0 0;padding-left:20px}
+.wiki-command-row{display:grid;gap:6px;padding:13px;border:1px solid var(--separator);border-radius:18px;background:var(--bg)}
+.wiki-command-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.wiki-command-top code{color:var(--button);font-size:13px;font-weight:850;overflow-wrap:anywhere}.wiki-command-row b{font-size:14px}.wiki-command-row p{margin:0;color:var(--hint);font-size:12px;line-height:1.45}.wiki-command-meta{display:flex;flex-wrap:wrap;gap:6px}.wiki-chip{padding:5px 8px;border-radius:999px;background:color-mix(in srgb,var(--button) 11%,transparent);color:var(--button);font-size:10px;font-weight:800}.wiki-chip.premium{color:#f3c34f;background:color-mix(in srgb,#f3c34f 13%,transparent)}
+.wiki-automod-row{padding:13px;border:1px solid var(--separator);border-radius:18px;background:var(--bg)}.wiki-automod-row b{display:block;font-size:14px}.wiki-automod-row p{margin:5px 0 0;color:var(--hint);font-size:12px;line-height:1.45}.wiki-empty{padding:18px;color:var(--hint);text-align:center}
+
 .constructor-shell{display:grid;gap:14px}.constructor-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;padding:6px;border:1px solid var(--separator);border-radius:18px;background:var(--surface)}
 .constructor-tab{min-height:44px;border:0;border-radius:14px;background:transparent;color:var(--hint);font-weight:850}.constructor-tab.active{background:color-mix(in srgb,var(--button) 15%,transparent);color:var(--button)}
 .constructor-panel{display:grid;gap:12px}.constructor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.constructor-card{padding:14px;border:1px solid var(--separator);border-radius:20px;background:var(--card)}
@@ -1338,6 +1356,7 @@ html[data-theme="dark"] {
     <symbol id="i-menu-advertising" viewBox="0 0 24 24"><path d="M4 12v3h3l9 4V5l-9 4H4z"/><path d="M7 15l1.5 4h3L10 15"/><path d="M18 8c1.8.8 3 2.2 3 4s-1.2 3.2-3 4"/></symbol>
     <symbol id="i-menu-faq" viewBox="0 0 24 24"><path d="M12 20c4.4 0 8-3.1 8-7s-3.6-7-8-7-8 3.1-8 7c0 1.6.6 3 1.7 4.2L5 20l3-1c1.2.6 2.6 1 4 1Z"/><path d="M9.8 10.4A2.4 2.4 0 1 1 13 12.6c-.8.4-1.2 1-1.2 1.8"/><path d="M11.8 16h.01"/></symbol>
     <symbol id="i-menu-support" viewBox="0 0 24 24"><path d="M5 12a7 7 0 0 1 14 0v4"/><path d="M5 13H3v4a2 2 0 0 0 2 2h2v-6zM19 13h2v4a2 2 0 0 1-2 2h-2v-6z"/><path d="M17 19c-1 1.3-2.7 2-5 2"/><path d="M9 8.5c.8-.7 1.8-1 3-1s2.2.3 3 1"/></symbol>
+    <symbol id="i-menu-wiki" viewBox="0 0 24 24"><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H12v18H7.5A3.5 3.5 0 0 0 4 23z"/><path d="M20 5.5A3.5 3.5 0 0 0 16.5 2H12v18h4.5A3.5 3.5 0 0 1 20 23z"/><path d="M7 7h2M7 11h2M15 7h2M15 11h2"/></symbol>
     <symbol id="i-profile-rating" viewBox="0 0 24 24"><path d="M5 19h14"/><path d="M7 17V9M12 17V6M17 17v-4"/><path d="m6 8 3-2 3 1.5 3-2 3 1.5"/></symbol>
     <symbol id="i-profile-level" viewBox="0 0 24 24"><path d="M5 18h4v-4h4V10h4V6h2"/><path d="m17 4 2 2-2 2"/></symbol>
     <symbol id="i-profile-game" viewBox="0 0 24 24"><path d="M7 9h10a4 4 0 0 1 4 4v1.5a3.5 3.5 0 0 1-5.8 2.6L13.5 16h-3l-1.7 1.1A3.5 3.5 0 0 1 3 14.5V13a4 4 0 0 1 4-4Z"/><path d="M8 12.5h4M10 10.5v4M16.5 11.8h.01M18.4 13.6h.01"/></symbol>
@@ -1857,7 +1876,7 @@ html[data-theme="dark"] {
 
   <dialog id="group-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Выберите группу</h2><p>Настройки каждой группы хранятся отдельно</p></div><button id="close-group-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="group-options" class="group-options"></div></div></dialog>
 
-  <dialog id="menu-dialog" class="sheet-dialog account-menu-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Меню аккаунта</h2><p>Конструктор, поддержка, настройки и FAQ AniGuard</p></div><button id="close-menu-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="menu-links" class="telegram-list"></div></div></dialog>
+  <dialog id="menu-dialog" class="sheet-dialog account-menu-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Меню аккаунта</h2><p>Конструктор, поддержка, настройки, Wiki и FAQ AniGuard</p></div><button id="close-menu-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="menu-links" class="telegram-list"></div></div></dialog>
 
   <dialog id="user-action-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2 id="user-action-title">Раздел аккаунта</h2><p id="user-action-subtitle">AniGuard</p></div><button id="close-user-action-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="user-action-content"></div></div></dialog>
 
@@ -2984,6 +3003,7 @@ html[data-theme="dark"] {
       ['constructor', 'i-menu-constructor', 'constructor', 'Конструктор', 'Команды и собственные стили ответов'],
       ['support', 'i-menu-support', 'support', 'Чат с поддержкой', 'Связаться с командой AniGuard'],
       ['settings', 'i-menu-settings', 'settings', 'Настройки', 'Оформление и параметры пользователя'],
+      ['wiki', 'i-menu-wiki', 'wiki', 'Wiki', 'Все команды и автоматическая модерация'],
       ['faq', 'i-menu-faq', 'faq', 'FAQ', 'Ответы на частые вопросы'],
     ];
     node.innerHTML = links.map(([action,iconId,tone,title,sub]) => `<button class="telegram-row account-menu-link pressable" data-user-menu-action="${action}" type="button"><span class="row-icon account-menu-icon ${tone}"><svg><use href="#${iconId}"></use></svg></span><span class="row-copy"><b>${title}</b><small>${sub}</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>`).join('');
@@ -3138,6 +3158,86 @@ html[data-theme="dark"] {
     if(!dialog.open) dialog.showModal();
   }
 
+
+  function wikiCommandRows(items, kind='command') {
+    if (!items?.length) return '<div class="wiki-empty">В этой категории пока нет команд.</div>';
+    return items.map(item => {
+      const rawTrigger = String(item.trigger || item.name || '').trim();
+      const trigger = rawTrigger ? '/' + rawTrigger.replace(/[\s-]+/g, '_') : 'Без вызова';
+      const aliases = Array.isArray(item.aliases) && item.aliases.length ? item.aliases.slice(0, 5).join(', ') : 'нет';
+      const description = item.description || item.response_template || item.response || 'Описание команды не указано.';
+      const category = item.category || ({custom:'Команда беседы',rp:'RP-команда',game:'Игровая команда'}[kind] || 'Команда');
+      const exampleTarget = item.target_required ? ' @username' : '';
+      return `<article class="wiki-command-row" data-wiki-search="${escapeHtml(`${trigger} ${item.name || ''} ${description} ${aliases} ${category}`.toLowerCase())}">
+        <div class="wiki-command-top"><code>${escapeHtml(trigger)}</code><span class="wiki-chip ${item.premium || item.is_premium ? 'premium' : ''}">${item.premium || item.is_premium ? 'PREMIUM' : 'ДОСТУПНА'}</span></div>
+        <b>${escapeHtml(item.name || category)}</b>
+        <p>${escapeHtml(description)}</p>
+        <div class="wiki-command-meta"><span class="wiki-chip">${escapeHtml(category)}</span><span class="wiki-chip">Алиасы: ${escapeHtml(aliases)}</span><span class="wiki-chip">Пример: ${escapeHtml(trigger + exampleTarget)}</span></div>
+      </article>`;
+    }).join('');
+  }
+
+  function wikiAutomodRows() {
+    const rows = [];
+    for (const group of settingGroups.filter(item => item.automod)) {
+      for (const field of group.fields) {
+        rows.push(`<article class="wiki-automod-row" data-wiki-search="${escapeHtml(`${group.title} ${field.label} ${field.description} ${field.key}`.toLowerCase())}"><b>${escapeHtml(field.label)} ${field.premium ? '<span class="wiki-chip premium">PREMIUM</span>' : ''}</b><p>${escapeHtml(field.description || 'Настройка автоматической модерации.')}</p><div class="wiki-command-meta"><span class="wiki-chip">Раздел: ${escapeHtml(group.title)}</span><span class="wiki-chip">Параметр: ${escapeHtml(field.key)}</span></div></article>`);
+      }
+    }
+    return rows.join('') || '<div class="wiki-empty">Параметры автомодерации не найдены.</div>';
+  }
+
+  function wikiContent() {
+    const basic = state.basicCommands || [];
+    const game = state.gameActions || [];
+    const custom = state.customCommands || [];
+    const customGame = state.gameCommands || [];
+    const rp = state.rpCommands || [];
+    const automodCount = settingGroups.filter(item => item.automod).reduce((sum, group) => sum + group.fields.length, 0);
+    return `<div class="wiki-shell">
+      <div class="wiki-hero"><h3>Wiki AniGuard</h3><p>Полный справочник по командам, игровым действиям, RP-командам и автоматической модерации выбранной беседы.</p></div>
+      <div class="wiki-search-wrap"><input id="wiki-search" class="wiki-search" type="search" placeholder="Найти команду или функцию автомодерации"></div>
+      <details class="wiki-section" open><summary><span>Как пользоваться AniGuard</span><small>Быстрый старт</small></summary><div class="wiki-section-body">
+        <div class="wiki-guide"><h4>Команды</h4><ol><li>Добавьте бота администратором беседы и выдайте права на удаление сообщений и блокировку участников.</li><li>Команду можно отправлять через слеш или обычным текстом, если это указано в карточке команды.</li><li>Для действий над человеком укажите ответом на сообщение, через @username либо Telegram ID.</li><li>Срок можно писать как <code>30м</code>, <code>2ч</code>, <code>7д</code>. Причина добавляется после срока.</li><li>Пример: <code>/мут @username 2ч флуд</code>.</li></ol></div>
+        <div class="wiki-guide"><h4>Автомодерация</h4><ol><li>Откройте панель выбранной беседы → «Автомодерация».</li><li>Включите нужные фильтры: флуд, ссылки, капс, медиа, CAPTCHA, антирейд и другие.</li><li>Настройте пороги и автоматическое наказание.</li><li>Сохраните настройки. Изменения действуют только в выбранной беседе.</li><li>Premium-функции отмечены золотым значком.</li></ol></div>
+      </div></details>
+      <details class="wiki-section"><summary><span>Команды модерации</span><small>${basic.length}</small></summary><div class="wiki-section-body">${wikiCommandRows(basic, 'command')}</div></details>
+      <details class="wiki-section"><summary><span>Игровые техники</span><small>${game.length}</small></summary><div class="wiki-section-body">${wikiCommandRows(game, 'game')}</div></details>
+      <details class="wiki-section"><summary><span>Команды этой беседы</span><small>${custom.length + customGame.length + rp.length}</small></summary><div class="wiki-section-body">${wikiCommandRows(custom, 'custom')}${wikiCommandRows(customGame, 'game')}${wikiCommandRows(rp, 'rp')}</div></details>
+      <details class="wiki-section"><summary><span>Автоматическая модерация</span><small>${automodCount}</small></summary><div class="wiki-section-body">${wikiAutomodRows()}</div></details>
+    </div>`;
+  }
+
+  function filterWiki(query='') {
+    const root = $('#user-action-content');
+    if (!root) return;
+    const normalized = String(query || '').trim().toLowerCase();
+    const rows = $$('[data-wiki-search]', root);
+    let visible = 0;
+    rows.forEach(row => {
+      const match = !normalized || String(row.dataset.wikiSearch || '').includes(normalized);
+      row.classList.toggle('hidden', !match);
+      if (match) {
+        visible += 1;
+        if (normalized) row.closest('details')?.setAttribute('open', '');
+      }
+    });
+    $$('.wiki-section', root).forEach(section => {
+      const hasVisible = $$('[data-wiki-search]', section).some(row => !row.classList.contains('hidden'));
+      if (normalized && !hasVisible && !section.querySelector('.wiki-guide')) section.classList.add('hidden');
+      else section.classList.remove('hidden');
+    });
+    let empty = $('#wiki-no-results');
+    if (!empty) {
+      empty = document.createElement('div');
+      empty.id = 'wiki-no-results';
+      empty.className = 'wiki-empty hidden';
+      root.querySelector('.wiki-shell')?.appendChild(empty);
+    }
+    empty.textContent = 'Ничего не найдено. Попробуйте название команды, алиас или функцию автомодерации.';
+    empty.classList.toggle('hidden', !normalized || visible > 0);
+  }
+
   function openUserActionDialog(action) {
     const dialog = $('#user-action-dialog');
     const title = $('#user-action-title');
@@ -3179,6 +3279,10 @@ html[data-theme="dark"] {
           <button class="telegram-row pressable" type="button" data-copy-support-username><span class="row-icon account-menu-icon support"><svg><use href="#i-menu-support"></use></svg></span><span class="row-copy"><b>@anicode_support_bot</b><small>Скопировать имя пользователя</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
         </div>`;
       loadSupportThread();
+    } else if (action === 'wiki') {
+      title.textContent = 'Wiki';
+      subtitle.textContent = 'Все команды и автоматическая модерация';
+      content.innerHTML = wikiContent();
     } else if (action === 'faq') {
       title.textContent = 'FAQ';
       subtitle.textContent = 'Часто задаваемые вопросы';
@@ -3739,6 +3843,11 @@ html[data-theme="dark"] {
     notify('Группа переключена.');
   }
 
+
+
+  document.addEventListener('input', event => {
+    if (event.target?.id === 'wiki-search') filterWiki(event.target.value);
+  });
 
   const UI_SETTINGS_STORAGE_KEY = 'aniguard-site-settings-v1';
 

@@ -423,15 +423,12 @@ svg{display:block}
 .button-grid{display:grid;gap:10px}.button-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(max-width:520px){.store-kpi-grid,.button-grid.two{grid-template-columns:1fr}}
 
-<<<<<<< HEAD
-=======
 
 .event-avatar{width:46px;height:46px}
 .event-avatar .avatar{width:46px;height:46px;min-width:46px;flex-basis:46px;border-radius:15px;font-size:13px}
 .event-list .row{grid-template-columns:46px minmax(0,1fr) auto}
 .metric b{overflow-wrap:anywhere}
 @media(max-width:420px){.metric b{font-size:19px}}
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 </style>
 </head>
 <body>
@@ -713,15 +710,7 @@ svg{display:block}
     setText('liveUpdated', payload.server_time ? new Date(payload.server_time).toLocaleTimeString('ru-RU') : '—');
     const dot = $('#resourceDot'); if (dot) dot.classList.toggle('degraded', r.status !== 'online');
     [['cpuBar',r.cpu_percent],['ramBar',r.memory_percent],['diskBar',r.disk_percent]].forEach(([id,value]) => { const node=$('#'+id); if(node){ node.className=`resource-bar ${resourceClass(Number(value||0))}`; const span=node.querySelector('span'); if(span) span.style.width=pct(value)+'%'; }});
-<<<<<<< HEAD
-    if (data.currentPage === 'overview') {
-      setText('liveCasesCount', fmt(data.liveStats.cases || 0));
-      setText('liveAppealsCount', fmt(data.liveStats.appeals || 0));
-      setText('liveAlertsCount', fmt(data.liveStats.securityAlerts || 0));
-    }
-=======
     if (data.currentPage === 'overview') renderOverview();
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
   }
 
   async function loadLiveData(){
@@ -857,24 +846,6 @@ svg{display:block}
     const stylesPending = Number(s.stylesPending || 0);
     $('#overviewRoot').innerHTML = `
       <div class="metrics">
-<<<<<<< HEAD
-        ${metric('Пользователей', fmt(s.users), 'Всего зарегистрировано')}
-        ${metric('Активны 24 ч.', fmt(s.active24), 'Онлайн-аудитория')}
-        ${metric('Активны 7 дней', fmt(s.active7), 'Неделя активности')}
-        ${metric('Бесед', fmt(s.chats), 'Подключено')}
-        ${metric('Premium юзеров', fmt(s.premiumUsers), 'С активной подпиской')}
-        ${metric('Premium бесед', fmt(s.premiumChats), 'Группы и наследование')}
-        ${metric('Доход', fmt(s.revenue) + ' Stars', 'Текущий месяц')}
-        ${metric('AniCoin', fmt(s.aniCoin), 'В обороте')}
-        ${metric('Жалобы', fmt(s.reports || 0), 'Требуют проверки')}
-        <div class="metric"><small>Дела</small><b id="liveCasesCount">${fmt(data.liveStats.cases || 0)}</b><em>Открытые расследования</em></div>
-        <div class="metric"><small>Апелляции</small><b id="liveAppealsCount">${fmt(data.liveStats.appeals || 0)}</b><em>Ждут решения</em></div>
-        <div class="metric"><small>Угрозы</small><b id="liveAlertsCount">${fmt(data.liveStats.securityAlerts || 0)}</b><em>События безопасности</em></div>
-        ${metric('Реклама', fmt(data.storeOverview.pending_ads), 'Заказов на модерации')}
-        ${metric('Поддержка', fmt(data.storeOverview.open_tickets), 'Открытых диалогов')}
-        ${metric('Кейсы', fmt(data.storeOverview.case_openings), 'Всего открытий')}
-        ${metric('Доход магазина', fmt(Number(data.storeOverview.coin_sales_stars || 0) + Number(data.storeOverview.ad_sales_stars || 0)) + ' Stars', 'AniCoin и реклама')}
-=======
         ${metric('Пользователей', fmt(s.users || 0), 'Всего зарегистрировано')}
         ${metric('Premium пользователей', fmt(s.premiumUsers || 0), 'С активной подпиской')}
         ${metric('Активные 24 часа', fmt(s.active24 || 0), 'За последние сутки')}
@@ -892,7 +863,6 @@ svg{display:block}
         ${metric('Доход с рекламы', `${fmt(adStars)} Stars | ${Number(adByn).toFixed(2)} BYN`, 'Оплаченные рекламные заказы')}
         ${metric('Кейсы', fmt(caseOpenings), 'Всего открытий')}
         ${metric('Поддержка', fmt(support), 'Открытых диалогов')}
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
       </div>
 
       <div class="section-head"><h2>Быстрые действия</h2><span>Частые задачи</span></div>
@@ -1812,8 +1782,6 @@ svg{display:block}
     openSheet(title,'Настройка выбранной беседы',`<div class="form">${body}</div>`);
   }
 
-<<<<<<< HEAD
-=======
   async function styleModerationSheet(){
     const payload = await api('/api/admin/styles?status=pending');
     const items = payload.items || [];
@@ -1845,7 +1813,6 @@ svg{display:block}
     `);
   }
 
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
   async function handleAction(name){
     if (name === 'grant-premium') premiumForm();
     if (name === 'coin-manager') coinsForm();
@@ -1957,8 +1924,6 @@ svg{display:block}
         const actionNode = e.target.closest('[data-action]');
         if (actionNode) await handleAction(actionNode.dataset.action);
 
-<<<<<<< HEAD
-=======
         const styleDecisionNode = e.target.closest('[data-style-decision]');
         if (styleDecisionNode) {
           const styleId = Number(styleDecisionNode.dataset.styleId);
@@ -1969,7 +1934,6 @@ svg{display:block}
           showToast('Решение по стилю сохранено');
         }
 
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         const opsCaseNode = e.target.closest('[data-ops-case]');
         if (opsCaseNode) await operationCaseDetails(Number(opsCaseNode.dataset.opsCase));
 

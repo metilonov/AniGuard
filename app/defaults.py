@@ -250,10 +250,7 @@ def default_chat_settings() -> dict[str, Any]:
 
         # Response customization.
         "response_style": "naruto",
-<<<<<<< HEAD
-=======
         "custom_style_code": "",
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         "response_length": "full",
         "delete_command_message": False,
         "reply_in_thread": False,

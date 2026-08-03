@@ -77,10 +77,7 @@ from app.feature_services import (
 from app.moderation_parser import TIMED_ACTIONS, detect_action, parse_moderation_command
 from app.pricing import PREMIUM_PLANS, get_plan
 from app.store import complete_store_payment, validate_store_payment
-<<<<<<< HEAD
-=======
 from app.response_styles import build_context, render_action_response, render_template
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 from app.roles import (
     PENALTY_DEFINITIONS,
     ROLE_DEFINITIONS,
@@ -522,17 +519,6 @@ def moderation_response(
     command_name: str | None = None,
     **extra: Any,
 ) -> str:
-<<<<<<< HEAD
-    target = profile_link(target_id, "User")
-    title = html.escape(ACTION_TITLES.get(action, action))
-    parts = [f"<b>{title}:</b> {target}"]
-    if show_duration and action in TIMED_ACTIONS:
-        parts.append(html.escape(format_duration_ru(duration_seconds)))
-    clean = (reason or "").strip()
-    if show_reason and clean and clean.casefold() != "причина не указана":
-        parts.append(html.escape(clean))
-    return " · ".join(parts)
-=======
     clean_reason_value = reason if show_reason else "Скрыто настройками беседы"
     effective_duration = duration_seconds if show_duration else None
     return render_action_response(
@@ -555,7 +541,6 @@ def moderation_response(
         command=command_name or f"/{action}",
         **extra,
     )
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 
 
 def render_custom_template(
@@ -1090,10 +1075,6 @@ async def submit_appeal(message: Message, raw_reason: str | None) -> None:
             message_id=message.message_id, reason=f"Апелляция #{appeal.id}: {reason}", category="апелляция",
         )
         await session.commit()
-<<<<<<< HEAD
-    case_text = f" по делу AG-{appeal.case_id:06d}" if appeal.case_id else ""
-    await message.answer(f"✅ Апелляция #{appeal.id}{case_text} зарегистрирована и передана администрации.")
-=======
     await _answer_styled_action(
         message,
         "appeal",
@@ -1103,7 +1084,6 @@ async def submit_appeal(message: Message, raw_reason: str | None) -> None:
         case_id=appeal.case_id,
         report_id=f"AG-{report.id}",
     )
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 
 
 @router.message(Command("appeal"))
@@ -1679,10 +1659,6 @@ async def submit_smart_report(message: Message, raw: str | None) -> None:
             category=category,
         )
         await session.commit()
-<<<<<<< HEAD
-    duplicate_text = f" · объединено жалоб: {report.duplicate_count}" if int(report.duplicate_count or 1) > 1 else ""
-    await message.answer(f"Жалоба AG-{report.id} создана и передана модераторам{duplicate_text}.")
-=======
     await _answer_styled_action(
         message,
         "report",
@@ -1692,7 +1668,6 @@ async def submit_smart_report(message: Message, raw: str | None) -> None:
         message_id=message.reply_to_message.message_id,
         status=f"Объединено сигналов: {int(report.duplicate_count or 1)}",
     )
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 
 
 @router.message(Command("report"))
@@ -2879,11 +2854,7 @@ async def _send_compact_command_result(
     reason: str = "",
     chat_title: str = "",
 ) -> None:
-<<<<<<< HEAD
-    response = str(command.get("response") or "Готово.")
-=======
     response = str(command.get("response") or "✅ Команда выполнена и записана в журнал AniGuard.")
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     if target_id is None:
         text = html.escape(response).replace("{command}", html.escape(str(command.get("name") or "команда")))
         text = text.replace("{reason}", html.escape(reason or ""))
@@ -3529,11 +3500,8 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
             for key, value in stored.items():
                 if key in configured and isinstance(value, dict):
                     configured[key].update({field: field_value for field, field_value in value.items() if field in {"name", "trigger", "action", "response"}})
-<<<<<<< HEAD
-=======
                     if "response" in value:
                         configured[key]["_response_overridden"] = True
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 
         matched = match_builtin_command(text, configured)
         if matched is None:
@@ -3556,12 +3524,8 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
 
         action = str(config.get("action") or matched_key)
         name = str(config.get("name") or matched_key)
-<<<<<<< HEAD
-        response = str(config.get("response") or "Готово.")
-=======
         response = str(config.get("response") or "")
         style, custom_style_templates = await _chat_style(session, settings_data)
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         target_required = config.get("target_required")
         if target_required is None:
             target_required = action in {"warn", "unwarn", "mute", "unmute", "ban", "unban", "kick", "quarantine", "unquarantine", "restrict_media", "unrestrict_media", "restrict_links", "unrestrict_links", "restrict_commands", "unrestrict_commands"}
@@ -3591,9 +3555,6 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
         if special_handled:
             await session.commit()
             if special_result:
-<<<<<<< HEAD
-                await message.answer(html.escape(special_result))
-=======
                 if style != "custom" and config.get("_response_overridden") and response:
                     await _send_compact_command_result(message, command=config, target_id=target_id, reason=special_result, chat_title=chat.title)
                 else:
@@ -3611,7 +3572,6 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
                         status="Выполнено",
                         **_builtin_command_response_context(config, matched_key, name),
                     ))
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
             return True
 
         if action == "purge":
@@ -3620,9 +3580,6 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
             deleted = await _delete_recent_messages(chat.id, message.message_id, amount)
             await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action="purge", amount=max(1, min(amount, 100)), reason=f"Удалено: {deleted}", premium_override=True)
             await session.commit()
-<<<<<<< HEAD
-            await message.answer(f"Удалено: {deleted}.")
-=======
             await message.answer(render_action_response(
                 style=style, action="purge", custom_templates=custom_style_templates,
                 actor_id=message.from_user.id, actor_name=message.from_user.first_name,
@@ -3630,16 +3587,12 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
                 reason=name, chat_title=chat.title, chat_id=chat.id, deleted_count=deleted,
                 **_builtin_command_response_context(config, matched_key, name),
             ))
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
             return True
 
         if action in {"slow", "lock", "unlock"}:
             amount = int(config.get("fixed_amount") or 15) if action == "slow" else None
             await perform_action(session, bot, chat_id=chat.id, actor_id=message.from_user.id, action=action, amount=amount, reason=name, premium_override=premium)
             await session.commit()
-<<<<<<< HEAD
-            await _send_compact_command_result(message, command=config, reason=name, chat_title=chat.title)
-=======
             await message.answer(render_action_response(
                 style=style, action=action, custom_templates=custom_style_templates,
                 actor_id=message.from_user.id, actor_name=message.from_user.first_name,
@@ -3648,7 +3601,6 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
                 slow_seconds=amount or 0,
                 **_builtin_command_response_context(config, matched_key, name),
             ))
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
             return True
 
         if target_id is not None and action not in {"unwarn", "unmute", "unban", "unquarantine", "unrestrict_media", "unrestrict_links", "unrestrict_commands"}:
@@ -3673,16 +3625,6 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
         target_user = await session.get(User, target_id) if target_id else None
         target_member = await session.scalar(select(Membership).where(Membership.chat_id == chat.id, Membership.user_id == target_id)) if target_id else None
         await session.commit()
-<<<<<<< HEAD
-        await _send_compact_command_result(
-            message,
-            command={**config, "response": response},
-            target_id=target_id,
-            duration_seconds=result.get("duration_seconds"),
-            reason=reason,
-            chat_title=chat.title,
-        )
-=======
         if style != "custom" and config.get("_response_overridden") and response:
             await _send_compact_command_result(
                 message,
@@ -3713,7 +3655,6 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
                 command_name=name,
                 **_builtin_command_response_context(config, matched_key, name),
             ))
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         return True
 
 

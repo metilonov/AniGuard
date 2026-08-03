@@ -278,11 +278,7 @@ class AdminShiftCreateRequest(BaseModel):
 
 
 class AdminResponseStyleRequest(BaseModel):
-<<<<<<< HEAD
-    style: Literal["ordinary", "naruto", "minimal", "strict"] = "naruto"
-=======
     style: Literal["ordinary", "naruto", "minimal", "strict", "custom"] = "naruto"
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     length: Literal["short", "full"] = "full"
     delete_command_message: bool = False
     reply_in_thread: bool = False
@@ -296,8 +292,6 @@ class AdminProbationDecisionRequest(BaseModel):
     decision: Literal["confirm", "reject", "extend"]
     note: str = Field(default="", max_length=1000)
     extend_days: int = Field(default=7, ge=1, le=365)
-<<<<<<< HEAD
-=======
 
 
 class StylePackCreate(BaseModel):
@@ -327,4 +321,3 @@ class ChatStyleApplyRequest(BaseModel):
     length: Literal["short", "full"] = "full"
     delete_command_message: bool = False
     reply_in_thread: bool = False
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)

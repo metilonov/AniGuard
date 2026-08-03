@@ -22,13 +22,9 @@ def _cmd(
     amount: int | None = None,
     special: str | None = None,
     target: bool | None = None,
-<<<<<<< HEAD
-    response: str = "Готово.",
-=======
     response: str = "✅ Команда выполнена.",
     ordinary_response: str | None = None,
     naruto_response: str | None = None,
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     patch: dict[str, Any] | None = None,
 ) -> tuple[str, dict[str, Any]]:
     return key, {
@@ -44,11 +40,8 @@ def _cmd(
         "special": special,
         "target_required": target,
         "response": response,
-<<<<<<< HEAD
-=======
         "ordinary_response": ordinary_response,
         "naruto_response": naruto_response,
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         "settings_patch": patch or {},
     }
 
@@ -76,8 +69,6 @@ _ENTRIES: list[tuple[str, dict[str, Any]]] = [
     _cmd("unrestrict_commands", "Разрешить команды", "разрешить команды", "Снять запрет команд", "unrestrict_commands", aliases=("uncommandsban",), target=True, response="Команды разрешены: {user}."),
 ]
 
-<<<<<<< HEAD
-=======
 _ACTION_ICONS = {
     "warn": ("⚠️", "📜"),
     "unwarn": ("✅", "✨"),
@@ -128,7 +119,6 @@ def _expanded_command_responses(number: int, name: str, description: str, action
     return ordinary, naruto
 
 
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 # 101–180. Advanced or destructive tools are Premium. Unsupported Telegram API
 # operations are represented by safe, explicit handlers instead of pretending
 # that IP bans, cross-platform bans or chat recreation are possible.
@@ -248,10 +238,7 @@ for number, name, trigger, description, action, premium, duration, amount, speci
         aliases.extend(["печать_смерти_ре́аппера", "печать смерти реаппера"])
     if number == 179:
         aliases.extend(["барьер_четырёх_фиолетовых", "барьер четырёх фиолетовых"])
-<<<<<<< HEAD
-=======
     ordinary_response, naruto_response = _expanded_command_responses(number, name, description, action)
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     _ENTRIES.append(_cmd(
         f"anime_{number}",
         name,
@@ -265,13 +252,9 @@ for number, name, trigger, description, action, premium, duration, amount, speci
         amount=amount,
         special=special,
         target=target,
-<<<<<<< HEAD
-        response="Готово: {command}.",
-=======
         response=ordinary_response,
         ordinary_response=ordinary_response,
         naruto_response=naruto_response,
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         patch=_MODE_PATCHES.get(number),
     ))
 

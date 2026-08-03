@@ -99,11 +99,6 @@ from app.schemas import (
     AdminResponseStyleRequest,
     AdminBackupRestoreRequest,
     AdminProbationDecisionRequest,
-<<<<<<< HEAD
-)
-from app.security import TelegramUser, current_telegram_user
-from app.monitoring import resource_monitor
-=======
     StylePackCreate,
     StylePackUpdate,
     StylePackModerationRequest,
@@ -122,7 +117,6 @@ from app.response_styles import (
     validate_templates,
 )
 from app.exchange_rates import exchange_rates
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
 from app.feature_services import (
     close_case,
     create_backup_snapshot,
@@ -2503,8 +2497,6 @@ async def admin_dashboard(
         or 0
     )
     revenue = premium_revenue + store_revenue
-<<<<<<< HEAD
-=======
     revenue_byn, fx_snapshot = await exchange_rates.stars_to_byn(revenue)
     ad_revenue_stars = int(
         await session.scalar(
@@ -2514,7 +2506,6 @@ async def admin_dashboard(
         ) or 0
     )
     ad_revenue_byn, _ = await exchange_rates.stars_to_byn(ad_revenue_stars)
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     ani_coin = int(await session.scalar(select(func.coalesce(func.sum(UserWallet.balance), 0))) or 0)
     if not ani_coin:
         ani_coin = int(await session.scalar(select(func.coalesce(func.sum(Membership.coins), 0))) or 0)
@@ -2818,13 +2809,6 @@ async def admin_live(
     ensure_bot_admin(user)
     now = utcnow()
     day_ago = now - timedelta(days=1)
-<<<<<<< HEAD
-    resources = await resource_monitor.snapshot()
-    stats = {
-        "users": int(await session.scalar(select(func.count()).select_from(User)) or 0),
-        "active24": int(await session.scalar(select(func.count(func.distinct(Membership.user_id))).where(Membership.last_seen_at >= day_ago)) or 0),
-        "chats": int(await session.scalar(select(func.count()).select_from(Chat).where(Chat.is_active.is_(True))) or 0),
-=======
     week_ago = now - timedelta(days=7)
     resources = await resource_monitor.snapshot()
 
@@ -2883,13 +2867,10 @@ async def admin_live(
         "usdBynRate": round(fx_snapshot.usd_byn, 4),
         "fxSource": fx_snapshot.source,
         "aniCoin": ani_coin,
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         "reports": int(await session.scalar(select(func.count()).select_from(Report).where(Report.status.in_(["new", "in_progress"]))) or 0),
         "cases": int(await session.scalar(select(func.count()).select_from(ModerationCase).where(ModerationCase.status.in_(["open", "appealed", "changed"]))) or 0),
         "appeals": int(await session.scalar(select(func.count()).select_from(Appeal).where(Appeal.status == "new")) or 0),
         "securityAlerts": int(await session.scalar(select(func.count()).select_from(SecurityIncident).where(SecurityIncident.status == "open")) or 0),
-<<<<<<< HEAD
-=======
         "threats": int(await session.scalar(select(func.count()).select_from(SecurityIncident).where(SecurityIncident.status == "open")) or 0),
         "advertising": int(await session.scalar(select(func.count()).select_from(AdvertisingOrder).where(AdvertisingOrder.status == "pending")) or 0),
         "advertisingRevenueStars": ad_revenue_stars,
@@ -2897,7 +2878,6 @@ async def admin_live(
         "caseOpenings": int(await session.scalar(select(func.count()).select_from(CaseOpening)) or 0),
         "support": int(await session.scalar(select(func.count()).select_from(SupportTicket).where(SupportTicket.status == "open")) or 0),
         "stylesPending": int(await session.scalar(select(func.count()).select_from(ResponseStylePack).where(ResponseStylePack.status == "pending")) or 0),
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
         "activeShifts": int(await session.scalar(select(func.count()).select_from(ModeratorShift).where(ModeratorShift.starts_at <= now, ModeratorShift.ends_at >= now, ModeratorShift.status.in_(["scheduled", "active"]))) or 0),
         "probations": int(await session.scalar(select(func.count()).select_from(StaffProbation).where(StaffProbation.status == "active")) or 0),
     }
@@ -3158,16 +3138,12 @@ async def admin_response_style(
     user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     ensure_bot_admin(user)
-<<<<<<< HEAD
-    patch = {"response_style": payload.style, "response_length": payload.length, "delete_command_message": payload.delete_command_message, "reply_in_thread": payload.reply_in_thread, "anime_replies": payload.style == "naruto"}
-=======
     if payload.style == "custom":
         raise HTTPException(
             status_code=422,
             detail="Для кастомного стиля используйте поиск по коду в панели выбранной беседы",
         )
     patch = {"response_style": payload.style, "custom_style_code": "", "response_length": payload.length, "delete_command_message": payload.delete_command_message, "reply_in_thread": payload.reply_in_thread, "anime_replies": payload.style == "naruto"}
->>>>>>> 435a2ea (AniGuard v23.1: global patch completion)
     values = await update_chat_settings(session, chat_id, patch)
     await session.commit()
     return {key: values[key] for key in patch}

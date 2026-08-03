@@ -201,6 +201,59 @@ def default_chat_settings() -> dict[str, Any]:
         # Reports and chat tools.
         "reports_enabled": True,
         "report_hide_threshold": 3,
+        "report_merge_window_seconds": 900,
+        "report_categories": ["спам", "оскорбление", "мошенничество", "запрещённый контент", "реклама", "другое"],
+
+        # Incident cases, appeals and evidence.
+        "cases_enabled": True,
+        "case_actions": ["warn", "mute", "ban", "kick", "quarantine", "restrict_media", "restrict_links", "restrict_commands", "case"],
+        "evidence_capture_enabled": True,
+        "appeals_enabled": True,
+        "appeal_requires_independent_reviewer": True,
+
+        # Configurable automatic punishment ladder.
+        "punishment_ladder": [
+            {"warnings": 1, "action": "warn", "duration_seconds": 0, "label": "Предупреждение"},
+            {"warnings": 2, "action": "mute", "duration_seconds": 1800, "label": "Мут на 30 минут"},
+            {"warnings": 3, "action": "penalty_violator", "duration_seconds": 604800, "label": "Статус нарушителя"},
+            {"warnings": 4, "action": "mute", "duration_seconds": 86400, "label": "Мут на 24 часа"},
+            {"warnings": 5, "action": "penalty_severe", "duration_seconds": 2592000, "label": "Злостный нарушитель"},
+            {"warnings": 6, "action": "ban", "duration_seconds": 0, "label": "Бессрочный бан"},
+        ],
+
+        # Staff trust and individual permissions.
+        "staff_probation_enabled": True,
+        "staff_probation_days": 7,
+        "moderator_rating_enabled": True,
+        "moderator_abuse_detection_enabled": True,
+        "abuse_action_limit": 10,
+        "abuse_window_seconds": 300,
+        "abuse_auto_suspend": True,
+
+        # Anti-raid and emergency modes.
+        "anti_raid_enabled": False,
+        "anti_raid_auto_enabled": True,
+        "anti_raid_join_threshold": 8,
+        "anti_raid_window_seconds": 30,
+        "anti_raid_quarantine_seconds": 3600,
+        "emergency_mode_enabled": False,
+        "emergency_mode_until": None,
+        "emergency_reason": "",
+
+        # Shift, reports, backups and safe testing.
+        "moderator_shifts_enabled": True,
+        "weekly_reports_enabled": True,
+        "weekly_report_day": 1,
+        "backups_enabled": True,
+        "backup_retention_count": 20,
+        "test_mode_enabled": False,
+
+        # Response customization.
+        "response_style": "naruto",
+        "response_length": "full",
+        "delete_command_message": False,
+        "reply_in_thread": False,
+
         "chat_locked": False,
         "auto_ban_newcomers": False,
         "whitelist_user_ids": [],

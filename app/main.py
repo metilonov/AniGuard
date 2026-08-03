@@ -14,6 +14,7 @@ from app.store import router as store_router
 from app.bot import start_polling, stop_bot
 from app.config import get_settings
 from app.db import init_db
+from app.monitoring import resource_monitor
 
 
 settings = get_settings()
@@ -25,19 +26,22 @@ logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.I
 async def lifespan(app: FastAPI):
     await init_db()
     bot_task = asyncio.create_task(start_polling(), name="telegram-bot-polling")
+    resource_task = await resource_monitor.start()
     app.state.bot_task = bot_task
+    app.state.resource_task = resource_task
     try:
         yield
     finally:
         bot_task.cancel()
         await asyncio.gather(bot_task, return_exceptions=True)
+        await resource_monitor.stop()
         try:
             await stop_bot()
         except Exception:
             pass
 
 
-app = FastAPI(title="AniGuard", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="AniGuard", version="2.0.0", lifespan=lifespan)
 app.include_router(api_router)
 app.include_router(store_router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")

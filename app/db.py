@@ -75,6 +75,14 @@ _CHAT_COLUMNS: dict[str, str] = {
     "photo_unique_id": "VARCHAR(255)",
 }
 
+
+_REPORT_COLUMNS: dict[str, str] = {
+    "category": "VARCHAR(64) DEFAULT 'другое'",
+    "duplicate_count": "INTEGER DEFAULT 1",
+    "reporter_ids": "JSON",
+    "case_id": "INTEGER",
+}
+
 _MEMBERSHIP_COLUMNS: dict[str, str] = {
     "penalty_status": "VARCHAR(32) DEFAULT 'none'",
     "penalty_until": "TIMESTAMP",
@@ -106,13 +114,18 @@ async def init_db() -> None:
         membership_missing = await connection.run_sync(
             lambda sync_connection: _missing_columns(sync_connection, "memberships", _MEMBERSHIP_COLUMNS)
         )
-        for name, sql_type in [*captcha_missing, *chat_missing, *membership_missing]:
+        report_missing = await connection.run_sync(
+            lambda sync_connection: _missing_columns(sync_connection, "reports", _REPORT_COLUMNS)
+        )
+        for name, sql_type in [*captcha_missing, *chat_missing, *membership_missing, *report_missing]:
             if name in _CAPTCHA_COLUMNS:
                 table = "captcha_challenges"
             elif name in _CHAT_COLUMNS:
                 table = "chats"
-            else:
+            elif name in _MEMBERSHIP_COLUMNS:
                 table = "memberships"
+            else:
+                table = "reports"
             await connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {sql_type}"))
 
 

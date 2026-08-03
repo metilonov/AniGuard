@@ -1,0 +1,38 @@
+{
+  "version": "20.0",
+  "operations": 18,
+  "admin_live_refresh_ms": 1000,
+  "resource_collection_seconds": 1,
+  "resource_history_persist_seconds": 10,
+  "resource_history_days": 7,
+  "bothost_defaults": {
+    "cpu_vcpu": 4,
+    "ram_mb": 2048,
+    "disk_gb": 15
+  },
+  "features": [
+    "moderation_cases",
+    "appeals",
+    "punishment_ladder",
+    "staff_probation",
+    "moderator_performance",
+    "permission_overrides",
+    "anti_raid",
+    "emergency_mode",
+    "evidence_capture",
+    "smart_reports",
+    "moderator_shifts",
+    "weekly_reports",
+    "backups",
+    "test_mode",
+    "rule_builder",
+    "admin_abuse_control",
+    "chat_info",
+    "response_styles"
+  ],
+  "validation": {
+    "pytest": "73 passed",
+    "python_compileall": "passed",
+    "javascript_syntax": "passed"
+  }
+}

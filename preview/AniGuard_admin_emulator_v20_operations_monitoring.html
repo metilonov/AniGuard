@@ -563,7 +563,7 @@ svg{display:block}
 
 <div id="toast" class="toast"></div>
 
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>window.Telegram={WebApp:{ready(){},expand(){},initData:""}};</script>
 <script>
 (() => {
   const $ = (s, root=document) => root.querySelector(s);
@@ -633,7 +633,64 @@ svg{display:block}
     return new URLSearchParams(location.search).get('dev_user_id') || '';
   }
 
+  const DEMO_MODE = true;
+  const demoStartedAt = Date.now() - 3 * 86400000 - 5 * 3600000;
+  const demoState = {
+    cases:[{id:1,code:'AG-000001',chat_id:-1001234567890,target_id:741852963,actor_id:123456789,action:'mute',reason:'Оскорбление участника',duration_seconds:86400,status:'open',severity:'high',evidence_count:1,created_at:new Date(Date.now()-4200000).toISOString()}],
+    appeals:[{id:1,case_id:1,chat_id:-1001234567890,user_id:741852963,text:'Наказание выдано по ошибке',status:'new',decision:null,decision_note:null,reviewer_id:null,created_at:new Date(Date.now()-1800000).toISOString()}],
+    backups:[{id:1,chat_id:-1001234567890,kind:'automatic',checksum:'13f0a9b4c180d4b2e711',created_by:0,created_at:new Date(Date.now()-3600000).toISOString(),restored_at:null}],
+    shifts:[{id:1,chat_id:-1001234567890,user_id:555111222,assigned_by:123456789,starts_at:new Date(Date.now()-3600000).toISOString(),ends_at:new Date(Date.now()+7200000).toISOString(),temporary_role:'moderator',status:'active',reports_handled:8,warnings_issued:4,mutes_issued:1}],
+  };
+
+  function demoResources(){
+    const tick=Date.now()/1000;
+    const cpu=18+Math.sin(tick/2.7)*9+Math.sin(tick/7)*4;
+    const memory=648+Math.sin(tick/5)*34;
+    const disk=2960;
+    const uptime=Math.floor((Date.now()-demoStartedAt)/1000);
+    const days=Math.floor(uptime/86400), hours=Math.floor((uptime%86400)/3600), minutes=Math.floor((uptime%3600)/60);
+    return {provider:'bothost',status:'online',cpu_percent:Math.max(1,cpu),cpu_limit:4,memory_usage_mb:memory,memory_limit_mb:2048,memory_percent:memory/2048*100,disk_usage_mb:disk,disk_limit_mb:15360,disk_percent:disk/15360*100,uptime_seconds:uptime,uptime:`${days} дн. ${hours} ч. ${minutes} мин.`,updated_at:new Date().toISOString(),latency_ms:18,error:null};
+  }
+
+  function demoDashboard(){
+    return {
+      admin:{id:123456789,name:'AniGuard Admin',username:'aniguard_owner',avatar_url:null},
+      stats:{users:18420,active24:6380,active7:11320,chats:86,premiumUsers:1320,premiumChats:44,expiringPremium:31,revenue:8420,aniCoin:1284000,reports:7},
+      users:[],
+      chats:[{id:-1001234567890,name:'AniGuard Community',title:'AniGuard Community',members:8421,active7:3184,botStatus:'Активен',antiSpam:true,captcha:true,premium:true,premiumUntil:new Date(Date.now()+30*86400000).toISOString(),owner:'@aniguard_owner',username:'aniguard_chat',created:new Date(Date.now()-300*86400000).toISOString()}],
+      payments:[],
+      reports:[{id:'REP-12',rawId:12,type:'Жалоба · спам',text:'Повторная реклама',status:'Новая',chatId:-1001234567890,userId:111,targetId:222,duplicates:4,date:new Date(Date.now()-900000).toISOString()}],
+      tickets:[],promos:[],logs:[],
+      settings:{maintenance:false,registration:true,premiumInheritance:true,paymentNotify:true,autoReports:true,themeAuto:false,backupAlerts:true}
+    };
+  }
+
+  async function demoApi(path, options={}){
+    await new Promise(resolve=>setTimeout(resolve,35));
+    const method=(options.method||'GET').toUpperCase();
+    if(path==='/api/me') return {is_bot_admin:true,id:123456789};
+    if(path==='/api/admin/dashboard') return demoDashboard();
+    if(path==='/api/admin/store/overview') return {pending_ads:3,open_tickets:2,case_openings:128,coin_sales_stars:1420,ad_sales_stars:620,audience:{channel:12000,bot:18420,rewarded:6380}};
+    if(path==='/api/admin/live') return {ok:true,server_time:new Date().toISOString(),refresh_interval_ms:1000,stats:{users:18420,active24:6380,chats:86,reports:7,cases:demoState.cases.filter(x=>x.status==='open').length,appeals:demoState.appeals.filter(x=>x.status==='new').length,securityAlerts:1,activeShifts:1,probations:1},resources:demoResources(),incidents:[{id:1,chat_id:-1001234567890,kind:'anti_raid',severity:'warning',actor_id:null,created_at:new Date(Date.now()-600000).toISOString()}]};
+    if(path.startsWith('/api/admin/system/resources/history')) { const samples=[]; for(let i=60;i>=0;i--){const t=Date.now()-i*10000;samples.push({time:new Date(t).toISOString(),cpu:20+Math.sin(i/5)*12,memory_mb:640+Math.sin(i/8)*40,memory_percent:(640+Math.sin(i/8)*40)/20.48,disk_mb:2960,disk_percent:19.3,uptime_seconds:100000});} return {period_minutes:60,samples}; }
+    if(path==='/api/admin/cases') return {items:demoState.cases};
+    if(/^\/api\/admin\/cases\/\d+$/.test(path)){const id=Number(path.split('/').pop());const row=demoState.cases.find(x=>x.id===id);return {case:row,evidence:[{id:1,message_id:4821,author_id:741852963,text:'Фрагмент сообщения, сохранённый до удаления.',media:[],created_at:row.created_at}],appeals:demoState.appeals.filter(x=>x.case_id===id)};}
+    if(path==='/api/admin/appeals') return {items:demoState.appeals};
+    if(path==='/api/admin/security/incidents') return {items:[{id:1,chat_id:-1001234567890,kind:'anti_raid',severity:'warning',status:'open',actor_id:null,details:{joins:11,window_seconds:30},created_at:new Date(Date.now()-600000).toISOString(),resolved_at:null},{id:2,chat_id:-1001234567890,kind:'admin_abuse',severity:'critical',status:'resolved',actor_id:555111222,details:{actions:12},created_at:new Date(Date.now()-86400000).toISOString(),resolved_at:new Date(Date.now()-82800000).toISOString()}]};
+    if(path==='/api/admin/staff/probations') return {items:[{id:1,chat_id:-1001234567890,user_id:555111222,role:'junior_moderator',status:'active',starts_at:new Date(Date.now()-3*86400000).toISOString(),ends_at:new Date(Date.now()+4*86400000).toISOString(),actions_count:14,reversed_actions:1,complaints_count:0}]};
+    if(path==='/api/admin/staff/performance') return {items:[{id:1,chat_id:-1001234567890,user_id:555111222,rating:92,actions_count:148,confirmed_actions:141,reversed_actions:3,accepted_appeals:2,complaints_count:1,suspended_until:null}]};
+    if(path==='/api/admin/staff/shifts') return {items:demoState.shifts};
+    if(path==='/api/admin/backups') return {items:demoState.backups};
+    if(path==='/api/admin/weekly-reports') return {items:[]};
+    if(path.includes('/weekly-report') && method==='POST') return {id:2,payload:{new_members:312,moderation_actions:126,reports:84,warnings:42,mutes:11,bans:3,appeals:5,accepted_appeals:1,top_moderator_id:555111222}};
+    if(path.includes('/backups') && method==='POST' && !path.includes('/restore')) { const id=demoState.backups.length+1; demoState.backups.unshift({id,chat_id:-1001234567890,kind:'manual',checksum:'demo'+Date.now(),created_by:123456789,created_at:new Date().toISOString(),restored_at:null}); return {id,checksum:demoState.backups[0].checksum}; }
+    if(path.includes('/cases/') && path.endsWith('/close') && method==='POST'){const id=Number(path.split('/')[4]);const row=demoState.cases.find(x=>x.id===id);if(row)row.status='closed';return {id,status:'closed'};}
+    if(path.includes('/appeals/') && path.endsWith('/decision') && method==='POST'){const id=Number(path.split('/')[4]);const body=JSON.parse(options.body||'{}');const row=demoState.appeals.find(x=>x.id===id);if(row)row.status=body.decision==='accept'?'accepted':body.decision==='change'?'changed':'rejected';return {id,status:row?.status||'accepted'};}
+    return {ok:true,id:Date.now(),status:'saved'};
+  }
+
   async function api(path, options={}){
+    if (DEMO_MODE) return demoApi(path, options);
     const headers = new Headers(options.headers || {});
     if (telegramInitData()) headers.set('X-Telegram-Init-Data', telegramInitData());
     else if (devUserId()) headers.set('X-Dev-User-Id', devUserId());
@@ -712,7 +769,7 @@ svg{display:block}
   }
 
   async function loadRemoteData(){
-    if (!telegramInitData() && !devUserId()) throw new Error('Откройте админ-панель кнопкой из команды /admin в Telegram. Для DEV_MODE можно добавить ?dev_user_id=ВАШ_ID.');
+    if (!DEMO_MODE && !telegramInitData() && !devUserId()) throw new Error('Откройте админ-панель кнопкой из команды /admin в Telegram. Для DEV_MODE можно добавить ?dev_user_id=ВАШ_ID.');
     const me = await api('/api/me');
     if (!me.is_bot_admin) throw new Error('Доступ разрешён только владельцу AniGuard.');
     const [dashboard, storeOverview] = await Promise.all([

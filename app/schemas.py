@@ -240,3 +240,55 @@ class AdminDirectMessageRequest(BaseModel):
 class AdminBulkPremiumRequest(BaseModel):
     category: Literal["premium_users", "expiring_users", "premium_chats"]
     days: int = Field(default=7, ge=1, le=3650)
+
+# AniGuard operations suite v20
+class AdminCaseCloseRequest(BaseModel):
+    status: Literal["closed", "reversed", "changed"] = "closed"
+
+
+class AdminAppealDecisionRequest(BaseModel):
+    decision: Literal["accept", "reject", "change"]
+    note: str = Field(default="", max_length=1000)
+
+
+class AdminSecurityModeRequest(BaseModel):
+    enabled: bool = True
+    reason: str = Field(default="", max_length=500)
+    duration_seconds: int | None = Field(default=None, ge=0, le=31_536_000)
+
+
+class AdminPunishmentLadderRequest(BaseModel):
+    enabled: bool = True
+    steps: list[dict[str, Any]] = Field(default_factory=list, max_length=20)
+
+
+class AdminPermissionOverrideRequest(BaseModel):
+    user_id: int
+    permission: str = Field(min_length=1, max_length=64)
+    allowed: bool = True
+    limit_value: int | None = Field(default=None, ge=0, le=31_536_000)
+    expires_seconds: int | None = Field(default=None, ge=0, le=31_536_000)
+
+
+class AdminShiftCreateRequest(BaseModel):
+    user_id: int
+    starts_at: str
+    ends_at: str
+    temporary_role: str | None = Field(default=None, max_length=32)
+
+
+class AdminResponseStyleRequest(BaseModel):
+    style: Literal["ordinary", "naruto", "minimal", "strict"] = "naruto"
+    length: Literal["short", "full"] = "full"
+    delete_command_message: bool = False
+    reply_in_thread: bool = False
+
+
+class AdminBackupRestoreRequest(BaseModel):
+    confirm: bool = False
+
+
+class AdminProbationDecisionRequest(BaseModel):
+    decision: Literal["confirm", "reject", "extend"]
+    note: str = Field(default="", max_length=1000)
+    extend_days: int = Field(default=7, ge=1, le=365)

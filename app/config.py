@@ -27,6 +27,16 @@ class Settings(BaseSettings):
     port: int = Field(default=3000, alias="PORT")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
+    # BotHost resource monitoring. BOT_ID is injected by BotHost at runtime.
+    bothost_agent_url: str = Field(default="http://agent:8000", alias="BOTHOST_AGENT_URL")
+    bothost_bot_id: str = Field(default="", alias="BOT_ID")
+    bothost_ram_limit_mb: int = Field(default=2048, alias="BOTHOST_RAM_LIMIT_MB")
+    bothost_cpu_limit: float = Field(default=4.0, alias="BOTHOST_CPU_LIMIT")
+    bothost_disk_limit_gb: float = Field(default=15.0, alias="BOTHOST_DISK_LIMIT_GB")
+    resource_poll_interval_seconds: float = Field(default=1.0, alias="RESOURCE_POLL_INTERVAL_SECONDS")
+    resource_persist_interval_seconds: int = Field(default=10, alias="RESOURCE_PERSIST_INTERVAL_SECONDS")
+    resource_history_days: int = Field(default=7, alias="RESOURCE_HISTORY_DAYS")
+
     model_config = SettingsConfigDict(
         env_file=BASE_DIR / ".env",
         env_file_encoding="utf-8",
@@ -70,6 +80,17 @@ class Settings(BaseSettings):
         if isinstance(value, (list, tuple, set)):
             return {int(item) for item in value}
         raise ValueError("Значение должно содержать один или несколько числовых Telegram ID")
+
+    @field_validator("resource_poll_interval_seconds")
+    @classmethod
+    def minimum_resource_interval(cls, value: float) -> float:
+        # One second is the highest supported refresh rate for this project.
+        return max(1.0, float(value))
+
+    @field_validator("resource_persist_interval_seconds")
+    @classmethod
+    def minimum_persist_interval(cls, value: int) -> int:
+        return max(5, int(value))
 
     @field_validator("webapp_url", "admin_url")
     @classmethod

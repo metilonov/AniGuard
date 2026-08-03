@@ -4,12 +4,13 @@ import asyncio
 import json
 import os
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 from aiogram.enums import ChatMemberStatus
+from aiogram.types import ChatPermissions
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse, Response
 from sqlalchemy import delete, func, select
@@ -41,6 +42,17 @@ from app.models import (
     RoleAssignmentHistory,
     RPCommand,
     User,
+    Appeal,
+    BackupSnapshot,
+    CaseEvidence,
+    ModerationCase,
+    ModeratorPerformance,
+    ModeratorShift,
+    PermissionOverride,
+    ResourceSample,
+    SecurityIncident,
+    StaffProbation,
+    WeeklyReportSnapshot,
 )
 from app.pricing import PREMIUM_PLANS
 from app.schemas import (
@@ -74,8 +86,28 @@ from app.schemas import (
     AdminReportCloseRequest,
     AdminDirectMessageRequest,
     AdminBulkPremiumRequest,
+    AdminCaseCloseRequest,
+    AdminAppealDecisionRequest,
+    AdminSecurityModeRequest,
+    AdminPunishmentLadderRequest,
+    AdminPermissionOverrideRequest,
+    AdminShiftCreateRequest,
+    AdminResponseStyleRequest,
+    AdminBackupRestoreRequest,
+    AdminProbationDecisionRequest,
 )
 from app.security import TelegramUser, current_telegram_user
+from app.monitoring import resource_monitor
+from app.feature_services import (
+    close_case,
+    create_backup_snapshot,
+    create_shift,
+    decide_appeal,
+    generate_weekly_report,
+    restore_backup_snapshot,
+    set_security_mode,
+    utcnow as feature_utcnow,
+)
 from app.roles import (
     PENALTY_DEFINITIONS,
     ROLE_DEFINITIONS,
@@ -2245,8 +2277,10 @@ async def admin_dashboard(
         {
             "id": f"REP-{row.id}",
             "rawId": row.id,
-            "type": "Жалоба",
+            "type": f"Жалоба · {row.category or 'другое'}",
             "text": row.reason,
+            "category": row.category or "другое",
+            "duplicates": int(row.duplicate_count or 1),
             "status": {"new": "Новая", "in_progress": "В работе", "closed": "Решено"}.get(row.status, row.status),
             "chatId": row.chat_id,
             "userId": row.reporter_id,
@@ -2260,7 +2294,7 @@ async def admin_dashboard(
             "id": f"AG-{row.id}",
             "rawId": row.id,
             "userId": row.reporter_id,
-            "title": f"Жалоба в беседе {row.chat_id}",
+            "title": f"Жалоба в беседе {row.chat_id} · {row.category or 'другое'} · {int(row.duplicate_count or 1)} сигнал(а)",
             "status": {"new": "Открыт", "in_progress": "В работе", "closed": "Решён"}.get(row.status, row.status),
             "date": _iso(row.created_at),
             "text": row.reason,
@@ -2327,6 +2361,455 @@ async def admin_dashboard(
         "logs": logs_payload,
         "settings": await _admin_setting_values(session),
     }
+
+
+# ---------------------------------------------------------------------------
+# Live owner dashboard and the 18-part operations suite (v20)
+# ---------------------------------------------------------------------------
+
+@router.get("/admin/live")
+async def admin_live(
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    """Lightweight one-second payload for the owner dashboard."""
+    ensure_bot_admin(user)
+    now = utcnow()
+    day_ago = now - timedelta(days=1)
+    resources = await resource_monitor.snapshot()
+    stats = {
+        "users": int(await session.scalar(select(func.count()).select_from(User)) or 0),
+        "active24": int(await session.scalar(select(func.count(func.distinct(Membership.user_id))).where(Membership.last_seen_at >= day_ago)) or 0),
+        "chats": int(await session.scalar(select(func.count()).select_from(Chat).where(Chat.is_active.is_(True))) or 0),
+        "reports": int(await session.scalar(select(func.count()).select_from(Report).where(Report.status.in_(["new", "in_progress"]))) or 0),
+        "cases": int(await session.scalar(select(func.count()).select_from(ModerationCase).where(ModerationCase.status.in_(["open", "appealed", "changed"]))) or 0),
+        "appeals": int(await session.scalar(select(func.count()).select_from(Appeal).where(Appeal.status == "new")) or 0),
+        "securityAlerts": int(await session.scalar(select(func.count()).select_from(SecurityIncident).where(SecurityIncident.status == "open")) or 0),
+        "activeShifts": int(await session.scalar(select(func.count()).select_from(ModeratorShift).where(ModeratorShift.starts_at <= now, ModeratorShift.ends_at >= now, ModeratorShift.status.in_(["scheduled", "active"]))) or 0),
+        "probations": int(await session.scalar(select(func.count()).select_from(StaffProbation).where(StaffProbation.status == "active")) or 0),
+    }
+    recent_incidents = (await session.scalars(
+        select(SecurityIncident).where(SecurityIncident.status == "open").order_by(SecurityIncident.id.desc()).limit(5)
+    )).all()
+    return {
+        "ok": True,
+        "server_time": now.isoformat(),
+        "refresh_interval_ms": 1000,
+        "stats": stats,
+        "resources": resources,
+        "incidents": [
+            {"id": row.id, "chat_id": row.chat_id, "kind": row.kind, "severity": row.severity, "actor_id": row.actor_id, "details": row.details, "created_at": _iso(row.created_at)}
+            for row in recent_incidents
+        ],
+    }
+
+
+@router.get("/admin/system/resources")
+async def admin_system_resources(
+    user: TelegramUser = Depends(current_telegram_user),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    return {"ok": True, "resources": await resource_monitor.snapshot(), "refresh_interval_ms": 1000}
+
+
+@router.get("/admin/system/resources/history")
+async def admin_resource_history(
+    minutes: int = Query(default=60, ge=1, le=10080),
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    since = utcnow() - timedelta(minutes=minutes)
+    rows = (await session.scalars(
+        select(ResourceSample).where(ResourceSample.collected_at >= since).order_by(ResourceSample.collected_at.asc()).limit(10000)
+    )).all()
+    return {
+        "period_minutes": minutes,
+        "samples": [
+            {
+                "time": _iso(row.collected_at), "provider": row.provider, "status": row.status,
+                "cpu": row.cpu_percent, "memory_mb": row.memory_usage_mb,
+                "memory_percent": row.memory_percent, "disk_mb": row.disk_usage_mb,
+                "disk_percent": row.disk_percent, "uptime_seconds": row.uptime_seconds,
+                "error": row.error,
+            }
+            for row in rows
+        ],
+    }
+
+
+@router.get("/admin/cases")
+async def admin_cases(
+    status_filter: str | None = Query(default=None, alias="status"),
+    limit: int = Query(default=100, ge=1, le=500),
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    query = select(ModerationCase).order_by(ModerationCase.id.desc()).limit(limit)
+    if status_filter:
+        query = query.where(ModerationCase.status == status_filter)
+    rows = (await session.scalars(query)).all()
+    return {"items": [
+        {"id": r.id, "code": r.code, "chat_id": r.chat_id, "target_id": r.target_id, "actor_id": r.actor_id,
+         "action": r.action, "reason": r.reason, "duration_seconds": r.duration_seconds, "status": r.status,
+         "severity": r.severity, "evidence_count": r.evidence_count, "created_at": _iso(r.created_at), "closed_at": _iso(r.closed_at)}
+        for r in rows
+    ]}
+
+
+@router.get("/admin/cases/{case_id}")
+async def admin_case_details(
+    case_id: int,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    row = await session.get(ModerationCase, case_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Дело не найдено")
+    evidence = (await session.scalars(select(CaseEvidence).where(CaseEvidence.case_id == case_id).order_by(CaseEvidence.id.asc()))).all()
+    appeals = (await session.scalars(select(Appeal).where(Appeal.case_id == case_id).order_by(Appeal.id.desc()))).all()
+    return {
+        "case": {"id": row.id, "code": row.code, "chat_id": row.chat_id, "target_id": row.target_id, "actor_id": row.actor_id, "action": row.action, "reason": row.reason, "status": row.status, "severity": row.severity, "duration_seconds": row.duration_seconds, "metadata": row.metadata_json, "created_at": _iso(row.created_at)},
+        "evidence": [{"id": e.id, "message_id": e.message_id, "author_id": e.author_id, "text": e.text, "media": e.media, "created_at": _iso(e.created_at)} for e in evidence],
+        "appeals": [{"id": a.id, "user_id": a.user_id, "text": a.text, "status": a.status, "decision": a.decision, "reviewer_id": a.reviewer_id, "created_at": _iso(a.created_at)} for a in appeals],
+    }
+
+
+@router.post("/admin/cases/{case_id}/close")
+async def admin_close_case(
+    case_id: int,
+    payload: AdminCaseCloseRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    try:
+        row = await close_case(session, case_id=case_id, actor_id=user.id, status=payload.status)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    await _write_admin_log(session, admin_id=user.id, action="case_closed", entity_type="case", entity_id=case_id, details={"status": payload.status})
+    await session.commit()
+    return {"id": row.id, "status": row.status}
+
+
+@router.get("/admin/appeals")
+async def admin_appeals(
+    status_filter: str | None = Query(default=None, alias="status"),
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    query = select(Appeal).order_by(Appeal.id.desc()).limit(300)
+    if status_filter:
+        query = query.where(Appeal.status == status_filter)
+    rows = (await session.scalars(query)).all()
+    return {"items": [{"id": r.id, "case_id": r.case_id, "chat_id": r.chat_id, "user_id": r.user_id, "text": r.text, "status": r.status, "reviewer_id": r.reviewer_id, "decision": r.decision, "decision_note": r.decision_note, "created_at": _iso(r.created_at), "reviewed_at": _iso(r.reviewed_at)} for r in rows]}
+
+
+@router.post("/admin/appeals/{appeal_id}/decision")
+async def admin_decide_appeal(
+    appeal_id: int,
+    payload: AdminAppealDecisionRequest,
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    try:
+        row = await decide_appeal(session, appeal_id=appeal_id, reviewer_id=user.id, decision=payload.decision, note=payload.note)
+    except (ValueError, PermissionError) as exc:
+        raise http_error(exc) from exc
+
+    # An accepted appeal reverses the practical Telegram restriction whenever the
+    # original action is reversible. The database decision remains saved even if
+    # Telegram temporarily refuses the network operation.
+    reversed_action = None
+    if payload.decision == "accept" and row.case_id:
+        case = await session.get(ModerationCase, row.case_id)
+        if case and case.target_id:
+            membership = await session.scalar(select(Membership).where(Membership.chat_id == case.chat_id, Membership.user_id == case.target_id))
+            action = str(case.action or "")
+            try:
+                if action in {"ban", "global_block", "ladder_ban"}:
+                    await bot.unban_chat_member(case.chat_id, case.target_id, only_if_banned=True)
+                    reversed_action = "unban"
+                elif action in {"mute", "quarantine", "restrict_media", "restrict_links", "restrict_commands", "ladder_mute"}:
+                    await bot.restrict_chat_member(case.chat_id, case.target_id, ChatPermissions(
+                        can_send_messages=True, can_send_audios=True, can_send_documents=True,
+                        can_send_photos=True, can_send_videos=True, can_send_video_notes=True,
+                        can_send_voice_notes=True, can_send_polls=True, can_send_other_messages=True,
+                        can_add_web_page_previews=True, can_invite_users=True,
+                    ))
+                    if membership:
+                        membership.muted_until = None
+                        membership.quarantined_until = None
+                    reversed_action = "restrictions_removed"
+                elif action in {"warn", "ladder_warn"} and membership:
+                    membership.warnings = max(0, int(membership.warnings or 0) - 1)
+                    reversed_action = "warning_removed"
+                elif action in {"penalty_status", "ladder_penalty_violator", "ladder_penalty_severe"} and membership:
+                    membership.penalty_status = "none"
+                    membership.penalty_until = None
+                    reversed_action = "penalty_removed"
+            except Exception as telegram_error:
+                reversed_action = f"telegram_error:{type(telegram_error).__name__}"
+
+    await _write_admin_log(session, admin_id=user.id, action="appeal_decision", entity_type="appeal", entity_id=appeal_id, details={"decision": payload.decision, "reversed_action": reversed_action})
+    await session.commit()
+    return {"id": row.id, "status": row.status, "reversed_action": reversed_action}
+
+
+@router.get("/admin/security/incidents")
+async def admin_security_incidents(
+    user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    rows = (await session.scalars(select(SecurityIncident).order_by(SecurityIncident.id.desc()).limit(300))).all()
+    return {"items": [{"id": r.id, "chat_id": r.chat_id, "kind": r.kind, "severity": r.severity, "status": r.status, "actor_id": r.actor_id, "details": r.details, "created_at": _iso(r.created_at), "resolved_at": _iso(r.resolved_at)} for r in rows]}
+
+
+async def _admin_security_mode(
+    *, chat_id: int, kind: str, payload: AdminSecurityModeRequest,
+    user: TelegramUser, session: AsyncSession,
+) -> dict[str, Any]:
+    try:
+        row = await set_security_mode(session, chat_id=chat_id, actor_id=user.id, kind=kind, enabled=payload.enabled, reason=payload.reason, duration_seconds=payload.duration_seconds)
+        if kind == "emergency":
+            permissions = ChatPermissions(can_send_messages=False) if payload.enabled else ChatPermissions(can_send_messages=True, can_send_audios=True, can_send_documents=True, can_send_photos=True, can_send_videos=True, can_send_video_notes=True, can_send_voice_notes=True, can_send_polls=True, can_send_other_messages=True, can_add_web_page_previews=True, can_invite_users=True)
+            try:
+                await bot.set_chat_permissions(chat_id, permissions)
+            except Exception:
+                pass
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    await _write_admin_log(session, admin_id=user.id, action=f"{kind}_{'enabled' if payload.enabled else 'disabled'}", entity_type="chat", entity_id=chat_id, details={"reason": payload.reason, "duration_seconds": payload.duration_seconds})
+    await session.commit()
+    return {"id": row.id, "enabled": payload.enabled, "kind": kind}
+
+
+@router.post("/admin/chats/{chat_id}/anti-raid")
+async def admin_anti_raid(
+    chat_id: int, payload: AdminSecurityModeRequest,
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    return await _admin_security_mode(chat_id=chat_id, kind="anti_raid", payload=payload, user=user, session=session)
+
+
+@router.post("/admin/chats/{chat_id}/emergency")
+async def admin_emergency(
+    chat_id: int, payload: AdminSecurityModeRequest,
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    return await _admin_security_mode(chat_id=chat_id, kind="emergency", payload=payload, user=user, session=session)
+
+
+@router.post("/admin/chats/{chat_id}/test-mode")
+async def admin_test_mode(
+    chat_id: int, payload: AdminSecurityModeRequest,
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    values = await update_chat_settings(session, chat_id, {"test_mode_enabled": payload.enabled})
+    await _write_admin_log(session, admin_id=user.id, action="test_mode", entity_type="chat", entity_id=chat_id, details={"enabled": payload.enabled})
+    await session.commit()
+    return {"enabled": values["test_mode_enabled"]}
+
+
+@router.put("/admin/chats/{chat_id}/punishment-ladder")
+async def admin_punishment_ladder(
+    chat_id: int, payload: AdminPunishmentLadderRequest,
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    allowed_actions = {"warn", "mute", "penalty_violator", "penalty_severe", "ban"}
+    cleaned: list[dict[str, Any]] = []
+    for raw in payload.steps:
+        action = str(raw.get("action") or "")
+        warnings = int(raw.get("warnings") or 0)
+        if action not in allowed_actions or warnings < 1:
+            raise HTTPException(status_code=422, detail="Некорректный шаг лестницы наказаний")
+        cleaned.append({"warnings": warnings, "action": action, "duration_seconds": max(0, int(raw.get("duration_seconds") or 0)), "label": str(raw.get("label") or action)[:100]})
+    cleaned.sort(key=lambda item: item["warnings"])
+    values = await update_chat_settings(session, chat_id, {"punishment_ladder_enabled": payload.enabled, "punishment_ladder": cleaned})
+    await session.commit()
+    return {"enabled": values["punishment_ladder_enabled"], "steps": values["punishment_ladder"]}
+
+
+@router.put("/admin/chats/{chat_id}/response-style")
+async def admin_response_style(
+    chat_id: int, payload: AdminResponseStyleRequest,
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    patch = {"response_style": payload.style, "response_length": payload.length, "delete_command_message": payload.delete_command_message, "reply_in_thread": payload.reply_in_thread, "anime_replies": payload.style == "naruto"}
+    values = await update_chat_settings(session, chat_id, patch)
+    await session.commit()
+    return {key: values[key] for key in patch}
+
+
+@router.get("/admin/chats/{chat_id}/permission-overrides")
+async def admin_permission_overrides(
+    chat_id: int,
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    rows = (await session.scalars(select(PermissionOverride).where(PermissionOverride.chat_id == chat_id).order_by(PermissionOverride.user_id, PermissionOverride.permission))).all()
+    return {"items": [{"id": r.id, "user_id": r.user_id, "permission": r.permission, "allowed": r.allowed, "limit_value": r.limit_value, "expires_at": _iso(r.expires_at), "assigned_by": r.assigned_by} for r in rows]}
+
+
+@router.put("/admin/chats/{chat_id}/permission-overrides")
+async def admin_set_permission_override(
+    chat_id: int, payload: AdminPermissionOverrideRequest,
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    row = await session.scalar(select(PermissionOverride).where(PermissionOverride.chat_id == chat_id, PermissionOverride.user_id == payload.user_id, PermissionOverride.permission == payload.permission))
+    if row is None:
+        row = PermissionOverride(chat_id=chat_id, user_id=payload.user_id, permission=payload.permission, assigned_by=user.id)
+        session.add(row)
+    row.allowed = payload.allowed
+    row.limit_value = payload.limit_value
+    row.assigned_by = user.id
+    row.expires_at = utcnow() + timedelta(seconds=payload.expires_seconds) if payload.expires_seconds else None
+    await session.commit()
+    return {"id": row.id, "allowed": row.allowed}
+
+
+@router.get("/admin/staff/probations")
+async def admin_probations(
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    rows = (await session.scalars(select(StaffProbation).order_by(StaffProbation.id.desc()).limit(300))).all()
+    return {"items": [{"id": r.id, "chat_id": r.chat_id, "user_id": r.user_id, "role": r.role, "status": r.status, "starts_at": _iso(r.starts_at), "ends_at": _iso(r.ends_at), "actions_count": r.actions_count, "reversed_actions": r.reversed_actions, "complaints_count": r.complaints_count} for r in rows]}
+
+
+@router.post("/admin/staff/probations/{probation_id}/decision")
+async def admin_probation_decision(
+    probation_id: int, payload: AdminProbationDecisionRequest,
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    row = await session.get(StaffProbation, probation_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Испытательный срок не найден")
+    row.decision_by = user.id
+    row.decision_note = payload.note or None
+    if payload.decision == "extend":
+        row.ends_at = utcnow() + timedelta(days=payload.extend_days)
+        row.status = "active"
+    elif payload.decision == "confirm":
+        row.status = "passed"
+    else:
+        row.status = "failed"
+        membership = await session.scalar(select(Membership).where(Membership.chat_id == row.chat_id, Membership.user_id == row.user_id))
+        if membership and normalize_role(membership.role) != "creator":
+            membership.role = "member"
+    await session.commit()
+    return {"id": row.id, "status": row.status}
+
+
+@router.get("/admin/staff/performance")
+async def admin_staff_performance(
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    rows = (await session.scalars(select(ModeratorPerformance).order_by(ModeratorPerformance.rating.asc(), ModeratorPerformance.actions_count.desc()).limit(500))).all()
+    return {"items": [{"id": r.id, "chat_id": r.chat_id, "user_id": r.user_id, "rating": r.rating, "actions_count": r.actions_count, "confirmed_actions": r.confirmed_actions, "reversed_actions": r.reversed_actions, "accepted_appeals": r.accepted_appeals, "complaints_count": r.complaints_count, "suspended_until": _iso(r.suspended_until)} for r in rows]}
+
+
+@router.get("/admin/staff/shifts")
+async def admin_shifts(
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    rows = (await session.scalars(select(ModeratorShift).order_by(ModeratorShift.id.desc()).limit(300))).all()
+    return {"items": [{"id": r.id, "chat_id": r.chat_id, "user_id": r.user_id, "assigned_by": r.assigned_by, "starts_at": _iso(r.starts_at), "ends_at": _iso(r.ends_at), "temporary_role": r.temporary_role, "status": r.status, "reports_handled": r.reports_handled, "warnings_issued": r.warnings_issued, "mutes_issued": r.mutes_issued} for r in rows]}
+
+
+@router.post("/admin/chats/{chat_id}/shifts")
+async def admin_create_shift(
+    chat_id: int, payload: AdminShiftCreateRequest,
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    try:
+        starts = datetime.fromisoformat(payload.starts_at.replace("Z", "+00:00"))
+        ends = datetime.fromisoformat(payload.ends_at.replace("Z", "+00:00"))
+        if starts.tzinfo is None: starts = starts.replace(tzinfo=timezone.utc)
+        if ends.tzinfo is None: ends = ends.replace(tzinfo=timezone.utc)
+        row = await create_shift(session, chat_id=chat_id, user_id=payload.user_id, actor_id=user.id, starts_at=starts, ends_at=ends, temporary_role=payload.temporary_role)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await session.commit()
+    return {"id": row.id, "status": row.status}
+
+
+@router.get("/admin/backups")
+async def admin_backups(
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    rows = (await session.scalars(select(BackupSnapshot).order_by(BackupSnapshot.id.desc()).limit(100))).all()
+    return {"items": [{"id": r.id, "chat_id": r.chat_id, "kind": r.kind, "checksum": r.checksum, "created_by": r.created_by, "created_at": _iso(r.created_at), "restored_at": _iso(r.restored_at)} for r in rows]}
+
+
+@router.post("/admin/chats/{chat_id}/backups")
+async def admin_create_backup(
+    chat_id: int,
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    try:
+        row = await create_backup_snapshot(session, chat_id=chat_id, created_by=user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    await session.commit()
+    return {"id": row.id, "checksum": row.checksum}
+
+
+@router.post("/admin/backups/{snapshot_id}/restore")
+async def admin_restore_backup(
+    snapshot_id: int, payload: AdminBackupRestoreRequest,
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    if not payload.confirm:
+        raise HTTPException(status_code=409, detail="Для восстановления передайте confirm=true")
+    try:
+        row = await restore_backup_snapshot(session, snapshot_id=snapshot_id, actor_id=user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    await session.commit()
+    return {"id": row.id, "restored_at": _iso(row.restored_at)}
+
+
+@router.get("/admin/weekly-reports")
+async def admin_weekly_reports(
+    chat_id: int | None = None,
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    query = select(WeeklyReportSnapshot).order_by(WeeklyReportSnapshot.id.desc()).limit(100)
+    if chat_id is not None:
+        query = query.where(WeeklyReportSnapshot.chat_id == chat_id)
+    rows = (await session.scalars(query)).all()
+    return {"items": [{"id": r.id, "chat_id": r.chat_id, "period_start": _iso(r.period_start), "period_end": _iso(r.period_end), "payload": r.payload, "created_at": _iso(r.created_at)} for r in rows]}
+
+
+@router.post("/admin/chats/{chat_id}/weekly-report")
+async def admin_generate_weekly_report(
+    chat_id: int,
+    user: TelegramUser = Depends(current_telegram_user), session: AsyncSession = Depends(get_session),
+) -> dict[str, Any]:
+    ensure_bot_admin(user)
+    row = await generate_weekly_report(session, chat_id=chat_id, generated_by=user.id)
+    await session.commit()
+    return {"id": row.id, "payload": row.payload}
 
 
 @router.post("/admin/coins")

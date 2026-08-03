@@ -55,10 +55,24 @@ from app.models import (
     ModerationRule,
     Report,
     RoleAssignmentHistory,
+    Appeal,
+    ModerationCase,
+    ModeratorShift,
+    PermissionOverride,
+    SecurityIncident,
+    WeeklyReportSnapshot,
     RPCommand,
     User,
 )
 from app.durations import clean_reason, format_duration_ru, parse_duration_prefix
+from app.feature_services import (
+    create_appeal,
+    create_backup_snapshot,
+    create_shift,
+    generate_weekly_report,
+    run_operations_maintenance,
+    set_security_mode,
+)
 from app.moderation_parser import TIMED_ACTIONS, detect_action, parse_moderation_command
 from app.pricing import PREMIUM_PLANS, get_plan
 from app.store import complete_store_payment, validate_store_payment
@@ -256,6 +270,7 @@ _typed_flood_buckets: dict[tuple[int, int, str], deque[float]] = defaultdict(deq
 _coordinated_buckets: dict[tuple[int, str], deque[tuple[float, int]]] = defaultdict(deque)
 _media_hash_buckets: dict[tuple[int, str], deque[tuple[float, int]]] = defaultdict(deque)
 _captcha_worker_task: asyncio.Task[Any] | None = None
+_operations_worker_task: asyncio.Task[Any] | None = None
 
 
 def split_args(command: CommandObject | None) -> list[str]:
@@ -920,15 +935,27 @@ async def submit_appeal(message: Message, raw_reason: str | None) -> None:
     if message.chat.type not in {ChatType.GROUP, ChatType.SUPERGROUP}:
         await message.answer("Апелляцию нужно отправить в беседе, где действует ограничение.")
         return
-    reason = clean_reason(raw_reason) or "Пользователь просит пересмотреть ограничение"
+    raw = clean_reason(raw_reason)
+    case_id = None
+    case_match = re.match(r"(?i)^\s*(?:AG[- ]?)?(\d{1,9})\b\s*(.*)$", raw or "")
+    if case_match:
+        case_id = int(case_match.group(1))
+        reason = clean_reason(case_match.group(2)) or "Пользователь просит пересмотреть наказание"
+    else:
+        reason = raw or "Пользователь просит пересмотреть ограничение"
     await ensure_context(message)
     async with SessionFactory() as session:
+        appeal = await create_appeal(
+            session, chat_id=message.chat.id, user_id=message.from_user.id,
+            text=reason, case_id=case_id,
+        )
         report = await create_report(
             session, chat_id=message.chat.id, reporter_id=message.from_user.id, target_id=message.from_user.id,
-            message_id=message.message_id, reason=f"Апелляция: {reason}",
+            message_id=message.message_id, reason=f"Апелляция #{appeal.id}: {reason}", category="апелляция",
         )
         await session.commit()
-    await message.answer(f"✅ Апелляция AG-{report.id} зарегистрирована и передана администрации.")
+    case_text = f" по делу AG-{appeal.case_id:06d}" if appeal.case_id else ""
+    await message.answer(f"✅ Апелляция #{appeal.id}{case_text} зарегистрирована и передана администрации.")
 
 
 @router.message(Command("appeal"))
@@ -1177,6 +1204,32 @@ async def successful_payment_handler(message: Message) -> None:
         await message.answer(f"Платёж получен, но активация не завершена: {html.escape(str(exc))}")
 
 
+
+def _message_evidence(message: Message) -> dict[str, Any] | None:
+    source = message.reply_to_message
+    if source is None:
+        return None
+    media: list[dict[str, Any]] = []
+    if source.photo:
+        media.append({"type": "photo", "file_id": source.photo[-1].file_id})
+    for attr, kind in (
+        ("video", "video"), ("document", "document"), ("audio", "audio"),
+        ("voice", "voice"), ("video_note", "video_note"), ("sticker", "sticker"),
+        ("animation", "animation"),
+    ):
+        obj = getattr(source, attr, None)
+        if obj is not None:
+            media.append({"type": kind, "file_id": getattr(obj, "file_id", None), "file_name": getattr(obj, "file_name", None)})
+    return {
+        "message_id": source.message_id,
+        "author_id": source.from_user.id if source.from_user else None,
+        "text": source.text or source.caption or "",
+        "media": media,
+        "date": source.date.isoformat() if source.date else None,
+        "content_type": str(source.content_type),
+    }
+
+
 async def moderation_command(
     message: Message,
     command: CommandObject | None,
@@ -1222,6 +1275,8 @@ async def moderation_command(
                 target_id=target_id,
                 duration_seconds=parsed.duration_seconds,
                 reason=reason,
+                source_message_id=message.reply_to_message.message_id if message.reply_to_message else message.message_id,
+                evidence=_message_evidence(message),
             )
             await session.commit()
 
@@ -1416,14 +1471,21 @@ async def unlock_handler(message: Message) -> None:
     await chat_state_action(message, "unlock")
 
 
-@router.message(Command("report"))
-async def report_handler(message: Message, command: CommandObject) -> None:
+async def submit_smart_report(message: Message, raw: str | None) -> None:
     if not message.reply_to_message or not message.reply_to_message.from_user:
         await message.answer("Ответьте командой /report на сообщение нарушителя.")
         return
     await ensure_context(message)
-    reason = command.args or "Причина не указана"
     async with SessionFactory() as session:
+        settings_data = await get_merged_settings(session, message.chat.id)
+        categories = [str(item).casefold() for item in settings_data.get("report_categories", [])]
+        reason = clean_reason(raw) or "Причина не указана"
+        category = "другое"
+        first, _, tail = reason.partition(" ")
+        normalized_first = first.casefold().strip("#:,.;")
+        if normalized_first in categories:
+            category = normalized_first
+            reason = clean_reason(tail) or category
         report = await create_report(
             session,
             chat_id=message.chat.id,
@@ -1431,9 +1493,22 @@ async def report_handler(message: Message, command: CommandObject) -> None:
             target_id=message.reply_to_message.from_user.id,
             message_id=message.reply_to_message.message_id,
             reason=reason,
+            category=category,
         )
         await session.commit()
-    await message.answer(f"Жалоба AG-{report.id} создана и передана модераторам.")
+    duplicate_text = f" · объединено жалоб: {report.duplicate_count}" if int(report.duplicate_count or 1) > 1 else ""
+    await message.answer(f"Жалоба AG-{report.id} создана и передана модераторам{duplicate_text}.")
+
+
+@router.message(Command("report"))
+async def report_handler(message: Message, command: CommandObject) -> None:
+    await submit_smart_report(message, command.args)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?(?:жалоба|репорт)(?:\s+.*)?$"))
+async def report_alias_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?(?:жалоба|репорт)\s*", "", message.text or "", count=1)
+    await submit_smart_report(message, raw)
 
 
 @router.message(Command("profile"))
@@ -1928,6 +2003,63 @@ async def captcha_expiry_worker() -> None:
         await asyncio.sleep(15)
 
 
+async def operations_maintenance_worker() -> None:
+    """Advance shifts, probation, emergency deadlines, reports and backups."""
+    while True:
+        events: list[dict[str, Any]] = []
+        try:
+            async with SessionFactory() as session:
+                events = await run_operations_maintenance(session)
+                await session.commit()
+            for event in events:
+                kind = event.get("kind")
+                chat_id = int(event.get("chat_id") or 0)
+                if not chat_id:
+                    continue
+                try:
+                    if kind == "emergency_expired":
+                        await bot.set_chat_permissions(chat_id, full_permissions())
+                        await bot.send_message(chat_id, "Экстренный режим завершён автоматически. Ограничения беседы сняты.")
+                    elif kind == "shift_started":
+                        await bot.send_message(chat_id, f"Смена модератора <code>{event.get('user_id')}</code> началась.")
+                    elif kind == "shift_completed":
+                        await bot.send_message(
+                            chat_id,
+                            "Смена модератора завершена.\n"
+                            f"Предупреждений: {event.get('warnings_issued', 0)}\n"
+                            f"Мутов: {event.get('mutes_issued', 0)}\n"
+                            f"Удалено сообщений: {event.get('messages_deleted', 0)}",
+                        )
+                    elif kind == "probation_review":
+                        await bot.send_message(
+                            chat_id,
+                            f"Испытательный срок сотрудника <code>{event.get('user_id')}</code> завершён. "
+                            "Решение доступно владельцу в админ-панели.",
+                        )
+                    elif kind == "weekly_report":
+                        payload = event.get("payload") or {}
+                        await bot.send_message(
+                            chat_id,
+                            "<b>Еженедельный отчёт</b>\n\n"
+                            f"Новых участников: {payload.get('new_members', 0)}\n"
+                            f"Действий модерации: {payload.get('moderation_actions', 0)}\n"
+                            f"Жалоб: {payload.get('reports', 0)}\n"
+                            f"Предупреждений: {payload.get('warnings', 0)}\n"
+                            f"Мутов: {payload.get('mutes', 0)}\n"
+                            f"Банов: {payload.get('bans', 0)}\n"
+                            f"Апелляций: {payload.get('appeals', 0)}",
+                        )
+                except Exception:
+                    # Database transitions must not be rolled back because Telegram
+                    # temporarily refused an informational message.
+                    pass
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            pass
+        await asyncio.sleep(30)
+
+
 @router.message(F.new_chat_members)
 async def new_members_handler(message: Message) -> None:
     await ensure_context(message)
@@ -1941,23 +2073,34 @@ async def new_members_handler(message: Message) -> None:
         )
         now_mono = time.monotonic()
         join_bucket = _join_buckets[chat.id]
-        raid_window = int(chat_settings.get("raid_window_seconds", 30))
+        raid_window = int(chat_settings.get("anti_raid_window_seconds", chat_settings.get("raid_window_seconds", 30)))
         while join_bucket and now_mono - join_bucket[0] > raid_window:
             join_bucket.popleft()
         for _ in message.new_chat_members:
             join_bucket.append(now_mono)
-        raid_detected = len(join_bucket) >= int(chat_settings.get("raid_join_limit", 8))
+        raid_detected = len(join_bucket) >= int(chat_settings.get("anti_raid_join_threshold", chat_settings.get("raid_join_limit", 8)))
         raid_lock_enabled = bool(
-            chat_settings.get("raid_lockdown_enabled", chat_settings.get("premium_raid_lockdown_enabled", False))
+            chat_settings.get("anti_raid_enabled", False)
+            or chat_settings.get("raid_lockdown_enabled", chat_settings.get("premium_raid_lockdown_enabled", False))
+            or chat_settings.get("anti_raid_auto_enabled", False)
         )
-        if raid_detected and premium_access and raid_lock_enabled and not chat_settings.get("chat_locked", False):
+        if raid_detected and raid_lock_enabled and not chat_settings.get("chat_locked", False):
             try:
                 chat_info = await bot.get_chat(chat.id)
                 if chat_info.permissions and "permissions_before_lock" not in chat_settings:
                     chat_settings["permissions_before_lock"] = chat_info.permissions.model_dump(exclude_none=True)
                 await bot.set_chat_permissions(chat.id, ChatPermissions(can_send_messages=False))
                 chat_settings["chat_locked"] = True
+                chat_settings["anti_raid_enabled"] = True
                 chat.settings = chat_settings
+                await set_security_mode(
+                    session,
+                    chat_id=chat.id,
+                    actor_id=message.from_user.id if message.from_user else 0,
+                    kind="anti_raid",
+                    enabled=True,
+                    reason=f"За {raid_window} сек. вступило {len(join_bucket)} участников",
+                )
                 await add_log(
                     session,
                     chat.id,
@@ -3274,6 +3417,8 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
             duration_seconds=duration,
             reason=reason,
             premium_override=premium,
+            source_message_id=message.reply_to_message.message_id if message.reply_to_message else message.message_id,
+            evidence=_message_evidence(message),
         )
         await session.commit()
         await _send_compact_command_result(
@@ -3766,6 +3911,288 @@ async def group_message_pipeline(message: Message) -> None:
     await try_rp_command(message, chat, membership)
 
 
+# ---------------------------------------------------------------------------
+# Operations suite v20 commands
+# ---------------------------------------------------------------------------
+
+def _parse_case_number(raw: str | None) -> int:
+    match = re.search(r"(?i)(?:AG[- ]?)?(\d{1,9})", raw or "")
+    if not match:
+        raise ValueError("Укажите номер дела, например: /caseinfo 1842")
+    return int(match.group(1))
+
+
+async def send_case_info(message: Message, raw: str | None) -> None:
+    try:
+        await ensure_group_moderator(message)
+        case_id = _parse_case_number(raw)
+        async with SessionFactory() as session:
+            row = await session.get(ModerationCase, case_id)
+            if row is None or row.chat_id != message.chat.id:
+                raise ValueError("Дело не найдено")
+            appeal_count = int(await session.scalar(select(func.count()).select_from(Appeal).where(Appeal.case_id == row.id)) or 0)
+        await message.answer(
+            f"📁 <b>Дело {html.escape(row.code)}</b>\n\n"
+            f"Действие: <b>{html.escape(row.action)}</b>\n"
+            f"Пользователь: <code>{row.target_id or 0}</code>\n"
+            f"Модератор: <code>{row.actor_id or 0}</code>\n"
+            f"Причина: {html.escape(row.reason)}\n"
+            f"Статус: <b>{html.escape(row.status)}</b>\n"
+            f"Доказательств: {row.evidence_count}\n"
+            f"Апелляций: {appeal_count}\n"
+            f"Создано: {_format_dt(row.created_at)}"
+        )
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+@router.message(Command("caseinfo"))
+async def caseinfo_handler(message: Message, command: CommandObject) -> None:
+    await send_case_info(message, command.args)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?дело(?:\s+.*)?$"))
+async def caseinfo_alias_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?дело\s*", "", message.text or "", count=1)
+    await send_case_info(message, raw)
+
+
+@router.message(Command("cases"))
+async def cases_handler(message: Message, command: CommandObject) -> None:
+    try:
+        await ensure_group_moderator(message)
+        target_id = await resolve_target(message, (command.args or "").strip() or None)
+        async with SessionFactory() as session:
+            query = select(ModerationCase).where(ModerationCase.chat_id == message.chat.id)
+            if target_id is not None:
+                query = query.where(ModerationCase.target_id == target_id)
+            rows = (await session.scalars(query.order_by(ModerationCase.id.desc()).limit(10))).all()
+        if not rows:
+            await message.answer("Открытых дел не найдено.")
+            return
+        lines = ["📁 <b>Последние дела</b>"]
+        for row in rows:
+            lines.append(f"• <code>{row.code}</code> · {html.escape(row.action)} · {html.escape(row.status)} · <code>{row.target_id or 0}</code>")
+        await message.answer("\n".join(lines))
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?(?:дела|досье[_\s]+анбу)(?:\s+.*)?$"))
+async def cases_alias_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?(?:дела|досье[_\s]+анбу)\s*", "", message.text or "", count=1)
+    await cases_handler(message, CommandObject(prefix="/", command="cases", mention=None, args=raw))
+
+
+@router.message(Command("closecase"))
+async def closecase_handler(message: Message, command: CommandObject) -> None:
+    try:
+        await ensure_group_admin(message)
+        case_id = _parse_case_number(command.args)
+        async with SessionFactory() as session:
+            row = await session.get(ModerationCase, case_id)
+            if row is None or row.chat_id != message.chat.id:
+                raise ValueError("Дело не найдено")
+            row.status = "closed"
+            row.closed_at = utcnow()
+            row.closed_by = message.from_user.id
+            await session.commit()
+        await message.answer(f"Дело AG-{case_id:06d} закрыто.")
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?закрыть[_\s]+дело(?:\s+.*)?$"))
+async def closecase_alias_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?закрыть[_\s]+дело\s*", "", message.text or "", count=1)
+    await closecase_handler(message, CommandObject(prefix="/", command="closecase", mention=None, args=raw))
+
+
+async def toggle_anti_raid(message: Message, raw: str | None) -> None:
+    try:
+        await ensure_group_admin(message)
+        value = _normalize_phrase(raw or "вкл")
+        enabled = value not in {"выкл", "off", "0", "нет"}
+        async with SessionFactory() as session:
+            await set_security_mode(session, chat_id=message.chat.id, actor_id=message.from_user.id, kind="anti_raid", enabled=enabled, reason="Команда администратора")
+            await session.commit()
+        await message.answer("🛡 Антирейд включён. CAPTCHA и карантин новичков активны." if enabled else "Антирейд отключён.")
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+@router.message(Command("antiraid"))
+async def antiraid_handler(message: Message, command: CommandObject) -> None:
+    await toggle_anti_raid(message, command.args)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?(?:антирейд|барьер[_\s]+деревни)(?:\s+.*)?$"))
+async def antiraid_alias_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?(?:антирейд|барьер[_\s]+деревни)\s*", "", message.text or "", count=1)
+    await toggle_anti_raid(message, raw)
+
+
+async def toggle_emergency(message: Message, raw: str | None) -> None:
+    try:
+        await ensure_group_admin(message)
+        text = _normalize_phrase(raw or "вкл")
+        enabled = text not in {"выкл", "off", "0", "снять"}
+        duration = parse_duration_prefix(raw or "") if enabled else None
+        seconds = duration.seconds if duration else None
+        async with SessionFactory() as session:
+            await set_security_mode(session, chat_id=message.chat.id, actor_id=message.from_user.id, kind="emergency", enabled=enabled, reason="Экстренный режим", duration_seconds=seconds)
+            await session.commit()
+        await bot.set_chat_permissions(message.chat.id, ChatPermissions(can_send_messages=False) if enabled else full_permissions())
+        await message.answer("🚨 Экстренный режим включён. Писать может только администрация." if enabled else "Экстренный режим снят.")
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+@router.message(Command("emergency"))
+async def emergency_handler(message: Message, command: CommandObject) -> None:
+    await toggle_emergency(message, command.args)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?(?:тревога|красная[_\s]+тревога[_\s]+конохи)(?:\s+.*)?$"))
+async def emergency_alias_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?(?:тревога|красная[_\s]+тревога[_\s]+конохи)\s*", "", message.text or "", count=1)
+    await toggle_emergency(message, raw)
+
+
+@router.message(Command("shift"))
+async def shift_handler(message: Message, command: CommandObject) -> None:
+    try:
+        await ensure_group_admin(message)
+        target_id, payload = await _target_and_payload(message, command.args)
+        if target_id is None:
+            raise ValueError("Ответьте модератору или укажите @username")
+        duration = parse_duration_prefix(payload or "8ч")
+        seconds = duration.seconds if duration else 8 * 3600
+        starts = utcnow()
+        ends = starts + timedelta(seconds=seconds)
+        async with SessionFactory() as session:
+            row = await create_shift(session, chat_id=message.chat.id, user_id=target_id, actor_id=message.from_user.id, starts_at=starts, ends_at=ends)
+            await session.commit()
+        await message.answer(f"Смена #{row.id} назначена пользователю <code>{target_id}</code> до {_format_dt(ends)}.")
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?(?:смена|семь[_\s]+мечников)(?:\s+.*)?$"))
+async def shift_alias_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?(?:смена|семь[_\s]+мечников)\s*", "", message.text or "", count=1)
+    await shift_handler(message, CommandObject(prefix="/", command="shift", mention=None, args=raw))
+
+
+@router.message(Command("weekly_report"))
+async def weekly_report_handler(message: Message) -> None:
+    try:
+        await ensure_group_moderator(message)
+        async with SessionFactory() as session:
+            row = await generate_weekly_report(session, chat_id=message.chat.id, generated_by=message.from_user.id)
+            await session.commit()
+        p = row.payload
+        await message.answer(
+            "📊 <b>Отчёт за неделю</b>\n\n"
+            f"Действий модерации: {p['moderation_actions']}\n"
+            f"Новых участников: {p['new_members']}\n"
+            f"Жалоб: {p['reports']}\n"
+            f"Предупреждений: {p['warnings']}\n"
+            f"Мутов: {p['mutes']}\n"
+            f"Банов: {p['bans']}\n"
+            f"Апелляций: {p['appeals']}\n"
+            f"Принято апелляций: {p['accepted_appeals']}\n"
+            f"Лучший модератор: <code>{p['top_moderator_id'] or 0}</code>"
+        )
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?(?:отчет|отчёт)[_\s]+хокаге\s*$"))
+async def weekly_report_alias_handler(message: Message) -> None:
+    await weekly_report_handler(message)
+
+
+@router.message(Command("backup"))
+async def backup_handler(message: Message) -> None:
+    try:
+        await ensure_group_admin(message)
+        async with SessionFactory() as session:
+            row = await create_backup_snapshot(session, chat_id=message.chat.id, created_by=message.from_user.id)
+            await session.commit()
+        await message.answer(f"✅ Резервная копия #{row.id} создана. Контрольная сумма: <code>{row.checksum[:16]}</code>")
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+@router.message(Command("testmode"))
+async def testmode_handler(message: Message, command: CommandObject) -> None:
+    try:
+        await ensure_group_admin(message)
+        enabled = _normalize_phrase(command.args or "вкл") not in {"выкл", "off", "0"}
+        async with SessionFactory() as session:
+            await update_chat_settings(session, message.chat.id, {"test_mode_enabled": enabled})
+            await session.commit()
+        await message.answer("🧪 Тестовый режим включён: наказания только рассчитываются." if enabled else "Тестовый режим отключён.")
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?тестовый[_\s]+режим(?:\s+.*)?$"))
+async def testmode_alias_handler(message: Message) -> None:
+    raw = re.sub(r"(?i)^\s*/?тестовый[_\s]+режим\s*", "", message.text or "", count=1)
+    await testmode_handler(message, CommandObject(prefix="/", command="testmode", mention=None, args=raw))
+
+
+@router.message(Command("chatinfo"))
+async def chatinfo_handler(message: Message) -> None:
+    try:
+        await ensure_context(message)
+        async with SessionFactory() as session:
+            chat = await session.get(Chat, message.chat.id)
+            settings_data = await get_merged_settings(session, message.chat.id)
+            members = int(await session.scalar(select(func.count()).select_from(Membership).where(Membership.chat_id == message.chat.id)) or 0)
+            admins = int(await session.scalar(select(func.count()).select_from(Membership).where(Membership.chat_id == message.chat.id, Membership.role.in_(["creator", "senior_admin", "admin", "junior_admin"]))) or 0)
+            active = int(await session.scalar(select(func.count()).select_from(Membership).where(Membership.chat_id == message.chat.id, Membership.last_seen_at >= utcnow() - timedelta(days=7))) or 0)
+        await message.answer(
+            "💬 <b>Информация о беседе</b>\n\n"
+            f"Название: {html.escape(chat.title if chat else message.chat.title or 'Беседа')}\n"
+            f"ID: <code>{message.chat.id}</code>\n"
+            f"Участников в базе: {members}\n"
+            f"Администрации: {admins}\n"
+            f"Активных за неделю: {active}\n"
+            f"Антирейд: {'включён' if settings_data.get('anti_raid_enabled') else 'выключен'}\n"
+            f"Автомодерация: {'включена' if settings_data.get('anti_flood_enabled') else 'выключена'}\n"
+            f"Тестовый режим: {'включён' if settings_data.get('test_mode_enabled') else 'выключен'}"
+        )
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+@router.message(F.text.regexp(r"(?i)^\s*/?карта[_\s]+деревни\s*$"))
+async def chatinfo_alias_handler(message: Message) -> None:
+    await chatinfo_handler(message)
+
+
+@router.message(Command("permissions"))
+async def permissions_handler(message: Message, command: CommandObject) -> None:
+    try:
+        await ensure_group_moderator(message)
+        target_id = await resolve_target(message, (command.args or "").strip() or None) or message.from_user.id
+        async with SessionFactory() as session:
+            membership = await session.scalar(select(Membership).where(Membership.chat_id == message.chat.id, Membership.user_id == target_id))
+            rows = (await session.scalars(select(PermissionOverride).where(PermissionOverride.chat_id == message.chat.id, PermissionOverride.user_id == target_id))).all()
+        lines = [f"🔐 <b>Полномочия пользователя</b>", f"Пользователь: <code>{target_id}</code>", f"Роль: {html.escape(role_name(membership.role if membership else 'member'))}"]
+        if rows:
+            lines.append("")
+            lines.extend(f"• {html.escape(r.permission)}: {'разрешено' if r.allowed else 'запрещено'}" + (f" · лимит {r.limit_value} сек." if r.limit_value is not None else "") for r in rows)
+        else:
+            lines.append("Индивидуальные изменения отсутствуют — действуют права роли.")
+        await message.answer("\n".join(lines))
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
 async def configure_bot() -> None:
     commands = [
         BotCommand(command="panel", description="Открыть Mini App"),
@@ -3800,6 +4227,17 @@ async def configure_bot() -> None:
         BotCommand(command="reports", description="Открытые жалобы"),
         BotCommand(command="antiflood", description="Антифлуд on/off"),
         BotCommand(command="anime", description="Аниме-режим on/off"),
+        BotCommand(command="caseinfo", description="Открыть дело модерации"),
+        BotCommand(command="cases", description="Список дел"),
+        BotCommand(command="closecase", description="Закрыть дело"),
+        BotCommand(command="antiraid", description="Антирейд on/off"),
+        BotCommand(command="emergency", description="Экстренный режим"),
+        BotCommand(command="shift", description="Назначить смену"),
+        BotCommand(command="weekly_report", description="Отчёт за неделю"),
+        BotCommand(command="backup", description="Резервная копия беседы"),
+        BotCommand(command="testmode", description="Тестовый режим"),
+        BotCommand(command="chatinfo", description="Информация о беседе"),
+        BotCommand(command="permissions", description="Индивидуальные права"),
     ]
     await bot.set_my_commands(commands)
     admin_commands = [
@@ -3821,30 +4259,35 @@ async def configure_bot() -> None:
 
 
 async def start_polling() -> None:
-    global _captcha_worker_task
+    global _captcha_worker_task, _operations_worker_task
     await configure_bot()
     await synchronize_registered_chats()
     _captcha_worker_task = asyncio.create_task(captcha_expiry_worker(), name="aniguard-captcha-expiry")
+    _operations_worker_task = asyncio.create_task(operations_maintenance_worker(), name="aniguard-operations-maintenance")
     try:
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
-        if _captcha_worker_task:
-            _captcha_worker_task.cancel()
-            try:
-                await _captcha_worker_task
-            except asyncio.CancelledError:
-                pass
-            _captcha_worker_task = None
+        for task_name in ("_captcha_worker_task", "_operations_worker_task"):
+            task = globals().get(task_name)
+            if task:
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+                globals()[task_name] = None
 
 
 async def stop_bot() -> None:
-    global _captcha_worker_task
-    if _captcha_worker_task:
-        _captcha_worker_task.cancel()
-        try:
-            await _captcha_worker_task
-        except asyncio.CancelledError:
-            pass
-        _captcha_worker_task = None
+    global _captcha_worker_task, _operations_worker_task
+    for task_name in ("_captcha_worker_task", "_operations_worker_task"):
+        task = globals().get(task_name)
+        if task:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+            globals()[task_name] = None
     await dp.stop_polling()
     await bot.session.close()

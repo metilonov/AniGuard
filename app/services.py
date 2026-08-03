@@ -30,10 +30,18 @@ from app.models import (
     Report,
     RoleAssignmentHistory,
     RPCommand,
+    ModerationCase,
     User,
     default_chat_settings,
 )
 from app.pricing import get_plan
+from app.feature_services import (
+    CASE_ACTIONS,
+    create_moderation_case,
+    ensure_action_permission,
+    record_moderator_action,
+    start_staff_probation,
+)
 from app.roles import (
     ACTION_MIN_LEVEL,
     PENALTY_DEFINITIONS,
@@ -671,6 +679,20 @@ async def assign_member_role(
         duration_seconds=duration_seconds,
         details={"old_role": old_role, "new_role": canonical, "temporary_until": until.isoformat() if until else None},
     )
+    chat_settings = await get_merged_settings(session, chat_id)
+    if (
+        chat_settings.get("staff_probation_enabled", True)
+        and role_level(canonical) >= 2
+        and role_level(old_role) < 2
+    ):
+        await start_staff_probation(
+            session,
+            chat_id=chat_id,
+            user_id=target_id,
+            role=canonical,
+            actor_id=actor_id,
+            days=int(chat_settings.get("staff_probation_days", 7)),
+        )
     await session.flush()
     return target
 
@@ -929,6 +951,93 @@ def quarantine_permissions() -> ChatPermissions:
     )
 
 
+
+async def apply_punishment_ladder(
+    session: AsyncSession,
+    bot: Bot,
+    *,
+    chat_id: int,
+    actor_id: int,
+    membership: Membership,
+    settings: dict[str, Any],
+    source_message_id: int | None = None,
+    evidence: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Apply the configured step for the member's current warning count.
+
+    The first step is informational because the warning itself has already been
+    recorded. Later steps use Telegram restrictions directly to avoid recursively
+    creating another warning and to keep the whole ladder atomic.
+    """
+    if not settings.get("punishment_ladder_enabled", False):
+        return None
+    steps = settings.get("punishment_ladder") or []
+    if not isinstance(steps, list):
+        return None
+    current = int(membership.warnings or 0)
+    selected: dict[str, Any] | None = None
+    for item in steps:
+        if not isinstance(item, dict):
+            continue
+        try:
+            threshold = int(item.get("warnings", -1))
+        except (TypeError, ValueError):
+            continue
+        if threshold == current:
+            selected = item
+            break
+    if not selected:
+        return None
+
+    action = str(selected.get("action") or "warn")
+    duration = max(0, int(selected.get("duration_seconds") or 0))
+    label = str(selected.get("label") or action)
+    result: dict[str, Any] = {
+        "warnings": current,
+        "action": action,
+        "duration_seconds": duration,
+        "label": label,
+    }
+    if action == "warn":
+        return result
+    if action == "mute":
+        until = None if duration == 0 else utcnow() + timedelta(seconds=duration)
+        await bot.restrict_chat_member(chat_id, membership.user_id, muted_permissions(), until_date=until)
+        membership.muted_until = until
+    elif action == "penalty_violator":
+        await set_member_penalty_status(
+            session, chat_id=chat_id, actor_id=actor_id, target_id=membership.user_id,
+            status="violator", duration_seconds=duration or 604800,
+            reason="Автоматическая лестница наказаний", bot=bot, automatic=True,
+        )
+    elif action == "penalty_severe":
+        await set_member_penalty_status(
+            session, chat_id=chat_id, actor_id=actor_id, target_id=membership.user_id,
+            status="severe_violator", duration_seconds=duration or 2592000,
+            reason="Автоматическая лестница наказаний", bot=bot, automatic=True,
+        )
+    elif action == "ban":
+        until = None if duration == 0 else utcnow() + timedelta(seconds=duration)
+        await bot.ban_chat_member(chat_id, membership.user_id, until_date=until)
+    else:
+        return None
+
+    await add_log(
+        session, chat_id, f"ladder_{action}", actor_id=actor_id,
+        target_id=membership.user_id, reason=label, duration_seconds=duration,
+        details={"warnings": current, "automatic": True},
+    )
+    case = await create_moderation_case(
+        session, chat_id=chat_id, actor_id=actor_id, target_id=membership.user_id,
+        action=f"ladder_{action}", reason=label, duration_seconds=duration,
+        source_message_id=source_message_id,
+        details={"warnings": current, "automatic": True}, evidence=evidence,
+    )
+    result["case_id"] = case.id
+    result["case_code"] = case.code
+    return result
+
+
 async def perform_action(
     session: AsyncSession,
     bot: Bot,
@@ -941,6 +1050,9 @@ async def perform_action(
     amount: int | None = None,
     reason: str = "",
     premium_override: bool = False,
+    source_message_id: int | None = None,
+    evidence: dict[str, Any] | None = None,
+    create_case: bool = True,
 ) -> dict[str, Any]:
     chat = await get_chat_or_raise(session, chat_id)
     await ensure_entity_available(session, user_id=actor_id, chat_id=chat_id)
@@ -992,6 +1104,35 @@ async def perform_action(
             raise PermissionError(f"Для действия «{action}» нужен уровень власти {required_level} или выше")
 
     actor_power = role_level(actor_role)
+    await ensure_action_permission(
+        session,
+        chat_id=chat_id,
+        user_id=actor_id,
+        action=action,
+        duration_seconds=duration_seconds,
+    )
+
+    if settings.get("test_mode_enabled", False):
+        simulated = {
+            **result,
+            "simulated": True,
+            "message": "Тестовый режим: действие рассчитано, но не применено",
+        }
+        await add_log(
+            session, chat_id, f"test_{action}", actor_id=actor_id, target_id=target_id,
+            reason=reason, duration_seconds=duration_seconds,
+            details={"simulated": True, "amount": amount},
+        )
+        if create_case and action in CASE_ACTIONS:
+            case = await create_moderation_case(
+                session, chat_id=chat_id, actor_id=actor_id, target_id=target_id,
+                action=f"test_{action}", reason=reason, duration_seconds=duration_seconds,
+                source_message_id=source_message_id, details=simulated, evidence=evidence,
+            )
+            simulated["case_id"] = case.id
+            simulated["case_code"] = case.code
+        return simulated
+
     if action == "unwarn" and actor_power == 2 and target_id is not None:
         own_warning = await session.scalar(
             select(ModerationLog.id)
@@ -1036,21 +1177,33 @@ async def perform_action(
         assert membership is not None
         membership.warnings += 1
         result["warnings"] = membership.warnings
-        if settings["warn_threshold"] and membership.warnings >= int(settings["warn_threshold"]):
+        if (
+            not settings.get("punishment_ladder_enabled", False)
+            and settings["warn_threshold"]
+            and membership.warnings >= int(settings["warn_threshold"])
+        ):
             auto_duration = int(settings.get("default_mute_seconds", 604800))
             until = utcnow() + timedelta(seconds=auto_duration)
             await bot.restrict_chat_member(chat_id, target_id, muted_permissions(), until_date=until)
             membership.muted_until = until
             result["auto_muted"] = True
             result["auto_mute_seconds"] = auto_duration
-        await sync_penalty_status_from_warnings(
-            session,
-            chat_id=chat_id,
-            actor_id=actor_id,
-            membership=membership,
-            settings=settings,
-            bot=bot,
-        )
+        if settings.get("punishment_ladder_enabled", False):
+            ladder_result = await apply_punishment_ladder(
+                session, bot, chat_id=chat_id, actor_id=actor_id, membership=membership,
+                settings=settings, source_message_id=source_message_id, evidence=evidence,
+            )
+            if ladder_result:
+                result["punishment_ladder"] = ladder_result
+        else:
+            await sync_penalty_status_from_warnings(
+                session,
+                chat_id=chat_id,
+                actor_id=actor_id,
+                membership=membership,
+                settings=settings,
+                bot=bot,
+            )
     elif action == "unwarn":
         assert membership is not None
         membership.warnings = max(0, membership.warnings - 1)
@@ -1158,6 +1311,19 @@ async def perform_action(
         duration_seconds=duration_seconds,
         details={"amount": amount, "actor_role": normalize_role(actor_role), "actor_role_level": actor_power, **result},
     )
+    await record_moderator_action(
+        session, chat_id=chat_id, actor_id=actor_id, action=action, settings=settings
+    )
+    if create_case and settings.get("cases_enabled", True) and action in set(settings.get("case_actions") or CASE_ACTIONS):
+        case = await create_moderation_case(
+            session, chat_id=chat_id, actor_id=actor_id, target_id=target_id,
+            action=action, reason=reason, duration_seconds=duration_seconds,
+            source_message_id=source_message_id,
+            details={"amount": amount, "actor_role": normalize_role(actor_role), **result},
+            evidence=evidence if settings.get("evidence_capture_enabled", True) else None,
+        )
+        result["case_id"] = case.id
+        result["case_code"] = case.code
     await session.flush()
     return result
 
@@ -1170,13 +1336,40 @@ async def create_report(
     target_id: int,
     message_id: int,
     reason: str,
+    category: str = "другое",
 ) -> Report:
+    settings = await get_merged_settings(session, chat_id)
+    merge_window = max(60, int(settings.get("report_merge_window_seconds", 900)))
+    since = utcnow() - timedelta(seconds=merge_window)
+    existing = await session.scalar(
+        select(Report).where(
+            Report.chat_id == chat_id,
+            Report.target_id == target_id,
+            Report.message_id == message_id,
+            Report.status.in_(["new", "in_progress"]),
+            Report.created_at >= since,
+        ).order_by(Report.id.desc()).limit(1)
+    )
+    if existing:
+        reporters = list(existing.reporter_ids or [])
+        if reporter_id not in reporters:
+            reporters.append(reporter_id)
+            existing.reporter_ids = reporters
+            existing.duplicate_count = max(1, int(existing.duplicate_count or 1)) + 1
+        if category and existing.category == "другое":
+            existing.category = category
+        await session.flush()
+        return existing
+
     report = Report(
         chat_id=chat_id,
         reporter_id=reporter_id,
         target_id=target_id,
         message_id=message_id,
         reason=reason or "Причина не указана",
+        category=category or "другое",
+        duplicate_count=1,
+        reporter_ids=[reporter_id],
     )
     session.add(report)
     await session.flush()

@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 from app.defaults import default_chat_settings
@@ -124,6 +124,10 @@ class Report(Base):
     target_id: Mapped[int] = mapped_column(BigInteger)
     message_id: Mapped[int] = mapped_column(Integer)
     reason: Mapped[str] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String(64), default="другое", index=True)
+    duplicate_count: Mapped[int] = mapped_column(Integer, default=1)
+    reporter_ids: Mapped[list[int]] = mapped_column(JSON, default=list)
+    case_id: Mapped[int | None] = mapped_column(Integer, index=True)
     status: Mapped[str] = mapped_column(String(32), default="new", index=True)
     assigned_to: Mapped[int | None] = mapped_column(BigInteger)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -425,3 +429,185 @@ class StorePayment(Base):
     status: Mapped[str] = mapped_column(String(24), default="created", index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# ---------------------------------------------------------------------------
+# AniGuard operations suite v20
+# ---------------------------------------------------------------------------
+
+class ModerationCase(Base):
+    __tablename__ = "moderation_cases"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id", ondelete="CASCADE"), index=True)
+    target_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    actor_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    action: Mapped[str] = mapped_column(String(64), index=True)
+    reason: Mapped[str] = mapped_column(Text, default="Причина не указана")
+    duration_seconds: Mapped[int | None] = mapped_column(Integer)
+    source_message_id: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(24), default="open", index=True)
+    severity: Mapped[str] = mapped_column(String(16), default="normal", index=True)
+    evidence_count: Mapped[int] = mapped_column(Integer, default=0)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_by: Mapped[int | None] = mapped_column(BigInteger)
+
+
+class CaseEvidence(Base):
+    __tablename__ = "case_evidence"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    case_id: Mapped[int] = mapped_column(Integer, ForeignKey("moderation_cases.id", ondelete="CASCADE"), index=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    message_id: Mapped[int | None] = mapped_column(Integer)
+    author_id: Mapped[int | None] = mapped_column(BigInteger)
+    text: Mapped[str | None] = mapped_column(Text)
+    media: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+
+class Appeal(Base):
+    __tablename__ = "appeals"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    case_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("moderation_cases.id", ondelete="SET NULL"), index=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    text: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(24), default="new", index=True)
+    reviewer_id: Mapped[int | None] = mapped_column(BigInteger)
+    decision: Mapped[str | None] = mapped_column(String(32))
+    decision_note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class StaffProbation(Base):
+    __tablename__ = "staff_probations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    role: Mapped[str] = mapped_column(String(32), index=True)
+    started_by: Mapped[int] = mapped_column(BigInteger)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    actions_count: Mapped[int] = mapped_column(Integer, default=0)
+    reversed_actions: Mapped[int] = mapped_column(Integer, default=0)
+    complaints_count: Mapped[int] = mapped_column(Integer, default=0)
+    decision_by: Mapped[int | None] = mapped_column(BigInteger)
+    decision_note: Mapped[str | None] = mapped_column(Text)
+
+
+class ModeratorPerformance(Base):
+    __tablename__ = "moderator_performance"
+    __table_args__ = (UniqueConstraint("chat_id", "user_id", name="uq_moderator_performance"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    rating: Mapped[int] = mapped_column(Integer, default=100)
+    actions_count: Mapped[int] = mapped_column(Integer, default=0)
+    confirmed_actions: Mapped[int] = mapped_column(Integer, default=0)
+    reversed_actions: Mapped[int] = mapped_column(Integer, default=0)
+    accepted_appeals: Mapped[int] = mapped_column(Integer, default=0)
+    complaints_count: Mapped[int] = mapped_column(Integer, default=0)
+    average_response_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    suspended_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class PermissionOverride(Base):
+    __tablename__ = "permission_overrides"
+    __table_args__ = (UniqueConstraint("chat_id", "user_id", "permission", name="uq_permission_override"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    permission: Mapped[str] = mapped_column(String(64), index=True)
+    allowed: Mapped[bool] = mapped_column(Boolean, default=True)
+    limit_value: Mapped[int | None] = mapped_column(Integer)
+    assigned_by: Mapped[int] = mapped_column(BigInteger)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SecurityIncident(Base):
+    __tablename__ = "security_incidents"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    kind: Mapped[str] = mapped_column(String(32), index=True)
+    severity: Mapped[str] = mapped_column(String(16), default="warning", index=True)
+    status: Mapped[str] = mapped_column(String(24), default="open", index=True)
+    actor_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    resolved_by: Mapped[int | None] = mapped_column(BigInteger)
+
+
+class ModeratorShift(Base):
+    __tablename__ = "moderator_shifts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(BigInteger, index=True)
+    assigned_by: Mapped[int] = mapped_column(BigInteger)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    temporary_role: Mapped[str | None] = mapped_column(String(32))
+    previous_role: Mapped[str | None] = mapped_column(String(32))
+    status: Mapped[str] = mapped_column(String(24), default="scheduled", index=True)
+    reports_handled: Mapped[int] = mapped_column(Integer, default=0)
+    messages_deleted: Mapped[int] = mapped_column(Integer, default=0)
+    warnings_issued: Mapped[int] = mapped_column(Integer, default=0)
+    mutes_issued: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class WeeklyReportSnapshot(Base):
+    __tablename__ = "weekly_report_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("chats.id", ondelete="CASCADE"), index=True)
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    generated_by: Mapped[int | None] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class BackupSnapshot(Base):
+    __tablename__ = "backup_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    chat_id: Mapped[int | None] = mapped_column(BigInteger, index=True)
+    kind: Mapped[str] = mapped_column(String(24), default="manual", index=True)
+    payload: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    checksum: Mapped[str] = mapped_column(String(64), index=True)
+    created_by: Mapped[int] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    restored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    restored_by: Mapped[int | None] = mapped_column(BigInteger)
+
+
+class ResourceSample(Base):
+    __tablename__ = "resource_samples"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider: Mapped[str] = mapped_column(String(24), default="local", index=True)
+    status: Mapped[str] = mapped_column(String(24), default="online", index=True)
+    cpu_percent: Mapped[float] = mapped_column(Float, default=0.0)
+    memory_usage_mb: Mapped[float] = mapped_column(Float, default=0.0)
+    memory_percent: Mapped[float] = mapped_column(Float, default=0.0)
+    disk_usage_mb: Mapped[float] = mapped_column(Float, default=0.0)
+    disk_percent: Mapped[float] = mapped_column(Float, default=0.0)
+    uptime_seconds: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text)
+    collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)

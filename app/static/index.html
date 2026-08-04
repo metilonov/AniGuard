@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#ffffff">
   <title>AniGuard</title>
-  <meta name="aniguard-build" content="caps-settings-post-v23.2.2">
+  <meta name="aniguard-build" content="local-media-safety-v23.4">
   <style>
 :root {
   --bg: var(--tg-theme-bg-color, #f2f3f5);
@@ -1961,6 +1961,7 @@ html[data-theme="dark"] {
       dangerous_file_filter_enabled:true,
       contact_location_filter_enabled:false,
       image_text_filter_enabled:true,
+      media_safety_filter_enabled:false,
       media_duplicate_filter_enabled:true,
       poll_filter_enabled:false,
       game_filter_enabled:false,
@@ -2238,6 +2239,7 @@ html[data-theme="dark"] {
       {key:'dangerous_file_filter_enabled',type:'switch',label:'Опасные файлы',description:'Блокирует запрещённые расширения',icon:'i-document'},
       {key:'contact_location_filter_enabled',type:'switch',label:'Контакты и геолокация',description:'Запрещает отправку личных данных',icon:'i-id'},
       {key:'image_text_filter_enabled',type:'switch',label:'Текст медиа',description:'Проверяет подписи и имена файлов',icon:'i-image-lock',premium:true},
+      {key:'media_safety_filter_enabled',type:'switch',label:'Локальная проверка медиа',description:'Фото, стикеры и GIF: локальная проверка откровенного контента и совпадений с запрещённой базой',icon:'i-image-lock',premium:true},
       {key:'media_duplicate_filter_enabled',type:'switch',label:'Повтор одинакового медиа',description:'Находит повторную отправку одного файла',icon:'i-copy',premium:true},
       {key:'poll_filter_enabled',type:'switch',label:'Опросы',description:'Ограничивает создание опросов',icon:'i-activity'},
       {key:'game_filter_enabled',type:'switch',label:'Встроенные игры',description:'Контролирует игровые сообщения Telegram',icon:'i-gamepad'},

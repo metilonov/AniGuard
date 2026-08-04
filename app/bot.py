@@ -39,6 +39,7 @@ from app.captcha import captcha_by_key, select_captcha
 from app.command_catalog import match_builtin_command
 from app.game_action_catalog import is_moderation_collision, match_game_action
 from app.config import get_settings
+from app.media_safety import classify_message_media
 from app.defaults import default_basic_commands
 from app.db import SessionFactory
 from app.models import (
@@ -3201,6 +3202,45 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
             searchable = " ".join(filter(None, [message.caption or "", getattr(message.document, "file_name", "") if message.document else ""])).casefold()
             image_text_trigger = any(word in searchable for word in blocked_words) or any(word in searchable for word in spam_words)
 
+        # ANIGUARD_LOCAL_MEDIA_START
+        local_media_safety_trigger = False
+        local_media_safety_reason = ""
+        local_media_premium = premium_access
+
+        if not local_media_premium:
+            owner_user_id = settings_data.get("owner_user_id")
+            try:
+                owner_user_id = int(owner_user_id) if owner_user_id is not None else None
+            except (TypeError, ValueError):
+                owner_user_id = None
+
+            if owner_user_id:
+                local_media_premium = await has_premium_access(
+                    session,
+                    chat_id=chat.id,
+                    user_id=owner_user_id,
+                )
+
+        if (
+            local_media_premium
+            and enabled("media_safety_filter_enabled")
+            and bool(message.photo or message.sticker or message.animation or message.document)
+        ):
+            local_media_result = await classify_message_media(bot, message)
+
+            if local_media_result and bool(local_media_result.get("unsafe")):
+                local_media_safety_trigger = True
+                local_labels = [
+                    str(value).strip()
+                    for value in (local_media_result.get("labels") or [])
+                    if str(value).strip()
+                ]
+                local_media_safety_reason = (
+                    "Локальная проверка медиа: "
+                    + (", ".join(local_labels) or "обнаружен запрещённый визуальный контент")
+                )
+        # ANIGUARD_LOCAL_MEDIA_END
+
         suspicious_newcomer = premium_access and newcomer and (
             (enabled("suspicious_profile_filter_enabled", "premium_suspicious_newcomers_enabled") and not message.from_user.username and (has_link_any or mention_count > 0 or smart_spam_trigger))
             or (enabled("account_risk_filter_enabled") and not message.from_user.username and not message.from_user.last_name)
@@ -3297,6 +3337,7 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
             (giveaway_trigger, "fake_giveaway", "Подозрительный розыгрыш", True, True),
             (coordinated_trigger, "coordinated_spam", "Координированный спам нескольких аккаунтов", True, True),
             (image_text_trigger, "image_text", "Запрещённый текст в подписи или имени медиа", True, False),
+            (local_media_safety_trigger, "local_unsafe_media", local_media_safety_reason or "Запрещённый визуальный контент", True, False),
             (suspicious_newcomer, "suspicious_newcomer", "Подозрительная активность нового участника", True, enabled("auto_quarantine_enabled", "premium_auto_quarantine_enabled")),
         ]
         for triggered, action_name, reason, add_warning, quarantine in checks:

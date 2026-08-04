@@ -6,9 +6,12 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
+# Этот импорт должен быть раньше app.api/app.bot: он подключает покупку
+# Premium аккаунта к существующему обработчику Telegram Stars.
+from app.premium_account import router as premium_account_router
 from app.api import router as api_router
 from app.store import router as store_router
 from app.bot import start_polling, stop_bot
@@ -24,7 +27,11 @@ NO_CACHE_HEADERS = {
     "Pragma": "no-cache",
     "Expires": "0",
 }
-logging.basicConfig(level=getattr(logging, settings.log_level.upper(), logging.INFO))
+PREMIUM_SCRIPT = '<script src="/static/premium-purchase.js?v=2402"></script>'
+
+logging.basicConfig(
+    level=getattr(logging, settings.log_level.upper(), logging.INFO)
+)
 
 
 @asynccontextmanager
@@ -47,6 +54,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AniGuard", version="2.0.0", lifespan=lifespan)
+app.include_router(premium_account_router)
 app.include_router(api_router)
 app.include_router(store_router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -57,6 +65,13 @@ async def root() -> RedirectResponse:
     return RedirectResponse(url="/panel", status_code=307)
 
 
+def _panel_html() -> str:
+    html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
+    if PREMIUM_SCRIPT not in html:
+        html = html.replace("</body>", f"  {PREMIUM_SCRIPT}\n</body>", 1)
+    return html
+
+
 @app.get("/panel", include_in_schema=False)
 @app.get("/panel/", include_in_schema=False)
 @app.get("/shop", include_in_schema=False)
@@ -65,9 +80,9 @@ async def root() -> RedirectResponse:
 @app.get("/account/", include_in_schema=False)
 @app.get("/group", include_in_schema=False)
 @app.get("/group/", include_in_schema=False)
-async def mini_app() -> FileResponse:
-    return FileResponse(
-        STATIC_DIR / "index.html",
+async def mini_app() -> HTMLResponse:
+    return HTMLResponse(
+        content=_panel_html(),
         headers=NO_CACHE_HEADERS,
     )
 

@@ -284,9 +284,15 @@ def _alias_pattern(alias: str) -> re.Pattern[str]:
 
 
 def command_aliases(command: dict[str, Any]) -> list[str]:
-    values = [str(command.get("trigger") or "")]
+    # Русское отображаемое название — полноценный алиас команды.
+    values = [
+        str(command.get("trigger") or ""),
+        str(command.get("name") or ""),
+    ]
     values.extend(str(item) for item in command.get("aliases") or [])
-    return [value for value in dict.fromkeys(values) if value.strip()]
+    normalized = [value.strip() for value in values if value.strip()]
+    return list(dict.fromkeys(normalized))
+
 
 
 def match_builtin_command(text: str, commands: dict[str, dict[str, Any]] | None = None) -> tuple[str, dict[str, Any], str] | None:

@@ -126,9 +126,45 @@ from app.services import (
 )
 
 
+# ANIGUARD_EMOJI_OUTGOING_V1
+_EMOJI_CHARACTER_RE = re.compile(
+    r"[\U0001F000-\U0001FAFF\u2600-\u27BF\u2300-\u23FF\u2B00-\u2BFF]",
+    re.UNICODE,
+)
+
+
+def _ensure_outgoing_emoji(value: Any) -> Any:
+    if not isinstance(value, str) or not value.strip():
+        return value
+    if _EMOJI_CHARACTER_RE.search(value):
+        return value
+    return f"🤖 {value}"
+
+
+class EmojiBot(Bot):
+    """Добавляет смайл к каждому исходящему тексту AniGuard."""
+
+    async def __call__(self, method: Any, request_timeout: int | None = None) -> Any:
+        updates: dict[str, str] = {}
+        for field in ("text", "caption", "description", "explanation"):
+            current = getattr(method, field, None)
+            prepared = _ensure_outgoing_emoji(current)
+            if isinstance(prepared, str) and prepared != current:
+                updates[field] = prepared
+        if updates:
+            try:
+                method = method.model_copy(update=updates)
+            except Exception:
+                for field, value in updates.items():
+                    try:
+                        setattr(method, field, value)
+                    except Exception:
+                        pass
+        return await super().__call__(method, request_timeout=request_timeout)
+
 settings = get_settings()
 logger = logging.getLogger(__name__)
-bot = Bot(settings.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+bot = EmojiBot(settings.bot_token, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher()
 router = Router(name="aniguard")
 dp.include_router(router)
@@ -4914,6 +4950,63 @@ async def unified_chatinfo_alias_handler(
 ) -> None:
     await chatinfo_handler(message)
 
+
+# ANIGUARD_RUSSIAN_DIRECT_ALIASES_V1_START
+_RUSSIAN_DIRECT_COMMANDS = [('заблокировать пользователя', 'ban', 'ban_handler', True), ('запретить сообщения в чате', 'lock', 'lock_handler', False), ('разрешить сообщения в чате', 'unlock', 'unlock_handler', False), ('информация о пользователе', 'info', 'info_handler', True), ('создать резервную копию', 'backup', 'backup_handler', False), ('правила автомодерации', 'automodrules', 'automod_rules_handler', False), ('заблокировать команды', 'commandsban', 'commands_restrict_handler', True), ('выдать предупреждение', 'warn', 'warn_handler', True), ('профиль пользователя', 'profile', 'profile_handler', True), ('снять предупреждение', 'unwarn', 'unwarn_handler', True), ('информация о беседе', 'chatinfo', 'chatinfo_handler', False), ('запретить сообщения', 'mute', 'mute_handler', True), ('снять запрет команд', 'uncommandsban', 'commands_unrestrict_handler', True), ('снять запрет ссылок', 'unlinksban', 'links_unrestrict_handler', True), ('создать рп команду', 'addrp', 'add_rp_handler', True), ('удалить рп команду', 'delrp', 'delete_rp_handler', True), ('активировать промо', 'promo', 'promo_handler', True), ('снять запрет медиа', 'unmedia', 'media_unrestrict_handler', True), ('проверка новичков', 'captcha', 'captcha_settings_handler', True), ('информация о деле', 'caseinfo', 'caseinfo_handler', True), ('запретить команды', 'commandsban', 'commands_restrict_handler', True), ('панель управления', 'panel', 'panel_handler', False), ('удалить сообщения', 'purge', 'purge_handler', True), ('экстренная защита', 'susanoo', 'susanoo_handler', True), ('разрешить команды', 'uncommandsban', 'commands_unrestrict_handler', True), ('запрещенные слова', 'words', 'words_handler', True), ('запрещённые слова', 'words', 'words_handler', True), ('добавить правило', 'addrule', 'add_rule_handler', True), ('панель владельца', 'admin', 'admin_handler', False), ('подать апелляцию', 'appeal', 'appeal_handler', True), ('экстренный режим', 'emergency', 'emergency_handler', True), ('запретить ссылки', 'linksban', 'links_restrict_handler', True), ('управление ботом', 'panel', 'panel_handler', False), ('отправить жалобу', 'report', 'report_handler', True), ('настройки беседы', 'settings', 'settings_handler', False), ('помощь поддержки', 'support', 'support_handler', False), ('разрешить ссылки', 'unlinksban', 'links_unrestrict_handler', True), ('создать правило', 'addrule', 'add_rule_handler', True), ('защита от рейда', 'antiraid', 'antiraid_handler', True), ('автомод правила', 'automodrules', 'automod_rules_handler', False), ('резервная копия', 'backup', 'backup_handler', False), ('удалить правило', 'delrule', 'delete_rule_handler', True), ('красная тревога', 'emergency', 'emergency_handler', True), ('журнал действий', 'logs', 'logs_handler', False), ('запретить медиа', 'media', 'media_restrict_handler', True), ('штрафной статус', 'penalty', 'penalty_handler', True), ('ролевые команды', 'rplist', 'rp_list_handler', False), ('ролевые команды', 'rptoggle', 'rp_toggle_handler', True), ('назначить смену', 'shift', 'shift_handler', True), ('медленный режим', 'slow', 'slow_handler', True), ('разрешить медиа', 'unmedia', 'media_unrestrict_handler', True), ('отчет за неделю', 'weekly_report', 'weekly_report_handler', False), ('отчёт за неделю', 'weekly_report', 'weekly_report_handler', False), ('барьер деревни', 'antiraid', 'antiraid_handler', True), ('купить премиум', 'premium', 'premium_handler', False), ('назначить роль', 'role', 'role_handler', True), ('правила группы', 'rules', 'rules_handler', False), ('запустить бота', 'start', 'start_handler', True), ('тестовый режим', 'testmode', 'testmode_handler', True), ('топ участников', 'top', 'top_handler', False), ('снять карантин', 'unquarantine', 'unquarantine_handler', True), ('предупреждение', 'warn', 'warn_handler', True), ('карточка дела', 'caseinfo', 'caseinfo_handler', True), ('запрет команд', 'commandsban', 'commands_restrict_handler', True), ('фильтр ссылок', 'links', 'links_handler', True), ('запрет ссылок', 'linksban', 'links_restrict_handler', True), ('права команды', 'permissions', 'permissions_handler', True), ('история ролей', 'role_history', 'role_history_handler', True), ('свиток рангов', 'role_history', 'role_history_handler', True), ('замедлить чат', 'slow', 'slow_handler', True), ('рейтинг чатов', 'topchats', 'top_chats_handler', False), ('фильтр флуда', 'antiflood', 'antiflood_handler', True), ('открыть дело', 'case', 'case_handler', True), ('создать дело', 'case', 'case_handler', True), ('закрыть дело', 'closecase', 'closecase_handler', True), ('запрет медиа', 'media', 'media_restrict_handler', True), ('очистить чат', 'purge', 'purge_handler', True), ('пожаловаться', 'report', 'report_handler', True), ('список жалоб', 'reports', 'reports_handler', False), ('журнал жалоб', 'reports', 'reports_handler', False), ('отчет хокаге', 'weekly_report', 'weekly_report_handler', False), ('отчёт хокаге', 'weekly_report', 'weekly_report_handler', False), ('добавить рп', 'addrp', 'add_rp_handler', True), ('аниме режим', 'anime', 'anime_handler', True), ('режим аниме', 'anime', 'anime_handler', True), ('закрыть чат', 'lock', 'lock_handler', False), ('дать статус', 'penalty', 'penalty_handler', True), ('мой профиль', 'profile', 'profile_handler', True), ('изолировать', 'quarantine', 'quarantine_handler', True), ('открыть чат', 'unlock', 'unlock_handler', False), ('разкарантин', 'unquarantine', 'unquarantine_handler', True), ('фильтр слов', 'words', 'words_handler', True), ('создать рп', 'addrp', 'add_rp_handler', True), ('обжаловать', 'appeal', 'appeal_handler', True), ('список дел', 'cases', 'cases_handler', True), ('удалить рп', 'delrp', 'delete_rp_handler', True), ('информация', 'info', 'info_handler', True), ('разрешения', 'permissions', 'permissions_handler', True), ('рп команды', 'rptoggle', 'rp_toggle_handler', True), ('снять варн', 'unwarn', 'unwarn_handler', True), ('апелляция', 'appeal', 'appeal_handler', True), ('инфо дела', 'caseinfo', 'caseinfo_handler', True), ('инфа чата', 'chatinfo', 'chatinfo_handler', False), ('инфо чата', 'chatinfo', 'chatinfo_handler', False), ('исключить', 'kick', 'kick_handler', True), ('медиа бан', 'media', 'media_restrict_handler', True), ('дать роль', 'role', 'role_handler', True), ('список рп', 'rplist', 'rp_list_handler', False), ('рп список', 'rplist', 'rp_list_handler', False), ('настройки', 'settings', 'settings_handler', False), ('поддержка', 'support', 'support_handler', False), ('топ чатов', 'topchats', 'top_chats_handler', False), ('снять бан', 'unban', 'unban_handler', True), ('снять мут', 'unmute', 'unmute_handler', True), ('антифлуд', 'antiflood', 'antiflood_handler', True), ('антирейд', 'antiraid', 'antiraid_handler', True), ('забанить', 'ban', 'ban_handler', True), ('чат инфа', 'chatinfo', 'chatinfo_handler', False), ('чат инфо', 'chatinfo', 'chatinfo_handler', False), ('линк бан', 'linksban', 'links_restrict_handler', True), ('замутить', 'mute', 'mute_handler', True), ('промокод', 'promo', 'promo_handler', True), ('очистить', 'purge', 'purge_handler', True), ('карантин', 'quarantine', 'quarantine_handler', True), ('изоляция', 'quarantine', 'quarantine_handler', True), ('рп режим', 'rptoggle', 'rp_toggle_handler', True), ('админка', 'admin', 'admin_handler', False), ('тревога', 'emergency', 'emergency_handler', True), ('справка', 'help', 'help_handler', False), ('команды', 'help', 'help_handler', False), ('выгнать', 'kick', 'kick_handler', True), ('премиум', 'premium', 'premium_handler', False), ('профиль', 'profile', 'profile_handler', True), ('правила', 'rules', 'rules_handler', False), ('сусаноо', 'susanoo', 'susanoo_handler', True), ('рейтинг', 'top', 'top_handler', False), ('каптча', 'captcha', 'captcha_settings_handler', True), ('помощь', 'help', 'help_handler', False), ('ссылки', 'links', 'links_handler', True), ('журнал', 'logs', 'logs_handler', False), ('панель', 'panel', 'panel_handler', False), ('статус', 'penalty', 'penalty_handler', True), ('чистка', 'purge', 'purge_handler', True), ('жалоба', 'report', 'report_handler', True), ('жалобы', 'reports', 'reports_handler', False), ('слоумо', 'slow', 'slow_handler', True), ('начать', 'start', 'start_handler', True), ('разбан', 'unban', 'unban_handler', True), ('размут', 'unmute', 'unmute_handler', True), ('анварн', 'unwarn', 'unwarn_handler', True), ('админ', 'admin', 'admin_handler', False), ('капча', 'captcha', 'captcha_settings_handler', True), ('права', 'permissions', 'permissions_handler', True), ('промо', 'promo', 'promo_handler', True), ('смена', 'shift', 'shift_handler', True), ('старт', 'start', 'start_handler', True), ('анбан', 'unban', 'unban_handler', True), ('анмут', 'unmute', 'unmute_handler', True), ('слова', 'words', 'words_handler', True), ('дело', 'case', 'case_handler', True), ('дела', 'cases', 'cases_handler', True), ('инфо', 'info', 'info_handler', True), ('логи', 'logs', 'logs_handler', False), ('роль', 'role', 'role_handler', True), ('варн', 'warn', 'warn_handler', True), ('пред', 'warn', 'warn_handler', True), ('бан', 'ban', 'ban_handler', True), ('кик', 'kick', 'kick_handler', True), ('мут', 'mute', 'mute_handler', True), ('топ', 'top', 'top_handler', False)]
+_RUSSIAN_DIRECT_PATTERNS = [
+    (
+        re.compile(
+            rf"^\s*/?{re.escape(alias).replace(r'\ ', r'[\s_]+')}"
+            r"(?:@[A-Za-z0-9_]+)?(?=$|\s)",
+            re.IGNORECASE,
+        ),
+        canonical,
+        handler_name,
+        needs_command,
+    )
+    for alias, canonical, handler_name, needs_command
+    in _RUSSIAN_DIRECT_COMMANDS
+]
+
+
+@router.message(
+    F.text.regexp(
+        re.compile(
+            r"^\s*/?(?:"
+            + "|".join(
+                re.escape(alias).replace(r"\ ", r"[\s_]+")
+                for alias, *_ in _RUSSIAN_DIRECT_COMMANDS
+            )
+            + r")(?:@[A-Za-z0-9_]+)?(?=$|\s)",
+            re.IGNORECASE,
+        )
+    )
+)
+async def russian_direct_command_alias_handler(message: Message) -> None:
+    raw = (message.text or "").strip()
+    for pattern, canonical, handler_name, needs_command in _RUSSIAN_DIRECT_PATTERNS:
+        match = pattern.match(raw)
+        if not match:
+            continue
+        handler = globals().get(handler_name)
+        if handler is None:
+            await message.answer(
+                f"⚠️ Обработчик команды «{canonical}» временно недоступен."
+            )
+            return
+        arguments = raw[match.end():].strip() or None
+        if needs_command:
+            command = CommandObject(
+                prefix="/",
+                command=canonical,
+                mention=None,
+                args=arguments,
+            )
+            await handler(message, command)
+        else:
+            await handler(message)
+        return
+# ANIGUARD_RUSSIAN_DIRECT_ALIASES_V1_END
 
 @router.message((F.chat.type == ChatType.GROUP) | (F.chat.type == ChatType.SUPERGROUP))
 async def group_message_pipeline(message: Message) -> None:

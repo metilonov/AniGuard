@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#ffffff">
   <title>AniGuard</title>
-  <meta name="aniguard-build" content="case-animation-stability-v23.5">
+  <meta name="aniguard-build" content="advertising-orders-layout-v23.6">
   <style>
 :root {
   --bg: var(--tg-theme-bg-color, #f2f3f5);
@@ -1219,15 +1219,124 @@ html[data-theme="dark"] {
   .case-cell-icon { width:38px; height:38px; border-radius:12px; }
   .case-cell-icon svg { width:22px; height:22px; }
 }
-.order-card { display:grid; gap:10px; }
-.order-card .order-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
-.order-badge { padding:6px 10px; border-radius:999px; font-size:12px; font-weight:800; }
+/* Advertising order cards use two columns, unlike regular Telegram rows that reserve
+   the first 44px column for an icon. Without this override, all order text is squeezed
+   into that icon column on mobile. */
+#advertising-orders.telegram-list { overflow:hidden; }
+#advertising-orders .order-card {
+  width:100%;
+  min-height:0;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:14px;
+  padding:16px;
+  text-align:left;
+}
+#advertising-orders .order-content {
+  min-width:0;
+  display:grid;
+  gap:7px;
+}
+#advertising-orders .order-head {
+  min-width:0;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:8px 12px;
+}
+#advertising-orders .order-title {
+  min-width:0;
+  flex:1 1 180px;
+  margin:0;
+  overflow:visible;
+  white-space:normal;
+  text-overflow:clip;
+  overflow-wrap:anywhere;
+  font-size:16px;
+  line-height:1.3;
+}
+.order-badge {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  min-height:28px;
+  padding:5px 10px;
+  border-radius:999px;
+  font-size:11px;
+  line-height:1;
+  font-weight:800;
+  white-space:nowrap;
+}
 .order-badge.pending { background:color-mix(in srgb,#f3c34f 18%, transparent); color:#f3c34f; }
 .order-badge.approved { background:color-mix(in srgb,#58c7a3 18%, transparent); color:#58c7a3; }
 .order-badge.rejected { background:color-mix(in srgb,#ff6b7d 18%, transparent); color:#ff6b7d; }
 .order-badge.paid { background:color-mix(in srgb,var(--button) 18%, transparent); color:var(--button); }
-.order-meta { color:var(--hint); font-size:12px; line-height:1.45; }
-.order-actions { display:flex; flex-wrap:wrap; gap:8px; }
+#advertising-orders .order-meta,
+#advertising-orders .order-text,
+#advertising-orders .order-note,
+#advertising-orders .order-url {
+  display:block;
+  min-width:0;
+  margin:0;
+  overflow:visible;
+  white-space:normal;
+  text-overflow:clip;
+  overflow-wrap:anywhere;
+}
+#advertising-orders .order-meta {
+  color:var(--hint);
+  font-size:12px;
+  line-height:1.45;
+}
+#advertising-orders .order-text {
+  color:var(--text);
+  font-size:13px;
+  line-height:1.5;
+}
+#advertising-orders .order-note {
+  padding:8px 10px;
+  border-radius:12px;
+  color:var(--hint);
+  background:color-mix(in srgb,var(--secondary-bg) 78%,var(--bg));
+  font-size:12px;
+  line-height:1.45;
+}
+#advertising-orders .order-url {
+  color:var(--button);
+  font-size:12px;
+  line-height:1.4;
+}
+#advertising-orders .order-actions {
+  min-width:0;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+}
+#advertising-orders .order-actions .pay-ad-order {
+  width:auto;
+  min-width:168px;
+  min-height:46px;
+  padding-inline:16px;
+  white-space:nowrap;
+}
+@media (max-width:620px) {
+  #advertising-orders .order-card {
+    grid-template-columns:minmax(0,1fr);
+    align-items:stretch;
+    gap:13px;
+    padding:15px;
+  }
+  #advertising-orders .order-actions,
+  #advertising-orders .order-actions .pay-ad-order {
+    width:100%;
+  }
+  #advertising-orders .order-actions .pay-ad-order {
+    min-width:0;
+  }
+}
 .ui-no-blur .sheet-dialog::backdrop { backdrop-filter:none; }
 .ui-hide-hints .muted, .ui-hide-hints .section-heading p, .ui-hide-hints small { opacity:.18; }
 .ui-compact .card, .ui-compact .shop-card, .ui-compact .account-stat-card, .ui-compact .account-info-card, .ui-compact .form-card { padding:12px !important; }
@@ -4213,7 +4322,7 @@ html[data-theme="dark"] {
     node.innerHTML = state.adOrders.map(order => {
       const badgeClass = order.status === 'pending' ? 'pending' : order.status === 'approved' ? 'approved' : order.status === 'paid' ? 'paid' : 'rejected';
       const badgeText = order.status === 'pending' ? 'На модерации' : order.status === 'approved' ? 'Одобрено' : order.status === 'paid' ? 'Оплачено' : 'Отклонено';
-      return `<div class="telegram-row order-card"><div class="row-copy"><div class="order-head"><b>${escapeHtml(order.title)}</b><span class="order-badge ${badgeClass}">${badgeText}</span></div><span class="order-meta">${escapeHtml(order.typeLabel)} · ${Number(order.users).toLocaleString('ru-RU')} пользователей · ${Number(order.price).toLocaleString('ru-RU')} ⭐</span><small>${escapeHtml(order.text)}</small>${order.moderationNote ? `<small>${escapeHtml(order.moderationNote)}</small>` : ''}${order.url ? `<small>${escapeHtml(order.url)}</small>` : ''}</div>${order.status === 'approved' ? `<span class="order-actions"><button class="primary pay-ad-order" type="button" data-order-id="${order.id}">Оплатить ${Number(order.price).toLocaleString('ru-RU')} ⭐</button></span>` : ''}</div>`;
+      return `<article class="telegram-row order-card"><div class="order-content"><div class="order-head"><b class="order-title">${escapeHtml(order.title)}</b><span class="order-badge ${badgeClass}">${badgeText}</span></div><span class="order-meta">Заказ #${Number(order.id)} · ${escapeHtml(order.typeLabel)} · ${Number(order.users).toLocaleString('ru-RU')} пользователей · ${Number(order.price).toLocaleString('ru-RU')} ⭐</span><p class="order-text">${escapeHtml(order.text)}</p>${order.moderationNote ? `<p class="order-note">Комментарий модератора: ${escapeHtml(order.moderationNote)}</p>` : ''}${order.url ? `<span class="order-url">${escapeHtml(order.url)}</span>` : ''}</div>${order.status === 'approved' ? `<div class="order-actions"><button class="primary pay-ad-order" type="button" data-order-id="${order.id}">Оплатить ${Number(order.price).toLocaleString('ru-RU')} ⭐</button></div>` : ''}</article>`;
     }).join('');
   }
 

@@ -3538,7 +3538,11 @@ async def _execute_builtin_special(
     if special == "pin_reply":
         if not message.reply_to_message:
             raise ValueError("Ответьте на сообщение")
-        await bot.pin_chat_message(chat.id, message.reply_to_message.message_id, disable_notification=True)
+        await bot.pin_chat_message(
+            chat_id=chat.id,
+            message_id=message.reply_to_message.message_id,
+            disable_notification=True,
+        )
         return True, "Сообщение закреплено."
     if special == "unpin_reply":
         if not message.reply_to_message:
@@ -4204,7 +4208,11 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
         if target_required and target_id is None:
             await message.reply("Ответьте пользователю или укажите @username/ID.")
             return True
-        if target_id == message.from_user.id and action not in {"unmute", "unwarn", "unban"}:
+        if (
+            target_required
+            and target_id == message.from_user.id
+            and action not in {"unmute", "unwarn", "unban"}
+        ):
             await message.reply("Нельзя применить команду к себе.")
             return True
 
@@ -4854,6 +4862,139 @@ async def edited_group_message_pipeline(message: Message) -> None:
         return
     try:
         await enforce_message_protection(message, chat, membership)
+    except Exception as exc:
+        await send_admin_error(message, exc)
+
+
+
+# ANIGUARD_EARLY_CHATINFO_HANDLER
+@router.message(
+    F.text.regexp(
+        r"(?i)^\s*(?:"
+        r"/chatinfo(?:@[A-Za-z0-9_]+)?"
+        r"|/chat_info(?:@[A-Za-z0-9_]+)?"
+        r"|/?чат[_\s]+инфо"
+        r"|/?инфо[_\s]+чата"
+        r"|/?информация[_\s]+о[_\s]+беседе"
+        r"|/?карта[_\s]+деревни"
+        r")\s*$"
+    )
+)
+async def aniguard_early_chatinfo_handler(
+    message: Message,
+) -> None:
+    try:
+        if message.chat.type not in {
+            ChatType.GROUP,
+            ChatType.SUPERGROUP,
+        }:
+            await message.answer(
+                "Команда работает только в группе."
+            )
+            return
+
+        await ensure_context(message)
+
+        async with SessionFactory() as session:
+            chat_row = await session.get(
+                Chat,
+                message.chat.id,
+            )
+
+            settings_data = await get_merged_settings(
+                session,
+                message.chat.id,
+            )
+
+            members = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(Membership)
+                    .where(
+                        Membership.chat_id
+                        == message.chat.id
+                    )
+                )
+                or 0
+            )
+
+            admins = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(Membership)
+                    .where(
+                        Membership.chat_id
+                        == message.chat.id,
+                        Membership.role.in_(
+                            [
+                                "creator",
+                                "senior_admin",
+                                "admin",
+                                "junior_admin",
+                            ]
+                        ),
+                    )
+                )
+                or 0
+            )
+
+            active = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(Membership)
+                    .where(
+                        Membership.chat_id
+                        == message.chat.id,
+                        Membership.last_seen_at
+                        >= utcnow()
+                        - timedelta(days=7),
+                    )
+                )
+                or 0
+            )
+
+        title = (
+            chat_row.title
+            if chat_row
+            else message.chat.title
+            or "Беседа"
+        )
+
+        await message.answer(
+            "💬 <b>Информация о беседе</b>\n\n"
+            f"Название: {html.escape(title)}\n"
+            f"ID: <code>{message.chat.id}</code>\n"
+            f"Участников в базе: {members}\n"
+            f"Администрации: {admins}\n"
+            f"Активных за неделю: {active}\n"
+            "Антирейд: "
+            + (
+                "включён"
+                if settings_data.get(
+                    "anti_raid_enabled"
+                )
+                else "выключен"
+            )
+            + "\n"
+            "Автомодерация: "
+            + (
+                "включена"
+                if settings_data.get(
+                    "anti_flood_enabled"
+                )
+                else "выключена"
+            )
+            + "\n"
+            "Тестовый режим: "
+            + (
+                "включён"
+                if settings_data.get(
+                    "test_mode_enabled"
+                )
+                else "выключен"
+            )
+        )
+
     except Exception as exc:
         await send_admin_error(message, exc)
 

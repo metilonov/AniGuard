@@ -61,6 +61,7 @@ _ENTRIES: list[tuple[str, dict[str, Any]]] = [
     _cmd("slow", "Медленный режим", "медленный режим", "Установить задержку сообщений", "slow", aliases=("slow", "слоумо"), amount=15, target=False, response="Медленный режим включён."),
     _cmd("lock", "Закрыть чат", "закрыть чат", "Запретить сообщения участникам", "lock", aliases=("lock", "лок"), target=False, response="Чат закрыт."),
     _cmd("unlock", "Открыть чат", "открыть чат", "Вернуть отправку сообщений", "unlock", aliases=("unlock", "анлок"), target=False, response="Чат открыт."),
+    _cmd("pin", "Закрепить сообщение", "закрепить", "Закрепить сообщение, на которое ответил администратор", "lock", aliases=("pin", "закрепить сообщение"), category="Управление группой", special="pin_reply", target=False, response="Сообщение закреплено."),
     _cmd("restrict_media", "Запрет медиа", "запретить медиа", "Запретить фото, видео и файлы", "restrict_media", aliases=("media ban", "медиа бан"), target=True, response="Медиа запрещены: {user}."),
     _cmd("unrestrict_media", "Разрешить медиа", "разрешить медиа", "Снять запрет медиа", "unrestrict_media", aliases=("unmedia",), target=True, response="Медиа разрешены: {user}."),
     _cmd("restrict_links", "Запрет ссылок", "запретить ссылки", "Запретить ссылки пользователя", "restrict_links", aliases=("linksban", "линк бан"), target=True, response="Ссылки запрещены: {user}."),

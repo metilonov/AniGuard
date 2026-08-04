@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="aniguard-build" content="admin-badge-fix-v23.2.1">
+<meta name="aniguard-build" content="admin-pin-lifetime-v23.3">
 <title>AniGuard Admin — панель владельца</title>
 <style>
 :root{
@@ -902,24 +902,10 @@ svg{display:block}
 
   function badge(value = '', tone = '') {
     const text = String(value ?? '').trim();
-
-    if (!text) {
-      return '';
-    }
-
-    const allowedTones = new Set([
-      'success',
-      'warning',
-      'info',
-      'danger',
-      'muted'
-    ]);
-
+    if (!text) return '';
+    const allowedTones = new Set(['success', 'warning', 'info', 'danger', 'muted']);
     const normalizedTone = String(tone ?? '').trim();
-    const toneClass = allowedTones.has(normalizedTone)
-      ? ` ${normalizedTone}`
-      : '';
-
+    const toneClass = allowedTones.has(normalizedTone) ? ` ${normalizedTone}` : '';
     return `<span class="badge${toneClass}">${escapeHtml(text)}</span>`;
   }
 
@@ -1354,8 +1340,8 @@ svg{display:block}
           <div class="field">
             <label>Тип получателя</label>
             <select id="premiumTargetType">
-              <option value="user" ${type === 'user' ? 'selected' : ''}>Пользователь</option>
-              <option value="chat" ${type === 'chat' ? 'selected' : ''}>Беседа</option>
+              <option value="user" ${type === 'user' ? 'selected' : ''}>Аккаунт пользователя / администратора</option>
+              <option value="chat" ${type === 'chat' ? 'selected' : ''}>Группа / беседа</option>
             </select>
           </div>
           <div class="field">
@@ -1372,6 +1358,7 @@ svg{display:block}
               <option value="90">90 дней</option>
               <option value="180">180 дней</option>
               <option value="365">365 дней</option>
+              <option value="permanent">Навсегда</option>
             </select>
           </div>
           <div class="field">
@@ -2224,12 +2211,19 @@ svg{display:block}
         if (e.target.id === 'savePremiumBtn') {
           const entityType = $('#premiumTargetType').value;
           const entityId = Number($('#premiumTargetId').value.trim());
+          const premiumTerm = $('#premiumDays').value;
+          const permanent = premiumTerm === 'permanent';
           if (!entityId) throw new Error('Укажите корректный Telegram ID');
           await post('/api/admin/premium', {
-            entity_type:entityType, entity_id:entityId, days:Number($('#premiumDays').value),
-            permanent:false, plan:'admin', note:$('#premiumComment').value.trim() || $('#premiumSource').value
+            entity_type:entityType,
+            entity_id:entityId,
+            days:permanent ? 3650 : Number(premiumTerm),
+            permanent,
+            plan:'admin',
+            note:$('#premiumComment').value.trim() || $('#premiumSource').value
           });
-          closeSheet(); await reloadRemoteData('Premium выдан');
+          closeSheet();
+          await reloadRemoteData(permanent ? 'Premium выдан навсегда' : 'Premium выдан');
         }
 
         if (e.target.id === 'saveCoinBtn') {

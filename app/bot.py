@@ -450,7 +450,7 @@ async def resolve_target(message: Message, token: str | None = None) -> int | No
 
 
 async def send_admin_error(message: Message, exc: Exception) -> None:
-    await message.answer(f"<b>Не удалось выполнить действие.</b>\n{html.escape(str(exc))}")
+    return await message.answer(f"<b>Не удалось выполнить действие.</b>\n{html.escape(str(exc))}")
 
 
 def profile_link(user_id: int, label: str) -> str:
@@ -4093,6 +4093,52 @@ async def _execute_builtin_special(
     return True, "Команда зарегистрирована, но действие недоступно."
 
 
+
+# ANIGUARD_AUTO_CLEAN_VERBOSE_MESSAGES
+AUTO_CLEAN_VERBOSE_DELAY = 12
+
+async def _aniguard_delete_later(bot, chat_id, message_id, delay=AUTO_CLEAN_VERBOSE_DELAY):
+    try:
+        await asyncio.sleep(delay)
+        await bot.delete_message(chat_id, message_id)
+    except Exception:
+        pass
+
+async def _cleanup_command_traces(message, bot_reply=None):
+    try:
+        await message.delete()
+    except Exception:
+        pass
+
+    try:
+        replied = getattr(message, "reply_to_message", None)
+        if (
+            replied
+            and getattr(replied, "from_user", None)
+            and getattr(replied.from_user, "is_bot", False)
+        ):
+            asyncio.create_task(
+                _aniguard_delete_later(
+                    message.bot,
+                    replied.chat.id,
+                    replied.message_id,
+                )
+            )
+    except Exception:
+        pass
+
+    if bot_reply is not None:
+        try:
+            asyncio.create_task(
+                _aniguard_delete_later(
+                    message.bot,
+                    bot_reply.chat.id,
+                    bot_reply.message_id,
+                )
+            )
+        except Exception:
+            pass
+
 async def try_basic_moderation_command(message: Message, chat: Chat, membership: Membership) -> bool:
     """Execute ordinary and Naruto-styled built-in commands.
 
@@ -4214,7 +4260,7 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
                         "Все сообщения откреплены"
                     )
 
-                if direct_response:
+                if direct_response and False:
                     await message.answer(
                         direct_response
                     )
@@ -4254,7 +4300,11 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
                             1,
                         )
 
-                    await message.answer(special_response)
+                    sent_message = await message.answer(special_response)
+                await _cleanup_command_traces(
+                    message,
+                    sent_message,
+                )
             return True
 
         if action == "purge":

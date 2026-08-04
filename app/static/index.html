@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#ffffff">
   <title>AniGuard</title>
-  <meta name="aniguard-build" content="local-media-safety-v23.4">
+  <meta name="aniguard-build" content="case-animation-stability-v23.5">
   <style>
 :root {
   --bg: var(--tg-theme-bg-color, #f2f3f5);
@@ -1307,10 +1307,11 @@ html[data-theme="dark"] {
 .template-row b{font:800 12px ui-monospace,SFMono-Regular,Menlo,monospace}.style-pack-list{display:grid;gap:9px}.style-pack{padding:13px;border:1px solid var(--separator);border-radius:18px;background:var(--card)}
 .style-pack-head{display:flex;justify-content:space-between;gap:10px}.style-pack-code{font:850 12px ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--button)}.style-status{font-size:11px;font-weight:850;color:var(--hint)}
 .constructor-preview{white-space:pre-wrap;padding:13px;border:1px solid var(--separator);border-radius:16px;background:var(--surface);line-height:1.5;min-height:90px}.style-search-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.style-choice-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-.case-opening-dialog{align-items:center;padding:6px}.case-opening-dialog .case-opening-sheet{width:min(430px,calc(92dvh * 9 / 16),calc(100vw - 12px));height:auto;max-height:none;aspect-ratio:9/16;overflow:auto;border-radius:28px;padding:12px;box-sizing:border-box}
+.case-opening-dialog{align-items:center;padding:6px;overflow:hidden;overscroll-behavior:none}
+.case-opening-dialog .case-opening-sheet{width:min(430px,calc(100vw - 12px));height:auto;max-height:calc(100dvh - 18px);aspect-ratio:auto;overflow:hidden;border-radius:28px;padding:12px;box-sizing:border-box;overscroll-behavior:none;contain:layout paint}
 .case-opening-dialog .dialog-head{margin-bottom:6px}.case-opening-dialog .case-opening-hero{padding:12px;border-radius:18px}.case-opening-dialog .case-opening-hero p{display:none}.case-opening-dialog .case-preview-strip{display:none}
-.case-opening-viewport{min-height:126px}.case-opening-track{gap:6px}.case-opening-item{min-width:clamp(64px,19.5vw,78px)!important;width:clamp(64px,19.5vw,78px)!important;min-height:112px!important;padding:8px 5px!important;border-radius:14px!important}.case-opening-item .case-cell-icon{width:42px;height:42px;margin-bottom:7px}.case-opening-item .case-cell-title{font-size:10px;line-height:1.15}.case-opening-item .case-cell-type{font-size:8px}.case-opening-status{margin:10px 0}.case-opening-actions{margin-top:8px}
-@media(max-width:520px){.constructor-grid{grid-template-columns:1fr}.case-opening-dialog .case-opening-sheet{width:min(calc(100vw - 12px),calc((100dvh - 18px) * 9 / 16));height:auto;max-height:none}}
+.case-opening-dialog .case-opening-viewport-wrap{overflow:hidden;contain:layout paint;isolation:isolate}.case-opening-dialog .case-opening-viewport{min-height:126px;overflow:hidden;contain:paint;transform:translateZ(0);backface-visibility:hidden}.case-opening-dialog .case-opening-track{gap:6px;transform:translateX(0);backface-visibility:hidden}.case-opening-item{min-width:clamp(78px,23vw,96px)!important;width:clamp(78px,23vw,96px)!important;min-height:112px!important;padding:8px 5px!important;border-radius:14px!important}.case-opening-item .case-cell-icon{width:42px;height:42px;margin-bottom:7px}.case-opening-item .case-cell-title{font-size:10px;line-height:1.15}.case-opening-item .case-cell-type{font-size:8px}.case-opening-status{margin:10px 0}.case-opening-actions{margin-top:8px}
+@media(max-width:520px){.constructor-grid{grid-template-columns:1fr}.case-opening-dialog .case-opening-sheet{width:calc(100vw - 12px);max-height:calc(100dvh - 18px)}}
 
 </style>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
@@ -3309,7 +3310,7 @@ html[data-theme="dark"] {
     state.settings[key] = value;
     try {
       const result = await api(`/api/chats/${state.chatId}/settings`, {
-        method:'POST',
+        method:'PUT',
         body:JSON.stringify({settings:{[key]:value}}),
       });
       state.settings = {...state.settings, ...result.settings};
@@ -3572,7 +3573,7 @@ html[data-theme="dark"] {
 
   async function saveSettings() {
     readSettings();
-    try { const result = await api(`/api/chats/${state.chatId}/settings`, {method:'POST', body:JSON.stringify({settings:state.settings})}); state.settings = result.settings; renderSettingsValues(); notify('Настройки сохранены.'); await loadChat(); }
+    try { const result = await api(`/api/chats/${state.chatId}/settings`, {method:'PUT', body:JSON.stringify({settings:state.settings})}); state.settings = result.settings; renderSettingsValues(); notify('Настройки сохранены.'); await loadChat(); }
     catch (error) { notify(error.message, true); }
   }
 
@@ -4177,31 +4178,44 @@ html[data-theme="dark"] {
     if (!dialog || !track || !viewport || !status) return;
 
     const items = [];
-    const winnerIndex = 56;
-    for (let i = 0; i < 70; i += 1) {
+    const winnerIndex = 32;
+    for (let i = 0; i < 42; i += 1) {
       items.push(i === winnerIndex ? rewardView : randomCaseReward());
     }
+
+    const sheet = dialog.querySelector('.case-opening-sheet');
     track.style.transition = 'none';
-    track.style.transform = 'translate3d(0,0,0)';
+    track.style.willChange = 'transform';
+    track.style.transform = 'translateX(0px)';
     track.innerHTML = items.map(item => caseRewardCard(item, 'case-opening-item')).join('');
     $('#case-dialog-balance') && ($('#case-dialog-balance').textContent = `${Number(state.user?.ani_coin || 0).toLocaleString('ru-RU')} AniCoin`);
     status.textContent = 'Прокручиваем награды...';
 
     if (!dialog.open) dialog.showModal();
 
+    dialog.scrollTop = 0;
+    if (sheet) sheet.scrollTop = 0;
+    viewport.scrollLeft = 0;
+
     requestAnimationFrame(() => requestAnimationFrame(() => {
       const first = track.querySelector('.case-opening-item');
-      const itemStyles = first ? getComputedStyle(first) : null;
       const gap = parseFloat(getComputedStyle(track).gap || '10') || 10;
-      const itemWidth = (first ? first.getBoundingClientRect().width : 146) + gap;
+      const itemWidth = (first ? first.getBoundingClientRect().width : 96) + gap;
       const itemCenter = winnerIndex * itemWidth + (itemWidth - gap) / 2;
       const viewportCenter = viewport.clientWidth / 2;
-      const jitter = Math.round((Math.random() - 0.5) * 26);
-      const target = viewportCenter - itemCenter + jitter;
+      const jitter = Math.round((Math.random() - 0.5) * 20);
+      const target = Math.round(viewportCenter - itemCenter + jitter);
+
       track.style.transition = document.documentElement.classList.contains('ui-reduced-motion')
         ? 'transform .45s linear'
         : 'transform 6.2s cubic-bezier(.08,.67,.08,1)';
-      track.style.transform = `translate3d(${target}px,0,0)`;
+      track.style.transform = `translateX(${target}px)`;
+
+      const releaseLayer = () => {
+        track.style.willChange = 'auto';
+        track.removeEventListener('transitionend', releaseLayer);
+      };
+      track.addEventListener('transitionend', releaseLayer);
     }));
 
     clearTimeout(caseAnimationTimer);

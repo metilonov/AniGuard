@@ -2967,10 +2967,19 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
         if user_member is None:
             return False
 
+        privileged_sender = False
+
         try:
-            tg_member = await bot.get_chat_member(chat.id, membership.user_id)
-            if tg_member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}:
-                return False
+            tg_member = await bot.get_chat_member(
+                chat.id,
+                membership.user_id,
+            )
+
+            privileged_sender = tg_member.status in {
+                ChatMemberStatus.CREATOR,
+                ChatMemberStatus.ADMINISTRATOR,
+            }
+
         except Exception:
             tg_member = None
 
@@ -3240,6 +3249,40 @@ async def enforce_message_protection(message: Message, chat: Chat, membership: M
                     + (", ".join(local_labels) or "обнаружен запрещённый визуальный контент")
                 )
         # ANIGUARD_LOCAL_MEDIA_END
+        # Администраторы и владелец по-прежнему не проверяются
+        # обычными фильтрами флуда, капса и ссылок.
+        # Однако локальная проверка запрещённого медиа работает для всех.
+        if privileged_sender:
+            if local_media_safety_trigger:
+                applied = await apply_automatic_violation(
+                    "local_unsafe_media",
+                    (
+                        local_media_safety_reason
+                        or "Обнаружен запрещённый визуальный контент"
+                    ),
+                    add_warning=False,
+                    quarantine=False,
+                )
+
+                try:
+                    await bot.send_message(
+                        chat.id,
+                        (
+                            "🚫 <b>Медиа удалено</b>\n\n"
+                            "Локальная проверка обнаружила "
+                            "откровенный или запрещённый контент."
+                        ),
+                    )
+                except Exception:
+                    logger.exception(
+                        "Не удалось отправить уведомление "
+                        "о локальной NSFW-проверке"
+                    )
+
+                return applied
+
+            return False
+
 
         suspicious_newcomer = premium_access and newcomer and (
             (enabled("suspicious_profile_filter_enabled", "premium_suspicious_newcomers_enabled") and not message.from_user.username and (has_link_any or mention_count > 0 or smart_spam_trigger))

@@ -16,11 +16,22 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 logger = logging.getLogger(__name__)
 
 EXPLICIT_CLASSES = {
+    # NudeNet 3.x
     "ANUS_EXPOSED",
     "BUTTOCKS_EXPOSED",
     "FEMALE_BREAST_EXPOSED",
     "FEMALE_GENITALIA_EXPOSED",
     "MALE_GENITALIA_EXPOSED",
+
+    # Совместимость со старыми названиями NudeNet.
+    "EXPOSED_ANUS",
+    "EXPOSED_BUTTOCKS",
+    "EXPOSED_BREAST_F",
+    "EXPOSED_GENITALIA_F",
+    "EXPOSED_GENITALIA_M",
+    "F_BREAST",
+    "F_GENITALIA",
+    "M_GENITALIA",
 }
 
 REFERENCE_DB = Path(__file__).with_name("media_safety_refs.json")
@@ -320,7 +331,7 @@ async def _nudity_score(frames: list[Image.Image]) -> tuple[float, list[str]]:
     if detector is None:
         return 0.0, []
 
-    threshold = max(0.0, min(_env_float("LOCAL_MEDIA_NSFW_THRESHOLD", 0.62), 1.0))
+    threshold = max(0.0, min(_env_float("LOCAL_MEDIA_NSFW_THRESHOLD", 0.45), 1.0))
     best_score = 0.0
     found_classes: set[str] = set()
 
@@ -412,8 +423,22 @@ async def classify_message_media(bot: Bot, message: Message) -> dict[str, Any] |
             visible_text,
         )
 
-        threshold = max(0.0, min(_env_float("LOCAL_MEDIA_NSFW_THRESHOLD", 0.62), 1.0))
+        threshold = max(0.0, min(_env_float("LOCAL_MEDIA_NSFW_THRESHOLD", 0.45), 1.0))
         sexual = bool(exposed_classes) and sexual_score >= threshold
+
+        logger.info(
+            (
+                "Local NSFW result: chat=%s message=%s "
+                "score=%.4f threshold=%.4f classes=%s unsafe=%s"
+            ),
+            message.chat.id,
+            message.message_id,
+            sexual_score,
+            threshold,
+            exposed_classes,
+            sexual,
+        )
+
         labels: list[str] = []
 
         if sexual:

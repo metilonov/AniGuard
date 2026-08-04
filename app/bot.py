@@ -4860,136 +4860,6 @@ async def edited_group_message_pipeline(message: Message) -> None:
 
 
 
-# ANIGUARD_EARLY_CHATINFO_HANDLER
-@router.message(
-    F.text.regexp(
-        r"(?i)^\s*(?:"
-        r"/chatinfo(?:@[A-Za-z0-9_]+)?"
-        r"|/chat_info(?:@[A-Za-z0-9_]+)?"
-        r"|/?чат[_\s]+инфо"
-        r"|/?инфо[_\s]+чата"
-        r"|/?информация[_\s]+о[_\s]+беседе"
-        r"|/?карта[_\s]+деревни"
-        r")\s*$"
-    )
-)
-async def aniguard_early_chatinfo_handler(
-    message: Message,
-) -> None:
-    try:
-        if message.chat.type not in {
-            ChatType.GROUP,
-            ChatType.SUPERGROUP,
-        }:
-            await message.answer(
-                "Команда работает только в группе."
-            )
-            return
-
-        await ensure_context(message)
-
-        async with SessionFactory() as session:
-            chat_row = await session.get(
-                Chat,
-                message.chat.id,
-            )
-
-            settings_data = await get_merged_settings(
-                session,
-                message.chat.id,
-            )
-
-            members = int(
-                await session.scalar(
-                    select(func.count())
-                    .select_from(Membership)
-                    .where(
-                        Membership.chat_id
-                        == message.chat.id
-                    )
-                )
-                or 0
-            )
-
-            admins = int(
-                await session.scalar(
-                    select(func.count())
-                    .select_from(Membership)
-                    .where(
-                        Membership.chat_id
-                        == message.chat.id,
-                        Membership.role.in_(
-                            [
-                                "creator",
-                                "senior_admin",
-                                "admin",
-                                "junior_admin",
-                            ]
-                        ),
-                    )
-                )
-                or 0
-            )
-
-            active = int(
-                await session.scalar(
-                    select(func.count())
-                    .select_from(Membership)
-                    .where(
-                        Membership.chat_id
-                        == message.chat.id,
-                        Membership.last_seen_at
-                        >= utcnow()
-                        - timedelta(days=7),
-                    )
-                )
-                or 0
-            )
-
-        title = (
-            chat_row.title
-            if chat_row
-            else message.chat.title
-            or "Беседа"
-        )
-
-        await message.answer(
-            "💬 <b>Информация о беседе</b>\n\n"
-            f"Название: {html.escape(title)}\n"
-            f"ID: <code>{message.chat.id}</code>\n"
-            f"Участников в базе: {members}\n"
-            f"Администрации: {admins}\n"
-            f"Активных за неделю: {active}\n"
-            "Антирейд: "
-            + (
-                "включён"
-                if settings_data.get(
-                    "anti_raid_enabled"
-                )
-                else "выключен"
-            )
-            + "\n"
-            "Автомодерация: "
-            + (
-                "включена"
-                if settings_data.get(
-                    "anti_flood_enabled"
-                )
-                else "выключена"
-            )
-            + "\n"
-            "Тестовый режим: "
-            + (
-                "включён"
-                if settings_data.get(
-                    "test_mode_enabled"
-                )
-                else "выключен"
-            )
-        )
-
-    except Exception as exc:
-        await send_admin_error(message, exc)
 
 
 # ANIGUARD_DELETE_PIN_SERVICE_MESSAGES_ONLY
@@ -5020,7 +4890,9 @@ async def delete_pin_service_message_only(
         )
 
 
-# ANIGUARD_EARLY_CHATINFO_ALIASES_V2
+
+
+# ANIGUARD_UNIFIED_CHATINFO_V3
 @router.message(
     (
         (F.chat.type == ChatType.GROUP)
@@ -5029,15 +4901,15 @@ async def delete_pin_service_message_only(
     F.text.regexp(
         r"(?i)^\s*(?:"
         r"/chatinfo(?:@[A-Za-z0-9_]+)?"
-        r"|/?чат[_\s]+инф(?:а|о)"
+        r"|/?чат[\s_]+инф(?:а|о)"
         r"|/?инфа"
-        r"|/?инфо[_\s]+чата"
-        r"|/?информация[_\s]+о[_\s]+беседе"
-        r"|/?карта[_\s]+деревни"
+        r"|/?инфо[\s_]+чата"
+        r"|/?информация[\s_]+о[\s_]+беседе"
+        r"|/?карта[\s_]+деревни"
         r")\s*$"
     ),
 )
-async def early_chatinfo_alias_handler(
+async def unified_chatinfo_alias_handler(
     message: Message,
 ) -> None:
     await chatinfo_handler(message)
@@ -5341,29 +5213,126 @@ async def testmode_alias_handler(message: Message) -> None:
 @router.message(Command("chatinfo"))
 async def chatinfo_handler(message: Message) -> None:
     try:
+        if message.chat.type not in {
+            ChatType.GROUP,
+            ChatType.SUPERGROUP,
+        }:
+            await message.answer(
+                "Команда работает только в группе."
+            )
+            return
+
         await ensure_context(message)
+
         async with SessionFactory() as session:
-            chat = await session.get(Chat, message.chat.id)
-            settings_data = await get_merged_settings(session, message.chat.id)
-            members = int(await session.scalar(select(func.count()).select_from(Membership).where(Membership.chat_id == message.chat.id)) or 0)
-            admins = int(await session.scalar(select(func.count()).select_from(Membership).where(Membership.chat_id == message.chat.id, Membership.role.in_(["creator", "senior_admin", "admin", "junior_admin"]))) or 0)
-            active = int(await session.scalar(select(func.count()).select_from(Membership).where(Membership.chat_id == message.chat.id, Membership.last_seen_at >= utcnow() - timedelta(days=7))) or 0)
+            chat = await session.get(
+                Chat,
+                message.chat.id,
+            )
+
+            settings_data = await get_merged_settings(
+                session,
+                message.chat.id,
+            )
+
+            members = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(Membership)
+                    .where(
+                        Membership.chat_id
+                        == message.chat.id
+                    )
+                )
+                or 0
+            )
+
+            admins = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(Membership)
+                    .where(
+                        Membership.chat_id
+                        == message.chat.id,
+                        Membership.role.in_(
+                            [
+                                "creator",
+                                "senior_admin",
+                                "admin",
+                                "junior_admin",
+                            ]
+                        ),
+                    )
+                )
+                or 0
+            )
+
+            active = int(
+                await session.scalar(
+                    select(func.count())
+                    .select_from(Membership)
+                    .where(
+                        Membership.chat_id
+                        == message.chat.id,
+                        Membership.last_seen_at
+                        >= utcnow()
+                        - timedelta(days=7),
+                    )
+                )
+                or 0
+            )
+
+        title = (
+            chat.title
+            if chat and chat.title
+            else message.chat.title
+            or "Беседа"
+        )
+
+        anti_raid = (
+            "✅ включён"
+            if settings_data.get(
+                "anti_raid_enabled"
+            )
+            else "❌ выключен"
+        )
+
+        auto_moderation = (
+            "✅ включена"
+            if settings_data.get(
+                "anti_flood_enabled"
+            )
+            else "❌ выключена"
+        )
+
+        test_mode = (
+            "✅ включён"
+            if settings_data.get(
+                "test_mode_enabled"
+            )
+            else "❌ выключен"
+        )
+
         await message.answer(
             "💬 <b>Информация о беседе</b>\n\n"
             f"🏷 <b>Название:</b> "
-            f"{html.escape(chat.title if chat else message.chat.title or 'Беседа')}\n"
+            f"{html.escape(title)}\n"
             f"🆔 <b>Telegram ID:</b> "
             f"<code>{message.chat.id}</code>\n"
-            f"👥 <b>Участников в базе:</b> {members}\n"
-            f"🛡 <b>Администрации:</b> {admins}\n"
-            f"🟢 <b>Активных за неделю:</b> {active}\n\n"
+            f"👥 <b>Участников в базе:</b> "
+            f"{members}\n"
+            f"🛡 <b>Администрации:</b> "
+            f"{admins}\n"
+            f"🟢 <b>Активных за неделю:</b> "
+            f"{active}\n\n"
             f"🚨 <b>Антирейд:</b> "
-            f"{'✅ включён' if settings_data.get('anti_raid_enabled') else '❌ выключен'}\n"
+            f"{anti_raid}\n"
             f"🤖 <b>Автомодерация:</b> "
-            f"{'✅ включена' if settings_data.get('anti_flood_enabled') else '❌ выключена'}\n"
+            f"{auto_moderation}\n"
             f"🧪 <b>Тестовый режим:</b> "
-            f"{'✅ включён' if settings_data.get('test_mode_enabled') else '❌ выключен'}"
+            f"{test_mode}"
         )
+
     except Exception as exc:
         await send_admin_error(message, exc)
 

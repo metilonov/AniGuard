@@ -468,6 +468,7 @@ async def get_settings_endpoint(
         raise http_error(exc) from exc
 
 
+@router.post("/chats/{chat_id}/settings")
 @router.put("/chats/{chat_id}/settings")
 async def put_settings(
     chat_id: int,

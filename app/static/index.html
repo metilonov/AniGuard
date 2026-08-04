@@ -6,7 +6,7 @@
   <meta name="color-scheme" content="dark light">
   <meta name="theme-color" content="#ffffff">
   <title>AniGuard</title>
-  <meta name="aniguard-build" content="wiki-admin-grid-v23.2">
+  <meta name="aniguard-build" content="caps-settings-post-v23.2.2">
   <style>
 :root {
   --bg: var(--tg-theme-bg-color, #f2f3f5);
@@ -3307,7 +3307,7 @@ html[data-theme="dark"] {
     state.settings[key] = value;
     try {
       const result = await api(`/api/chats/${state.chatId}/settings`, {
-        method:'PUT',
+        method:'POST',
         body:JSON.stringify({settings:{[key]:value}}),
       });
       state.settings = {...state.settings, ...result.settings};
@@ -3570,7 +3570,7 @@ html[data-theme="dark"] {
 
   async function saveSettings() {
     readSettings();
-    try { const result = await api(`/api/chats/${state.chatId}/settings`, {method:'PUT', body:JSON.stringify({settings:state.settings})}); state.settings = result.settings; renderSettingsValues(); notify('Настройки сохранены.'); await loadChat(); }
+    try { const result = await api(`/api/chats/${state.chatId}/settings`, {method:'POST', body:JSON.stringify({settings:state.settings})}); state.settings = result.settings; renderSettingsValues(); notify('Настройки сохранены.'); await loadChat(); }
     catch (error) { notify(error.message, true); }
   }
 

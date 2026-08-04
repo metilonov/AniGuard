@@ -3540,6 +3540,45 @@ async def _execute_builtin_special(
             raise ValueError("Ответьте на сообщение")
         await bot.pin_chat_message(chat.id, message.reply_to_message.message_id, disable_notification=True)
         return True, "Сообщение закреплено."
+    if special == "unpin_reply":
+        if not message.reply_to_message:
+            raise ValueError("Ответьте на закреплённое сообщение")
+        await bot.unpin_chat_message(
+            chat.id,
+            message.reply_to_message.message_id,
+        )
+        return True, "Сообщение откреплено."
+
+    if special == "unpin_all":
+        await bot.unpin_all_chat_messages(chat.id)
+        return True, "Все закреплённые сообщения сняты."
+
+    if special == "chat_link":
+        telegram_chat = await bot.get_chat(chat.id)
+        username = str(getattr(telegram_chat, "username", "") or "").strip().lstrip("@")
+        if username:
+            link = f"https://t.me/{username}"
+        else:
+            link = await bot.export_chat_invite_link(chat.id)
+        await message.answer(
+            "🔗 <b>Актуальная ссылка на чат</b>\n"
+            + html.escape(link)
+        )
+        return True, ""
+
+    if special == "chat_link_one":
+        invite = await bot.create_chat_invite_link(
+            chat.id,
+            name="AniGuard: 1 пользователь",
+            member_limit=1,
+        )
+        await message.answer(
+            "🔗 <b>Ссылка для одного пользователя</b>\n"
+            + html.escape(invite.invite_link)
+            + "\n\nПосле вступления одного человека ссылка перестанет работать."
+        )
+        return True, ""
+
 
     if special == "reset_newcomer":
         if target_id is None:

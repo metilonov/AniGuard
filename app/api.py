@@ -962,6 +962,7 @@ async def create_rp(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     await ensure_admin(chat_id, user)
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     chat = await get_chat_or_raise(session, chat_id)
     count = await session.scalar(select(func.count()).select_from(RPCommand).where(RPCommand.chat_id == chat_id))
     premium_access = await has_premium_access(session, chat_id=chat_id, user_id=user.id)
@@ -990,6 +991,7 @@ async def update_rp(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     await ensure_admin(chat_id, user)
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     row = await session.get(RPCommand, command_id)
     if not row or row.chat_id != chat_id:
         raise HTTPException(status_code=404, detail="RP command not found")
@@ -1011,6 +1013,7 @@ async def delete_rp(
     session: AsyncSession = Depends(get_session),
 ) -> None:
     await ensure_admin(chat_id, user)
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     row = await session.get(RPCommand, command_id)
     if not row or row.chat_id != chat_id:
         raise HTTPException(status_code=404, detail="RP command not found")
@@ -1169,6 +1172,25 @@ async def premium_invoice(
 # Premium custom moderation commands
 # ---------------------------------------------------------------------------
 
+async def require_constructor_premium(
+    session: AsyncSession,
+    *,
+    chat_id: int | None,
+    user: TelegramUser,
+) -> None:
+    """Allow the constructor for Premium accounts or Premium chats only."""
+    if chat_id is not None:
+        await ensure_admin(chat_id, user)
+        if await has_premium_access(session, chat_id=chat_id, user_id=user.id):
+            return
+    if await entity_has_premium(session, "user", user.id):
+        return
+    raise HTTPException(
+        status_code=403,
+        detail="Конструктор доступен только Premium-аккаунтам и Premium-беседам",
+    )
+
+
 @router.get("/chats/{chat_id}/custom-commands")
 async def list_custom_commands(
     chat_id: int,
@@ -1213,6 +1235,7 @@ async def create_custom_command(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     await ensure_admin(chat_id, user)
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     if not await has_premium_access(session, chat_id=chat_id, user_id=user.id):
         raise HTTPException(status_code=403, detail="Конструктор команд модерации доступен с Premium")
     trigger = payload.trigger.strip().casefold().lstrip("/")
@@ -1241,6 +1264,7 @@ async def update_custom_command(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     await ensure_admin(chat_id, user)
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     if not await has_premium_access(session, chat_id=chat_id, user_id=user.id):
         raise HTTPException(status_code=403, detail="Команды заморожены до продления Premium")
     row = await session.get(CustomCommand, command_id)
@@ -1273,6 +1297,7 @@ async def delete_custom_command(
     session: AsyncSession = Depends(get_session),
 ) -> None:
     await ensure_admin(chat_id, user)
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     row = await session.get(CustomCommand, command_id)
     if not row or row.chat_id != chat_id:
         raise HTTPException(status_code=404, detail="Кастомная команда не найдена")
@@ -1342,6 +1367,7 @@ async def create_game_command(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     await ensure_admin(chat_id, user)
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     trigger = payload.trigger.strip().casefold().lstrip("/")
     if not trigger or "\n" in trigger:
         raise HTTPException(status_code=400, detail="Некорректный триггер игровой команды")
@@ -1368,6 +1394,7 @@ async def update_game_command(
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
     await ensure_admin(chat_id, user)
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     row = await session.get(GameCommand, command_id)
     if not row or row.chat_id != chat_id:
         raise HTTPException(status_code=404, detail="Игровая команда не найдена")
@@ -1399,6 +1426,7 @@ async def delete_game_command(
     session: AsyncSession = Depends(get_session),
 ) -> None:
     await ensure_admin(chat_id, user)
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     row = await session.get(GameCommand, command_id)
     if not row or row.chat_id != chat_id:
         raise HTTPException(status_code=404, detail="Игровая команда не найдена")
@@ -2128,8 +2156,11 @@ def _style_payload(row: ResponseStylePack, *, include_templates: bool = True) ->
 
 @router.get("/styles/constructor")
 async def style_constructor_catalog(
+    chat_id: int | None = Query(default=None),
     user: TelegramUser = Depends(current_telegram_user),
+    session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     return {
         "variables": STYLE_VARIABLES,
         "examples": STYLE_EXAMPLES,
@@ -2147,9 +2178,11 @@ async def style_constructor_catalog(
 
 @router.get("/styles/mine")
 async def my_style_packs(
+    chat_id: int | None = Query(default=None),
     user: TelegramUser = Depends(current_telegram_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     rows = (await session.scalars(
         select(ResponseStylePack).where(ResponseStylePack.creator_id == user.id).order_by(ResponseStylePack.id.desc())
     )).all()
@@ -2159,9 +2192,11 @@ async def my_style_packs(
 @router.post("/styles", status_code=201)
 async def create_style_pack(
     payload: StylePackCreate,
+    chat_id: int | None = Query(default=None),
     user: TelegramUser = Depends(current_telegram_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     await upsert_user(session, user)
     templates = validate_templates(payload.templates)
     code = style_code()
@@ -2187,9 +2222,11 @@ async def create_style_pack(
 async def update_style_pack(
     style_id: int,
     payload: StylePackUpdate,
+    chat_id: int | None = Query(default=None),
     user: TelegramUser = Depends(current_telegram_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     row = await session.get(ResponseStylePack, style_id)
     if not row or row.creator_id != user.id:
         raise HTTPException(status_code=404, detail="Стиль не найден")
@@ -2212,9 +2249,11 @@ async def update_style_pack(
 @router.post("/styles/{style_id}/submit")
 async def submit_style_pack(
     style_id: int,
+    chat_id: int | None = Query(default=None),
     user: TelegramUser = Depends(current_telegram_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
+    await require_constructor_premium(session, chat_id=chat_id, user=user)
     row = await session.get(ResponseStylePack, style_id)
     if not row or row.creator_id != user.id:
         raise HTTPException(status_code=404, detail="Стиль не найден")

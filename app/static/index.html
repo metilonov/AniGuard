@@ -2706,6 +2706,7 @@ html[data-theme="dark"] {
   }
 
   function setView(view) {
+    if (['custom','game','rp'].includes(view) && !premiumAvailable()) { openPremiumDialog('Конструкторы команд доступны только Premium-аккаунтам и Premium-беседам.'); view = 'commands'; }
     const groupOnlyViews = new Set(['overview','moderation','commands','group-profile','members','reports','logs','settings','custom','game','rp']);
     if (!hasConnectedChats() && groupOnlyViews.has(view)) {
       notify('Подключите группу, чтобы открыть настройки беседы.', true);
@@ -3281,7 +3282,7 @@ html[data-theme="dark"] {
     const node = $('#menu-links');
     if (!node) return;
     const links = [
-      ['constructor', 'i-menu-constructor', 'constructor', 'Конструктор', 'Команды и собственные стили ответов'],
+      ['constructor', 'i-menu-constructor', 'constructor', 'Конструктор · Premium', 'Только для Premium-аккаунта или Premium-беседы'],
       ['support', 'i-menu-support', 'support', 'Чат с поддержкой', 'Связаться с командой AniGuard'],
       ['settings', 'i-menu-settings', 'settings', 'Настройки', 'Оформление и параметры пользователя'],
       ['wiki', 'i-menu-wiki', 'wiki', 'Wiki', 'Все команды и автоматическая модерация'],
@@ -3332,7 +3333,7 @@ html[data-theme="dark"] {
   }
 
   async function loadConstructorData() {
-    const [catalog,mine]=await Promise.all([api('/api/styles/constructor'),api('/api/styles/mine')]);
+    const constructorQuery=state.chatId?`?chat_id=${encodeURIComponent(state.chatId)}`:''; const [catalog,mine]=await Promise.all([api('/api/styles/constructor'+constructorQuery),api('/api/styles/mine'+constructorQuery)]);
     state.styleCatalog=catalog; state.stylePacks=mine.items||[];
     renderConstructorVariables(); renderConstructorCommandSelect(); renderConstructorTemplates(); renderStylePacks(); renderConstructorExamples();
   }
@@ -3376,8 +3377,9 @@ html[data-theme="dark"] {
     const payload={name:$('#constructor-style-name').value.trim(),description:$('#constructor-description').value.trim(),base_style:$('#constructor-base-style').value,templates:state.constructorTemplates,preview_text:$('#constructor-preview').textContent.trim()};
     if(!payload.name||!Object.keys(payload.templates).length){notify('Укажите название и добавьте хотя бы один шаблон.',true);return;}
     try{
-      if(state.constructorEditingId) await api(`/api/styles/${state.constructorEditingId}`,{method:'PATCH',body:JSON.stringify(payload)});
-      else await api('/api/styles',{method:'POST',body:JSON.stringify(payload)});
+      const constructorQuery=state.chatId?`?chat_id=${encodeURIComponent(state.chatId)}`:'';
+      if(state.constructorEditingId) await api(`/api/styles/${state.constructorEditingId}${constructorQuery}`,{method:'PATCH',body:JSON.stringify(payload)});
+      else await api('/api/styles'+constructorQuery,{method:'POST',body:JSON.stringify(payload)});
       state.constructorEditingId=null; state.constructorTemplates={}; notify('Черновик стиля сохранён.'); await loadConstructorData();
     }catch(error){notify(error.message,true)}
   }
@@ -3406,6 +3408,7 @@ html[data-theme="dark"] {
 
   async function saveConstructorCommand() {
     if(!state.chatId){notify('Сначала подключите и выберите беседу.',true);return;}
+    if(!premiumAvailable()){openPremiumDialog('Конструктор доступен только Premium-аккаунтам и Premium-беседам.');return;}
     const type=$('#constructor-command-type').value, response=$('#constructor-command-response').value.trim();
     const name=$('#constructor-command-name').value.trim(), trigger=$('#constructor-command-trigger').value.trim();
     if(!response){notify('Добавьте полный текст ответа команды.',true);return;}
@@ -3527,6 +3530,7 @@ html[data-theme="dark"] {
     content.classList.add('user-action-content-plain');
 
     if (action === 'constructor') {
+      if (!premiumAvailable()) { openPremiumDialog('Конструктор доступен только Premium-аккаунтам и Premium-беседам.'); return; }
       title.textContent = 'Конструктор';
       subtitle.textContent = 'Команды и стили ответов';
       content.innerHTML = constructorContent();
@@ -4686,7 +4690,7 @@ html[data-theme="dark"] {
       const styleExample=event.target.closest('[data-use-style-example]');if(styleExample){const example=(state.styleCatalog?.examples||[])[Number(styleExample.dataset.useStyleExample)];if(example){const select=$('#constructor-template-key');const exists=[...select.options].some(x=>x.value===example.key);select.value=exists?example.key:'__custom__';if(!exists)$('#constructor-template-custom-key').value=example.key;$('#constructor-template-text').value=example.template;notify('Пример загружен в редактор.')}}
       if(event.target.closest('[data-save-style-pack]')) saveStyleDraft();
       const editPack=event.target.closest('[data-edit-style-pack]');if(editPack){const pack=state.stylePacks.find(x=>x.id===Number(editPack.dataset.editStylePack));if(pack){state.constructorEditingId=pack.id;state.constructorTemplates={...(pack.templates||{})};$('#constructor-style-name').value=pack.name;$('#constructor-description').value=pack.description||'';$('#constructor-base-style').value=pack.base_style;renderConstructorTemplates();notify('Стиль загружен в редактор.')}}
-      const submitPack=event.target.closest('[data-submit-style-pack]');if(submitPack){try{await api(`/api/styles/${submitPack.dataset.submitStylePack}/submit`,{method:'POST'});notify('Стиль отправлен на модерацию.');await loadConstructorData();}catch(error){notify(error.message,true)}}
+      const submitPack=event.target.closest('[data-submit-style-pack]');if(submitPack){try{await api(`/api/styles/${submitPack.dataset.submitStylePack}/submit${state.chatId?`?chat_id=${encodeURIComponent(state.chatId)}`:''}`,{method:'POST'});notify('Стиль отправлен на модерацию.');await loadConstructorData();}catch(error){notify(error.message,true)}}
       if(event.target.closest('[data-save-constructor-command]')) saveConstructorCommand();
       if(event.target.closest('[data-reset-constructor-command]')) resetConstructorCommand();
       const applyStyle=event.target.closest('[data-apply-built-in-style]');if(applyStyle){try{await api(`/api/chats/${state.chatId}/response-style`,{method:'PUT',body:JSON.stringify({style:applyStyle.dataset.applyBuiltInStyle,length:'full',delete_command_message:false,reply_in_thread:false})});state.settings.response_style=applyStyle.dataset.applyBuiltInStyle;state.settings.custom_style_code='';renderProfile();notify('Стиль беседы обновлён.');$('#user-action-dialog').close();}catch(error){notify(error.message,true)}}

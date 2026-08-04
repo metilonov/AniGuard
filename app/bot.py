@@ -3542,11 +3542,16 @@ async def _execute_builtin_special(
         return True, "Сообщение закреплено."
     if special == "unpin_reply":
         if not message.reply_to_message:
-            raise ValueError("Ответьте на закреплённое сообщение")
+            raise ValueError(
+                "Ответьте командой «открепить» "
+                "на закреплённое сообщение"
+            )
+
         await bot.unpin_chat_message(
-            chat.id,
-            message.reply_to_message.message_id,
+            chat_id=chat.id,
+            message_id=message.reply_to_message.message_id,
         )
+
         return True, "Сообщение откреплено."
 
     if special == "unpin_all":

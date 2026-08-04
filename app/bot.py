@@ -2714,8 +2714,50 @@ async def operations_maintenance_worker() -> None:
         await asyncio.sleep(30)
 
 
+# ANIGUARD_MEMBERSHIP_SERVICE_CLEANUP_V2
+@router.message(
+    F.left_chat_member
+    | F.pinned_message
+)
+async def cleanup_membership_service_message(
+    message: Message,
+) -> None:
+    """Удаляет служебные сообщения Telegram."""
+
+    try:
+        await message.delete()
+
+    except Exception as exc:
+        logger.debug(
+            (
+                "Не удалось удалить служебное "
+                "сообщение: chat_id=%s "
+                "message_id=%s error=%s"
+            ),
+            message.chat.id,
+            message.message_id,
+            exc,
+        )
+
+
 @router.message(F.new_chat_members)
 async def new_members_handler(message: Message) -> None:
+    # ANIGUARD_DELETE_NEW_MEMBER_SERVICE_V2
+    try:
+        await message.delete()
+
+    except Exception as exc:
+        logger.debug(
+            (
+                "Не удалось удалить сообщение "
+                "о вступлении: chat_id=%s "
+                "message_id=%s error=%s"
+            ),
+            message.chat.id,
+            message.message_id,
+            exc,
+        )
+
     await ensure_context(message)
     async with SessionFactory() as session:
         chat = await upsert_chat(session, message.chat)
@@ -4978,6 +5020,29 @@ async def delete_pin_service_message_only(
         )
 
 
+# ANIGUARD_EARLY_CHATINFO_ALIASES_V2
+@router.message(
+    (
+        (F.chat.type == ChatType.GROUP)
+        | (F.chat.type == ChatType.SUPERGROUP)
+    ),
+    F.text.regexp(
+        r"(?i)^\s*(?:"
+        r"/chatinfo(?:@[A-Za-z0-9_]+)?"
+        r"|/?чат[_\s]+инф(?:а|о)"
+        r"|/?инфа"
+        r"|/?инфо[_\s]+чата"
+        r"|/?информация[_\s]+о[_\s]+беседе"
+        r"|/?карта[_\s]+деревни"
+        r")\s*$"
+    ),
+)
+async def early_chatinfo_alias_handler(
+    message: Message,
+) -> None:
+    await chatinfo_handler(message)
+
+
 @router.message((F.chat.type == ChatType.GROUP) | (F.chat.type == ChatType.SUPERGROUP))
 async def group_message_pipeline(message: Message) -> None:
     if not message.from_user or message.from_user.is_bot:
@@ -5285,20 +5350,25 @@ async def chatinfo_handler(message: Message) -> None:
             active = int(await session.scalar(select(func.count()).select_from(Membership).where(Membership.chat_id == message.chat.id, Membership.last_seen_at >= utcnow() - timedelta(days=7))) or 0)
         await message.answer(
             "💬 <b>Информация о беседе</b>\n\n"
-            f"Название: {html.escape(chat.title if chat else message.chat.title or 'Беседа')}\n"
-            f"ID: <code>{message.chat.id}</code>\n"
-            f"Участников в базе: {members}\n"
-            f"Администрации: {admins}\n"
-            f"Активных за неделю: {active}\n"
-            f"Антирейд: {'включён' if settings_data.get('anti_raid_enabled') else 'выключен'}\n"
-            f"Автомодерация: {'включена' if settings_data.get('anti_flood_enabled') else 'выключена'}\n"
-            f"Тестовый режим: {'включён' if settings_data.get('test_mode_enabled') else 'выключен'}"
+            f"🏷 <b>Название:</b> "
+            f"{html.escape(chat.title if chat else message.chat.title or 'Беседа')}\n"
+            f"🆔 <b>Telegram ID:</b> "
+            f"<code>{message.chat.id}</code>\n"
+            f"👥 <b>Участников в базе:</b> {members}\n"
+            f"🛡 <b>Администрации:</b> {admins}\n"
+            f"🟢 <b>Активных за неделю:</b> {active}\n\n"
+            f"🚨 <b>Антирейд:</b> "
+            f"{'✅ включён' if settings_data.get('anti_raid_enabled') else '❌ выключен'}\n"
+            f"🤖 <b>Автомодерация:</b> "
+            f"{'✅ включена' if settings_data.get('anti_flood_enabled') else '❌ выключена'}\n"
+            f"🧪 <b>Тестовый режим:</b> "
+            f"{'✅ включён' if settings_data.get('test_mode_enabled') else '❌ выключен'}"
         )
     except Exception as exc:
         await send_admin_error(message, exc)
 
 
-@router.message(F.text.regexp(r"(?i)^\s*/?карта[_\s]+деревни\s*$"))
+@router.message(F.text.regexp(r"(?i)^\s*/?(?:карта[_\s]+деревни|чат[_\s]+инф(?:а|о)|инфа|инфо[_\s]+чата|информация[_\s]+о[_\s]+беседе)\s*$"))
 async def chatinfo_alias_handler(message: Message) -> None:
     await chatinfo_handler(message)
 

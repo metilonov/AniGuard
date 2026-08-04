@@ -4235,50 +4235,26 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
                     )
 
                 else:
-                    await message.answer(
-                        render_action_response(
-                            style=style,
-                            action=(
-                                action
-                                if action
-                                in ACTION_TITLES
-                                else "case"
-                            ),
-                            custom_templates=(
-                                custom_style_templates
-                            ),
-                            actor_id=(
-                                message.from_user.id
-                            ),
-                            actor_name=(
-                                message
-                                .from_user
-                                .first_name
-                            ),
-                            target_id=(
-                                target_id
-                                or message.from_user.id
-                            ),
-                            target_name=(
-                                "User"
-                                if target_id
-                                else message
-                                .from_user
-                                .first_name
-                            ),
-                            reason=special_result,
-                            chat_title=chat.title,
-                            chat_id=chat.id,
-                            status="Выполнено",
-                            **(
-                                _builtin_command_response_context(
-                                    config,
-                                    matched_key,
-                                    name,
-                                )
-                            ),
-                        )
+                    # ANIGUARD_SPECIAL_CASE_TITLES
+                    special_response = render_action_response(style=style, action=action if action in ACTION_TITLES else 'case', custom_templates=custom_style_templates, actor_id=message.from_user.id, actor_name=message.from_user.first_name, target_id=target_id or message.from_user.id, target_name='User' if target_id else message.from_user.first_name, reason=special_result, chat_title=chat.title, chat_id=chat.id, status='Выполнено', **_builtin_command_response_context(config, matched_key, name))
+
+                    special_title = {
+                        "pin_reply": "Сообщение закреплено",
+                        "unpin_reply": "Сообщение откреплено",
+                        "unpin_all": "Все сообщения откреплены",
+                        "unpinall": "Все сообщения откреплены",
+                    }.get(
+                        str(config.get("special") or "").strip()
                     )
+
+                    if special_title:
+                        special_response = special_response.replace(
+                            "Открытие дела выполнено",
+                            special_title,
+                            1,
+                        )
+
+                    await message.answer(special_response)
             return True
 
         if action == "purge":

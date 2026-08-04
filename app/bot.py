@@ -4166,29 +4166,119 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
         if special_handled:
             await session.commit()
             if special_result:
-                special_key = str(config.get("special") or "")
+                special_key = str(
+                    config.get("special") or ""
+                ).strip()
 
-                if special_key in {"pin_reply", "unpin_reply"}:
-                    await message.answer(special_result)
-                    return True
+                normalized_result = _normalize_phrase(
+                    special_result
+                )
 
-                if style != "custom" and config.get("_response_overridden") and response:
-                    await _send_compact_command_result(message, command=config, target_id=target_id, reason=special_result, chat_title=chat.title)
-                else:
-                    await message.answer(render_action_response(
-                        style=style,
-                        action=action if action in ACTION_TITLES else "case",
-                        custom_templates=custom_style_templates,
-                        actor_id=message.from_user.id,
-                        actor_name=message.from_user.first_name,
-                        target_id=target_id or message.from_user.id,
-                        target_name="User" if target_id else message.from_user.first_name,
+                direct_response = None
+
+                if (
+                    special_key == "pin_reply"
+                    or normalized_result
+                    == "сообщение закреплено"
+                ):
+                    direct_response = (
+                        "Сообщение закреплено"
+                    )
+
+                elif (
+                    special_key == "unpin_reply"
+                    or normalized_result
+                    == "сообщение откреплено"
+                ):
+                    direct_response = (
+                        "Сообщение откреплено"
+                    )
+
+                elif (
+                    special_key
+                    in {
+                        "unpin_all",
+                        "unpinall",
+                    }
+                    or normalized_result
+                    in {
+                        "все сообщения откреплены",
+                        (
+                            "все закрепленные "
+                            "сообщения сняты"
+                        ),
+                        "все закрепы сняты",
+                    }
+                ):
+                    direct_response = (
+                        "Все сообщения откреплены"
+                    )
+
+                if direct_response:
+                    await message.answer(
+                        direct_response
+                    )
+
+                elif (
+                    style != "custom"
+                    and config.get(
+                        "_response_overridden"
+                    )
+                    and response
+                ):
+                    await _send_compact_command_result(
+                        message,
+                        command=config,
+                        target_id=target_id,
                         reason=special_result,
                         chat_title=chat.title,
-                        chat_id=chat.id,
-                        status="Выполнено",
-                        **_builtin_command_response_context(config, matched_key, name),
-                    ))
+                    )
+
+                else:
+                    await message.answer(
+                        render_action_response(
+                            style=style,
+                            action=(
+                                action
+                                if action
+                                in ACTION_TITLES
+                                else "case"
+                            ),
+                            custom_templates=(
+                                custom_style_templates
+                            ),
+                            actor_id=(
+                                message.from_user.id
+                            ),
+                            actor_name=(
+                                message
+                                .from_user
+                                .first_name
+                            ),
+                            target_id=(
+                                target_id
+                                or message.from_user.id
+                            ),
+                            target_name=(
+                                "User"
+                                if target_id
+                                else message
+                                .from_user
+                                .first_name
+                            ),
+                            reason=special_result,
+                            chat_title=chat.title,
+                            chat_id=chat.id,
+                            status="Выполнено",
+                            **(
+                                _builtin_command_response_context(
+                                    config,
+                                    matched_key,
+                                    name,
+                                )
+                            ),
+                        )
+                    )
             return True
 
         if action == "purge":

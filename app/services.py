@@ -830,13 +830,15 @@ async def update_chat_settings(
 
 
 async def user_is_chat_admin(bot: Bot, chat_id: int, user_id: int) -> bool:
+    """Return True only for the current Telegram group creator."""
     member = await bot.get_chat_member(chat_id, user_id)
-    return member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}
+    return member.status == ChatMemberStatus.CREATOR
 
 
 async def require_chat_admin(bot: Bot, chat_id: int, user_id: int) -> None:
+    """Protect the regular group panel: only the group creator may use it."""
     if not await user_is_chat_admin(bot, chat_id, user_id):
-        raise PermissionError("Only chat administrators can perform this action")
+        raise PermissionError("Панель управления доступна только создателю группы")
 
 
 async def list_admin_chats(
@@ -857,14 +859,13 @@ async def list_admin_chats(
             except Exception:
                 pass
             member = await bot.get_chat_member(chat.id, user_id)
-            if member.status not in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}:
+            if member.status != ChatMemberStatus.CREATOR:
                 continue
-            if member.status == ChatMemberStatus.CREATOR:
-                await ensure_membership(session, chat.id, user_id, "creator")
-                merged = default_chat_settings()
-                merged.update(chat.settings or {})
-                merged["owner_user_id"] = user_id
-                chat.settings = merged
+            await ensure_membership(session, chat.id, user_id, "creator")
+            merged = default_chat_settings()
+            merged.update(chat.settings or {})
+            merged["owner_user_id"] = user_id
+            chat.settings = merged
             details = await premium_access_details(session, chat_id=chat.id, user_id=user_id)
             result.append(
                 {

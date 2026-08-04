@@ -204,20 +204,11 @@ def http_error(exc: Exception) -> HTTPException:
 
 
 async def ensure_admin(chat_id: int, user: TelegramUser) -> None:
-    """Allow a Telegram admin, internal AniGuard admin, or global bot owner."""
-    if user.id in settings.admin_ids:
-        return
+    """Allow only the current Telegram group creator in the regular panel."""
     try:
         async with SessionFactory() as session:
             await ensure_entity_available(session, user_id=user.id, chat_id=chat_id)
-            membership = await get_membership(session, chat_id, user.id)
-            penalty_active = normalize_penalty_status(membership.penalty_status) != "none"
-            internal_role = effective_role(membership.role, membership.penalty_status)
             await session.commit()
-            if penalty_active:
-                raise PermissionError("Полномочия временно приостановлены штрафным статусом")
-            if is_admin_role(internal_role):
-                return
         await require_chat_admin(bot, chat_id, user.id)
     except HTTPException:
         raise
@@ -303,33 +294,7 @@ async def get_chats(
     user: TelegramUser = Depends(current_telegram_user),
     session: AsyncSession = Depends(get_session),
 ) -> list[dict[str, Any]]:
-    if user.id in settings.admin_ids:
-        rows = (
-            await session.scalars(
-                select(Chat).where(Chat.is_active.is_(True)).order_by(Chat.updated_at.desc()).limit(300)
-            )
-        ).all()
-        result: list[dict[str, Any]] = []
-        for row in rows:
-            try:
-                telegram_chat = await bot.get_chat(row.id)
-                row = await upsert_chat(session, telegram_chat)
-            except Exception:
-                pass
-            details = await premium_access_details(session, chat_id=row.id, user_id=user.id)
-            result.append({
-                "id": row.id,
-                "title": row.title,
-                "username": row.username,
-                "premium": details["active"],
-                "premium_until": details["until"].isoformat() if details["until"] else None,
-                "premium_plan": details["plan"],
-                "premium_source": details["source"],
-                "owner_id": details["owner_id"],
-                "avatar_url": chat_avatar_url(row),
-            })
-        await session.commit()
-        return result
+    """Return only groups where the current user is the Telegram creator."""
     await ensure_entity_available(session, user_id=user.id)
     result = await list_admin_chats(session, bot, user.id)
     await session.commit()

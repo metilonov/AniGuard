@@ -4098,51 +4098,6 @@ async def _execute_builtin_special(
 
 
 
-# ANIGUARD_AUTO_CLEAN_VERBOSE_MESSAGES
-AUTO_CLEAN_VERBOSE_DELAY = 12
-
-async def _aniguard_delete_later(bot, chat_id, message_id, delay=AUTO_CLEAN_VERBOSE_DELAY):
-    try:
-        await asyncio.sleep(delay)
-        await bot.delete_message(chat_id, message_id)
-    except Exception:
-        pass
-
-async def _cleanup_command_traces(message, bot_reply=None):
-    try:
-        await message.delete()
-    except Exception:
-        pass
-
-    try:
-        replied = getattr(message, "reply_to_message", None)
-        if (
-            replied
-            and getattr(replied, "from_user", None)
-            and getattr(replied.from_user, "is_bot", False)
-        ):
-            asyncio.create_task(
-                _aniguard_delete_later(
-                    message.bot,
-                    replied.chat.id,
-                    replied.message_id,
-                )
-            )
-    except Exception:
-        pass
-
-    if bot_reply is not None:
-        try:
-            asyncio.create_task(
-                _aniguard_delete_later(
-                    message.bot,
-                    bot_reply.chat.id,
-                    bot_reply.message_id,
-                )
-            )
-        except Exception:
-            pass
-
 async def try_basic_moderation_command(message: Message, chat: Chat, membership: Membership) -> bool:
     """Execute ordinary and Naruto-styled built-in commands.
 
@@ -4309,10 +4264,6 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
                         )
 
                     sent_message = await message.answer(special_response)
-                await _cleanup_command_traces(
-                    message,
-                    sent_message,
-                )
             return True
 
         if action == "purge":
@@ -4997,6 +4948,34 @@ async def aniguard_early_chatinfo_handler(
 
     except Exception as exc:
         await send_admin_error(message, exc)
+
+
+# ANIGUARD_DELETE_PIN_SERVICE_MESSAGES_ONLY
+@router.message(F.pinned_message)
+async def delete_pin_service_message_only(
+    message: Message,
+) -> None:
+    """Удаляет только системную строку Telegram о закреплении."""
+
+    try:
+        # Удаляем ID служебного сообщения.
+        # Само закреплённое сообщение находится
+        # в message.pinned_message и не удаляется.
+        await bot.delete_message(
+            chat_id=message.chat.id,
+            message_id=message.message_id,
+        )
+
+    except Exception:
+        logger.exception(
+            (
+                "Не удалось удалить служебное "
+                "сообщение о закреплении: "
+                "chat_id=%s message_id=%s"
+            ),
+            message.chat.id,
+            message.message_id,
+        )
 
 
 @router.message((F.chat.type == ChatType.GROUP) | (F.chat.type == ChatType.SUPERGROUP))

@@ -141,8 +141,66 @@ class AccessMiddleware(BaseMiddleware):
         data: dict[str, Any],
     ) -> Any:
         from_user = getattr(event, "from_user", None)
-        message_obj = event if isinstance(event, Message) else getattr(event, "message", None)
-        command_token = (((message_obj.text or "").split(maxsplit=1) or [""])[0].split("@", 1)[0].lower()) if message_obj else ""
+
+        message_obj = (
+            event
+            if isinstance(event, Message)
+            else getattr(event, "message", None)
+        )
+
+        raw_message_text = (
+            getattr(message_obj, "text", None) or ""
+            if message_obj
+            else ""
+        )
+
+        command_token = (
+            ((raw_message_text.split(maxsplit=1) or [""])[0])
+            .split("@", 1)[0]
+            .lower()
+        )
+
+        chat_obj = getattr(event, "chat", None)
+
+        if chat_obj is None and message_obj is not None:
+            chat_obj = getattr(message_obj, "chat", None)
+
+        callback_data = str(
+            getattr(event, "data", "") or ""
+        )
+
+        is_registration_callback = callback_data.startswith(
+            "register_chat:"
+        )
+
+        # Новая или неактивная группа не может пользоваться
+        # командами и автомодерацией до завершения регистрации.
+        # Исключение делается только для кнопки регистрации.
+        if (
+            chat_obj
+            and chat_obj.type
+            in {ChatType.GROUP, ChatType.SUPERGROUP}
+        ):
+            async with SessionFactory() as registration_session:
+                registration_chat = await registration_session.get(
+                    Chat,
+                    chat_obj.id,
+                )
+
+                registration_complete = bool(
+                    registration_chat
+                    and registration_chat.is_active
+                    and (
+                        registration_chat.settings or {}
+                    ).get("registration_completed", True)
+                )
+
+            if not registration_complete:
+                if is_registration_callback:
+                    return await handler(event, data)
+
+                return None
+
         if (
             from_user
             and command_token == "/admin"
@@ -151,11 +209,10 @@ class AccessMiddleware(BaseMiddleware):
             and from_user.id not in settings.admin_ids
         ):
             return None
+
         if from_user and from_user.id in settings.admin_ids:
             return await handler(event, data)
-        chat_obj = getattr(event, "chat", None)
-        if chat_obj is None and getattr(event, "message", None):
-            chat_obj = event.message.chat
+
         async with SessionFactory() as session:
             system_row = await session.get(SystemSetting, "admin_panel")
             maintenance = bool(system_row and isinstance(system_row.value, dict) and system_row.value.get("maintenance"))
@@ -683,30 +740,456 @@ async def member_role(chat_id: int, user_id: int) -> str:
         return effective
 
 
-@router.my_chat_member()
-async def bot_membership_changed(event: ChatMemberUpdated) -> None:
-    """Register groups immediately when AniGuard is added or promoted.
+REQUIRED_BOT_ADMIN_RIGHTS: tuple[
+    tuple[str, str],
+    ...
+] = (
+    (
+        "can_delete_messages",
+        "Удаление сообщений",
+    ),
+    (
+        "can_restrict_members",
+        "Блокировка и ограничение участников",
+    ),
+    (
+        "can_invite_users",
+        "Приглашение пользователей",
+    ),
+)
 
-    Telegram sends this update specifically for the bot's own membership, so
-    group discovery no longer depends on somebody sending /panel afterwards.
-    """
-    if event.chat.type not in {ChatType.GROUP, ChatType.SUPERGROUP}:
+
+def registration_keyboard(
+    chat_id: int,
+) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Зарегистрировать беседу",
+                    callback_data=(
+                        f"register_chat:{chat_id}"
+                    ),
+                )
+            ]
+        ]
+    )
+
+
+def missing_registration_rights(
+    bot_member: Any,
+) -> list[str]:
+    status_value = getattr(
+        bot_member.status,
+        "value",
+        str(bot_member.status),
+    )
+
+    if status_value not in {
+        "administrator",
+        "creator",
+    }:
+        return [
+            "Назначить AniGuard администратором",
+            "Удаление сообщений",
+            "Блокировка и ограничение участников",
+            "Приглашение пользователей",
+        ]
+
+    missing: list[str] = []
+
+    for attribute, title in REQUIRED_BOT_ADMIN_RIGHTS:
+        if not bool(
+            getattr(bot_member, attribute, False)
+        ):
+            missing.append(title)
+
+    return missing
+
+
+async def send_registration_prompt(
+    chat_id: int,
+    title: str,
+) -> None:
+    safe_title = html.escape(
+        title or "Новая беседа"
+    )
+
+    registration_text = (
+        "⚠️ <b>Беседа не зарегистрирована</b>\n\n"
+        f"Группа: <b>{safe_title}</b>\n\n"
+        "AniGuard добавлен в эту беседу, "
+        "но его функции пока отключены.\n\n"
+        "Для запуска защиты владелец или "
+        "администратор группы должен нажать "
+        "кнопку регистрации.\n\n"
+        "После нажатия AniGuard проверит свой "
+        "статус и необходимые права."
+    )
+
+    await bot.send_message(
+        chat_id=chat_id,
+        text=registration_text,
+        reply_markup=registration_keyboard(chat_id),
+    )
+
+
+@router.my_chat_member()
+async def bot_membership_changed(
+    event: ChatMemberUpdated,
+) -> None:
+    """Prepare a group and wait for manual registration."""
+
+    if event.chat.type not in {
+        ChatType.GROUP,
+        ChatType.SUPERGROUP,
+    }:
         return
-    status_value = getattr(event.new_chat_member.status, "value", str(event.new_chat_member.status))
+
+    status_value = getattr(
+        event.new_chat_member.status,
+        "value",
+        str(event.new_chat_member.status),
+    )
+
+    should_send_prompt = False
+
     async with SessionFactory() as session:
+        stored_chat = await session.get(
+            Chat,
+            event.chat.id,
+        )
+
         if status_value in {"left", "kicked"}:
-            chat = await session.get(Chat, event.chat.id)
-            if chat is not None:
-                chat.is_active = False
+            if stored_chat is not None:
+                stored_chat.is_active = False
+
+                stored_settings = dict(
+                    stored_chat.settings or {}
+                )
+                stored_settings[
+                    "registration_completed"
+                ] = False
+                stored_chat.settings = stored_settings
+
             await session.commit()
             return
-        try:
-            await sync_chat_from_telegram(session, bot, event.chat.id)
-        except Exception:
-            # The update object is still enough to create the registry row if
-            # Telegram briefly rejects getChat during a permission transition.
-            await upsert_chat(session, event.chat)
+
+        already_registered = bool(
+            stored_chat
+            and stored_chat.is_active
+            and (
+                stored_chat.settings or {}
+            ).get("registration_completed", True)
+        )
+
+        if already_registered:
+            try:
+                await sync_chat_from_telegram(
+                    session,
+                    bot,
+                    event.chat.id,
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Could not refresh registered "
+                    "chat %s: %s",
+                    event.chat.id,
+                    exc,
+                )
+
+            await session.commit()
+            return
+
+        pending_chat = await upsert_chat(
+            session,
+            event.chat,
+        )
+
+        # upsert_chat активирует запись, поэтому явно
+        # возвращаем её в состояние ожидания.
+        pending_chat.is_active = False
+
+        pending_settings = dict(
+            pending_chat.settings or {}
+        )
+        pending_settings.update(
+            {
+                "registration_completed": False,
+                "registration_requested_at": (
+                    utcnow().isoformat()
+                ),
+            }
+        )
+        pending_chat.settings = pending_settings
+
         await session.commit()
+        should_send_prompt = True
+
+    if should_send_prompt:
+        try:
+            await send_registration_prompt(
+                event.chat.id,
+                event.chat.title or "Новая беседа",
+            )
+        except Exception as exc:
+            logger.exception(
+                "Could not send registration "
+                "prompt to chat %s: %s",
+                event.chat.id,
+                exc,
+            )
+
+
+@router.callback_query(
+    F.data.startswith("register_chat:")
+)
+async def register_chat_callback(
+    callback: CallbackQuery,
+) -> None:
+    if not callback.data:
+        await callback.answer(
+            "Некорректные данные регистрации.",
+            show_alert=True,
+        )
+        return
+
+    if callback.message is None:
+        await callback.answer(
+            "Сообщение регистрации недоступно.",
+            show_alert=True,
+        )
+        return
+
+    try:
+        _, raw_chat_id = callback.data.split(
+            ":",
+            1,
+        )
+        chat_id = int(raw_chat_id)
+    except (TypeError, ValueError):
+        await callback.answer(
+            "Некорректный идентификатор беседы.",
+            show_alert=True,
+        )
+        return
+
+    message_chat = callback.message.chat
+
+    if (
+        message_chat.id != chat_id
+        or message_chat.type
+        not in {
+            ChatType.GROUP,
+            ChatType.SUPERGROUP,
+        }
+    ):
+        await callback.answer(
+            "Эта кнопка относится к другой беседе.",
+            show_alert=True,
+        )
+        return
+
+    try:
+        actor_member = await bot.get_chat_member(
+            chat_id,
+            callback.from_user.id,
+        )
+
+        actor_status = getattr(
+            actor_member.status,
+            "value",
+            str(actor_member.status),
+        )
+
+        if actor_status not in {
+            "creator",
+            "administrator",
+        }:
+            await callback.answer(
+                "Регистрацию может выполнить "
+                "только владелец или администратор.",
+                show_alert=True,
+            )
+            return
+
+        async with SessionFactory() as session:
+            system_row = await session.get(
+                SystemSetting,
+                "admin_panel",
+            )
+
+            maintenance = bool(
+                system_row
+                and isinstance(system_row.value, dict)
+                and system_row.value.get("maintenance")
+            )
+
+            if maintenance:
+                await callback.answer(
+                    "AniGuard временно находится "
+                    "на техническом обслуживании.",
+                    show_alert=True,
+                )
+                return
+
+            blocked_user = await get_block_record(
+                session,
+                "user",
+                callback.from_user.id,
+            )
+
+            if blocked_user:
+                await callback.answer(
+                    "Ваш доступ к AniGuard "
+                    "заблокирован.",
+                    show_alert=True,
+                )
+                return
+
+            blocked_chat = await get_block_record(
+                session,
+                "chat",
+                chat_id,
+            )
+
+            if blocked_chat:
+                await callback.answer(
+                    "Эта беседа заблокирована "
+                    "в AniGuard.",
+                    show_alert=True,
+                )
+                return
+
+        bot_info = await bot.get_me()
+
+        bot_member = await bot.get_chat_member(
+            chat_id,
+            bot_info.id,
+        )
+
+        missing_rights = (
+            missing_registration_rights(bot_member)
+        )
+
+        if missing_rights:
+            rights_text = "\n".join(
+                f"• {html.escape(right)}"
+                for right in missing_rights
+            )
+
+            failure_text = (
+                "❌ <b>Регистрация не завершена</b>\n\n"
+                "AniGuard не получил все права, "
+                "необходимые для модерации.\n\n"
+                "<b>Отсутствующие права:</b>\n"
+                f"{rights_text}\n\n"
+                "Откройте настройки группы → "
+                "Администраторы → AniGuard, "
+                "выдайте указанные права и "
+                "нажмите кнопку ещё раз."
+            )
+
+            await callback.message.edit_text(
+                failure_text,
+                reply_markup=registration_keyboard(
+                    chat_id
+                ),
+            )
+
+            await callback.answer(
+                "Не хватает прав администратора.",
+                show_alert=True,
+            )
+            return
+
+        async with SessionFactory() as session:
+            registered_chat = (
+                await sync_chat_from_telegram(
+                    session,
+                    bot,
+                    chat_id,
+                )
+            )
+
+            registered_chat.is_active = True
+
+            registered_settings = dict(
+                registered_chat.settings or {}
+            )
+            registered_settings.update(
+                {
+                    "registration_completed": True,
+                    "registered_by": (
+                        callback.from_user.id
+                    ),
+                    "registered_at": (
+                        utcnow().isoformat()
+                    ),
+                }
+            )
+            registered_chat.settings = (
+                registered_settings
+            )
+
+            await session.commit()
+
+        success_keyboard = None
+
+        if bot_info.username:
+            success_keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [
+                        InlineKeyboardButton(
+                            text=(
+                                "🚀 Открыть AniGuard"
+                            ),
+                            url=(
+                                "https://t.me/"
+                                f"{bot_info.username}"
+                                "?start=panel"
+                            ),
+                        )
+                    ]
+                ]
+            )
+
+        await callback.message.edit_text(
+            (
+                "✅ <b>Беседа зарегистрирована</b>\n\n"
+                "AniGuard получил необходимые "
+                "права администратора.\n\n"
+                "🛡 Защита и модерация запущены.\n"
+                "⚙️ Настройки доступны в Mini App.\n"
+                "📋 Для открытия панели используйте "
+                "команду /panel."
+            ),
+            reply_markup=success_keyboard,
+        )
+
+        await callback.answer(
+            "Беседа зарегистрирована. "
+            "AniGuard начал работу."
+        )
+
+    except Exception as exc:
+        logger.exception(
+            "Could not register chat %s: %s",
+            chat_id,
+            exc,
+        )
+
+        try:
+            await callback.answer(
+                (
+                    "Не удалось зарегистрировать "
+                    "беседу: "
+                    f"{str(exc)[:120]}"
+                ),
+                show_alert=True,
+            )
+        except Exception:
+            pass
 
 
 async def synchronize_registered_chats() -> None:

@@ -4166,6 +4166,12 @@ async def try_basic_moderation_command(message: Message, chat: Chat, membership:
         if special_handled:
             await session.commit()
             if special_result:
+                special_key = str(config.get("special") or "")
+
+                if special_key in {"pin_reply", "unpin_reply"}:
+                    await message.answer(special_result)
+                    return True
+
                 if style != "custom" and config.get("_response_overridden") and response:
                     await _send_compact_command_result(message, command=config, target_id=target_id, reason=special_result, chat_title=chat.title)
                 else:

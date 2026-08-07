@@ -1,0 +1,1539 @@
+from __future__ import annotations
+
+import json
+import secrets
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from aiogram import Bot
+from aiogram.enums import ChatMemberStatus
+from aiogram.types import ChatPermissions, LabeledPrice, User as TgUser
+from sqlalchemy import delete, func, select
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import get_settings
+from app.game_action_catalog import GAME_ACTIONS
+from app.models import (
+    ActiveRestriction,
+    AdminActionLog,
+    BlockedEntity,
+    CaptchaChallenge,
+    Chat,
+    CustomCommand,
+    EntityAccessGrant,
+    GameCommand,
+    Membership,
+    ModerationLog,
+    ModerationRule,
+    Payment,
+    Report,
+    RoleAssignmentHistory,
+    RPCommand,
+    ModerationCase,
+    User,
+    default_chat_settings,
+)
+from app.pricing import get_plan
+from app.feature_services import (
+    CASE_ACTIONS,
+    create_moderation_case,
+    ensure_action_permission,
+    record_moderator_action,
+    start_staff_probation,
+)
+from app.roles import (
+    ACTION_MIN_LEVEL,
+    PENALTY_DEFINITIONS,
+    effective_role,
+    normalize_penalty_status,
+    normalize_role,
+    role_level,
+    temporary_until,
+    validate_action,
+    validate_role_assignment,
+)
+
+
+service_settings = get_settings()
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def as_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+
+
+def is_premium(chat: Chat) -> bool:
+    premium_until = as_utc(chat.premium_until)
+    return bool(premium_until and premium_until > utcnow())
+
+
+async def get_entity_grant(
+    session: AsyncSession,
+    entity_type: str,
+    entity_id: int,
+) -> EntityAccessGrant | None:
+    return await session.scalar(
+        select(EntityAccessGrant).where(
+            EntityAccessGrant.entity_type == entity_type,
+            EntityAccessGrant.entity_id == entity_id,
+        )
+    )
+
+
+async def entity_has_premium(
+    session: AsyncSession,
+    entity_type: str,
+    entity_id: int,
+) -> bool:
+    if entity_type == "chat":
+        chat = await session.get(Chat, entity_id)
+        if chat and is_premium(chat):
+            return True
+    grant = await get_entity_grant(session, entity_type, entity_id)
+    if grant and grant.is_lifetime:
+        return True
+    premium_until = as_utc(grant.premium_until) if grant else None
+    return bool(premium_until and premium_until > utcnow())
+
+
+async def entity_premium_details(
+    session: AsyncSession,
+    entity_type: str,
+    entity_id: int,
+) -> dict[str, Any]:
+    """Return the effective Premium state for a user or a chat."""
+    direct_until: datetime | None = None
+    direct_plan: str | None = None
+    if entity_type == "chat":
+        chat = await session.get(Chat, entity_id)
+        if chat and is_premium(chat):
+            direct_until = as_utc(chat.premium_until)
+            direct_plan = chat.premium_plan
+
+    grant = await get_entity_grant(session, entity_type, entity_id)
+    if grant and grant.is_lifetime:
+        return {
+            "active": True,
+            "until": None,
+            "plan": grant.premium_plan or direct_plan,
+            "lifetime": True,
+        }
+    grant_until = as_utc(grant.premium_until) if grant else None
+    candidates = [value for value in (direct_until, grant_until) if value and value > utcnow()]
+    until = max(candidates) if candidates else None
+    return {
+        "active": until is not None,
+        "until": until,
+        "plan": (grant.premium_plan if grant and grant_until == until else direct_plan),
+        "lifetime": False,
+    }
+
+
+async def chat_owner_id(session: AsyncSession, chat_id: int) -> int | None:
+    chat = await session.get(Chat, chat_id)
+    settings = (chat.settings or {}) if chat else {}
+    configured = settings.get("owner_user_id")
+    if configured:
+        try:
+            return int(configured)
+        except (TypeError, ValueError):
+            pass
+    return await session.scalar(
+        select(Membership.user_id).where(
+            Membership.chat_id == chat_id,
+            Membership.role.in_(["creator", "owner"]),
+        ).limit(1)
+    )
+
+
+async def premium_access_details(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    user_id: int | None = None,
+) -> dict[str, Any]:
+    """Resolve Premium for a group.
+
+    A group has Premium when it has its own active subscription or while its
+    Telegram creator has a user Premium grant.  An ordinary administrator's
+    personal Premium is deliberately not inherited by somebody else's group.
+    """
+    chat_details = await entity_premium_details(session, "chat", chat_id)
+    owner_id = await chat_owner_id(session, chat_id)
+    owner_details = (
+        await entity_premium_details(session, "user", owner_id)
+        if owner_id is not None
+        else {"active": False, "until": None, "plan": None, "lifetime": False}
+    )
+
+    if chat_details["active"]:
+        source = "group"
+        effective = chat_details
+    elif owner_details["active"]:
+        source = "owner"
+        effective = owner_details
+    else:
+        source = None
+        effective = {"active": False, "until": None, "plan": None, "lifetime": False}
+
+    return {
+        "active": bool(effective["active"]),
+        "source": source,
+        "until": effective["until"],
+        "plan": effective["plan"],
+        "lifetime": bool(effective["lifetime"]),
+        "owner_id": owner_id,
+        "group": chat_details,
+        "owner": owner_details,
+        "request_user_id": user_id,
+    }
+
+
+async def has_premium_access(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    user_id: int | None = None,
+) -> bool:
+    return bool((await premium_access_details(session, chat_id=chat_id, user_id=user_id))["active"])
+
+
+async def get_block_record(
+    session: AsyncSession,
+    entity_type: str,
+    entity_id: int,
+) -> BlockedEntity | None:
+    row = await session.scalar(
+        select(BlockedEntity).where(
+            BlockedEntity.entity_type == entity_type,
+            BlockedEntity.entity_id == entity_id,
+            BlockedEntity.is_active.is_(True),
+        )
+    )
+    if row and row.blocked_until:
+        blocked_until = as_utc(row.blocked_until)
+        if blocked_until and blocked_until <= utcnow():
+            row.is_active = False
+            await session.flush()
+            return None
+    return row
+
+
+async def entity_is_blocked(session: AsyncSession, entity_type: str, entity_id: int) -> bool:
+    return await get_block_record(session, entity_type, entity_id) is not None
+
+
+async def ensure_entity_available(
+    session: AsyncSession,
+    *,
+    user_id: int | None = None,
+    chat_id: int | None = None,
+) -> None:
+    if user_id is not None:
+        row = await get_block_record(session, "user", user_id)
+        if row:
+            raise PermissionError(f"Доступ к AniGuard заблокирован. Причина: {row.reason}")
+    if chat_id is not None:
+        row = await get_block_record(session, "chat", chat_id)
+        if row:
+            raise PermissionError(f"AniGuard отключён для этой группы. Причина: {row.reason}")
+
+
+async def set_entity_premium(
+    session: AsyncSession,
+    *,
+    entity_type: str,
+    entity_id: int,
+    days: int,
+    admin_id: int,
+    permanent: bool = False,
+    plan: str = "admin",
+    note: str = "",
+) -> EntityAccessGrant:
+    if entity_type not in {"user", "chat"}:
+        raise ValueError("entity_type должен быть user или chat")
+    if days < 0 or days > 3650:
+        raise ValueError("Срок Premium должен быть от 0 до 3650 дней")
+    row = await get_entity_grant(session, entity_type, entity_id)
+    if row is None:
+        row = EntityAccessGrant(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            granted_by=admin_id,
+        )
+        session.add(row)
+    row.granted_by = admin_id
+    row.premium_plan = plan
+    row.note = note.strip() or None
+    row.is_lifetime = bool(permanent)
+    if permanent:
+        row.premium_until = None
+    elif days == 0:
+        row.premium_until = None
+        row.premium_plan = None
+    else:
+        current = as_utc(row.premium_until)
+        start = current if current and current > utcnow() else utcnow()
+        row.premium_until = start + timedelta(days=days)
+    if entity_type == "chat":
+        chat = await session.get(Chat, entity_id)
+        if chat:
+            chat.premium_until = utcnow() + timedelta(days=3650) if permanent else row.premium_until
+            chat.premium_plan = plan if (permanent or row.premium_until) else None
+    session.add(AdminActionLog(
+        admin_id=admin_id,
+        action="premium_grant" if days else "premium_revoke",
+        entity_type=entity_type,
+        entity_id=entity_id,
+        details={"days": days, "permanent": permanent, "plan": plan, "note": note},
+    ))
+    await session.flush()
+    return row
+
+
+async def set_entity_block(
+    session: AsyncSession,
+    *,
+    entity_type: str,
+    entity_id: int,
+    blocked: bool,
+    admin_id: int,
+    reason: str = "",
+    duration_seconds: int | None = None,
+) -> BlockedEntity:
+    if entity_type not in {"user", "chat"}:
+        raise ValueError("entity_type должен быть user или chat")
+    row = await session.scalar(
+        select(BlockedEntity).where(
+            BlockedEntity.entity_type == entity_type,
+            BlockedEntity.entity_id == entity_id,
+        )
+    )
+    if row is None:
+        row = BlockedEntity(
+            entity_type=entity_type,
+            entity_id=entity_id,
+            blocked_by=admin_id,
+        )
+        session.add(row)
+    row.is_active = blocked
+    row.blocked_by = admin_id
+    row.reason = reason.strip() or "Причина не указана"
+    row.blocked_until = (
+        utcnow() + timedelta(seconds=duration_seconds)
+        if blocked and duration_seconds and duration_seconds > 0
+        else None
+    )
+    session.add(AdminActionLog(
+        admin_id=admin_id,
+        action="block" if blocked else "unblock",
+        entity_type=entity_type,
+        entity_id=entity_id,
+        details={"reason": row.reason, "duration_seconds": duration_seconds},
+    ))
+    await session.flush()
+    return row
+
+
+async def set_restriction(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    user_id: int,
+    kind: str,
+    duration_seconds: int,
+    actor_id: int,
+    reason: str,
+) -> ActiveRestriction:
+    row = await session.scalar(
+        select(ActiveRestriction).where(
+            ActiveRestriction.chat_id == chat_id,
+            ActiveRestriction.user_id == user_id,
+            ActiveRestriction.kind == kind,
+        )
+    )
+    if row is None:
+        row = ActiveRestriction(chat_id=chat_id, user_id=user_id, kind=kind, created_by=actor_id)
+        session.add(row)
+    row.created_by = actor_id
+    row.reason = reason
+    row.expires_at = None if duration_seconds == 0 else utcnow() + timedelta(seconds=duration_seconds)
+    await session.flush()
+    return row
+
+
+async def clear_restriction(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    user_id: int,
+    kind: str,
+) -> None:
+    await session.execute(
+        delete(ActiveRestriction).where(
+            ActiveRestriction.chat_id == chat_id,
+            ActiveRestriction.user_id == user_id,
+            ActiveRestriction.kind == kind,
+        )
+    )
+    await session.flush()
+
+
+async def active_restrictions(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    user_id: int,
+) -> set[str]:
+    rows = (
+        await session.scalars(
+            select(ActiveRestriction).where(
+                ActiveRestriction.chat_id == chat_id,
+                ActiveRestriction.user_id == user_id,
+            )
+        )
+    ).all()
+    result: set[str] = set()
+    for row in rows:
+        expires_at = as_utc(row.expires_at)
+        if expires_at and expires_at <= utcnow():
+            await session.delete(row)
+        else:
+            result.add(row.kind)
+    await session.flush()
+    return result
+
+
+async def upsert_user(session: AsyncSession, user: TgUser | Any) -> User:
+    user_id = int(user.id)
+    db_user = await session.get(User, user_id)
+    if db_user is None:
+        candidate = User(
+            id=user_id,
+            username=getattr(user, "username", None),
+            first_name=getattr(user, "first_name", "User") or "User",
+            last_name=getattr(user, "last_name", None),
+        )
+        try:
+            async with session.begin_nested():
+                session.add(candidate)
+                await session.flush()
+            db_user = candidate
+        except IntegrityError:
+            db_user = await session.get(User, user_id, populate_existing=True)
+            if db_user is None:
+                raise
+    db_user.username = getattr(user, "username", None)
+    db_user.first_name = getattr(user, "first_name", db_user.first_name) or db_user.first_name
+    db_user.last_name = getattr(user, "last_name", None)
+    await session.flush()
+    return db_user
+
+
+def _apply_chat_photo(chat: Chat, chat_obj: Any) -> None:
+    """Copy Telegram group photo identifiers when the object contains them."""
+    if not hasattr(chat_obj, "photo"):
+        return
+    photo = getattr(chat_obj, "photo", None)
+    if photo is None:
+        chat.photo_small_file_id = None
+        chat.photo_big_file_id = None
+        chat.photo_unique_id = None
+        return
+    chat.photo_small_file_id = getattr(photo, "small_file_id", None)
+    chat.photo_big_file_id = getattr(photo, "big_file_id", None)
+    chat.photo_unique_id = (
+        getattr(photo, "big_file_unique_id", None)
+        or getattr(photo, "small_file_unique_id", None)
+    )
+
+
+async def upsert_chat(session: AsyncSession, chat_obj: Any) -> Chat:
+    chat_id = int(chat_obj.id)
+    title = getattr(chat_obj, "title", None) or getattr(chat_obj, "full_name", None) or "Telegram chat"
+    chat = await session.get(Chat, chat_id)
+    if chat is None:
+        candidate = Chat(
+            id=chat_id,
+            title=title,
+            username=getattr(chat_obj, "username", None),
+            settings=default_chat_settings(),
+        )
+        _apply_chat_photo(candidate, chat_obj)
+        try:
+            async with session.begin_nested():
+                session.add(candidate)
+                await session.flush()
+            chat = candidate
+        except IntegrityError:
+            chat = await session.get(Chat, chat_id, populate_existing=True)
+            if chat is None:
+                raise
+    chat.title = title
+    chat.username = getattr(chat_obj, "username", None)
+    _apply_chat_photo(chat, chat_obj)
+    chat.is_active = True
+    await session.flush()
+    return chat
+
+
+async def sync_chat_from_telegram(
+    session: AsyncSession,
+    bot: Bot,
+    chat_id: int,
+    *,
+    sync_administrators: bool = True,
+) -> Chat:
+    """Refresh a registered group and its creator from Telegram.
+
+    This function is used on startup and for ``my_chat_member`` updates, so a
+    restart does not require another /panel command.
+    """
+    telegram_chat = await bot.get_chat(chat_id)
+    chat = await upsert_chat(session, telegram_chat)
+
+    me = await bot.get_me()
+    bot_member = await bot.get_chat_member(chat_id, me.id)
+    bot_status = getattr(bot_member.status, "value", str(bot_member.status))
+    chat.is_active = bot_status not in {"left", "kicked"}
+    if not chat.is_active or not sync_administrators:
+        await session.flush()
+        return chat
+
+    try:
+        admins = await bot.get_chat_administrators(chat_id)
+    except Exception:
+        admins = []
+    merged = default_chat_settings()
+    merged.update(chat.settings or {})
+    for admin in admins:
+        admin_user = admin.user
+        await upsert_user(session, admin_user)
+        role = "creator" if admin.status == ChatMemberStatus.CREATOR else "admin"
+        await ensure_membership(session, chat_id, admin_user.id, role)
+        if role == "creator":
+            merged["owner_user_id"] = admin_user.id
+    chat.settings = merged
+    await session.flush()
+    return chat
+
+
+def chat_avatar_url(chat: Chat) -> str | None:
+    if not (chat.photo_big_file_id or chat.photo_small_file_id):
+        return None
+    version = chat.photo_unique_id or "1"
+    return f"/api/chat-avatars/{chat.id}?v={version}"
+
+
+async def refresh_membership_state(session: AsyncSession, membership: Membership) -> Membership:
+    """Normalize legacy values and lazily expire temporary roles/statuses."""
+    now = utcnow()
+    membership.role = normalize_role(membership.role)
+    membership.penalty_status = normalize_penalty_status(getattr(membership, "penalty_status", "none"))
+
+    role_expires_at = as_utc(getattr(membership, "role_expires_at", None))
+    if role_expires_at and role_expires_at <= now:
+        expired_role = membership.role
+        membership.role = normalize_role(getattr(membership, "previous_role", None) or "member")
+        membership.role_expires_at = None
+        membership.previous_role = None
+        membership.role_assigned_at = now
+        history = await session.scalar(
+            select(RoleAssignmentHistory)
+            .where(
+                RoleAssignmentHistory.chat_id == membership.chat_id,
+                RoleAssignmentHistory.user_id == membership.user_id,
+                RoleAssignmentHistory.new_role == expired_role,
+                RoleAssignmentHistory.reverted_at.is_(None),
+            )
+            .order_by(RoleAssignmentHistory.id.desc())
+        )
+        if history:
+            history.reverted_at = now
+
+    penalty_until = as_utc(getattr(membership, "penalty_until", None))
+    if penalty_until and penalty_until <= now:
+        membership.penalty_status = "none"
+        membership.penalty_until = None
+    return membership
+
+
+async def ensure_membership(
+    session: AsyncSession,
+    chat_id: int,
+    user_id: int,
+    role: str = "member",
+) -> Membership:
+    incoming_role = normalize_role(role)
+    membership = await session.scalar(
+        select(Membership).where(Membership.chat_id == chat_id, Membership.user_id == user_id)
+    )
+    if membership is None:
+        candidate = Membership(chat_id=chat_id, user_id=user_id, role=incoming_role)
+        try:
+            async with session.begin_nested():
+                session.add(candidate)
+                await session.flush()
+            membership = candidate
+        except IntegrityError:
+            membership = await session.scalar(
+                select(Membership).where(
+                    Membership.chat_id == chat_id,
+                    Membership.user_id == user_id,
+                )
+            )
+            if membership is None:
+                raise
+    await refresh_membership_state(session, membership)
+
+    # Telegram's creator status is authoritative. Telegram administrators are
+    # promoted to the standard AniGuard administrator role only when they do
+    # not already have a custom higher/lower staff role assigned in AniGuard.
+    if incoming_role == "creator":
+        membership.role = "creator"
+        membership.previous_role = None
+        membership.role_expires_at = None
+    elif incoming_role == "admin" and role_level(membership.role) < role_level("junior_admin"):
+        membership.role = "admin"
+    membership.last_seen_at = utcnow()
+    await session.flush()
+    return membership
+
+
+async def get_membership(
+    session: AsyncSession,
+    chat_id: int,
+    user_id: int,
+) -> Membership:
+    membership = await ensure_membership(session, chat_id, user_id, "member")
+    return await refresh_membership_state(session, membership)
+
+
+async def assign_member_role(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    actor_id: int,
+    target_id: int,
+    new_role: str,
+    duration_seconds: int | None = None,
+    reason: str = "",
+    source: str = "bot",
+) -> Membership:
+    if actor_id == target_id:
+        raise PermissionError("Нельзя изменить собственную роль")
+    actor = await get_membership(session, chat_id, actor_id)
+    target = await get_membership(session, chat_id, target_id)
+    actor_role = "creator" if actor_id in service_settings.admin_ids else effective_role(actor.role, actor.penalty_status)
+    canonical = validate_role_assignment(actor_role, target.role, new_role)
+    if normalize_penalty_status(target.penalty_status) == "severe_violator" and duration_seconds not in (None, 0):
+        raise PermissionError("Злостному нарушителю нельзя назначить временную роль")
+
+    old_role = normalize_role(target.role)
+    fallback_role = normalize_role(target.previous_role) if target.role_expires_at and target.previous_role else old_role
+    if target.role_expires_at:
+        previous_history = await session.scalar(
+            select(RoleAssignmentHistory)
+            .where(
+                RoleAssignmentHistory.chat_id == chat_id,
+                RoleAssignmentHistory.user_id == target_id,
+                RoleAssignmentHistory.reverted_at.is_(None),
+            )
+            .order_by(RoleAssignmentHistory.id.desc())
+        )
+        if previous_history:
+            previous_history.reverted_at = utcnow()
+            previous_history.reverted_by = actor_id
+    until = temporary_until(duration_seconds)
+    target.previous_role = fallback_role if until else None
+    target.role = canonical
+    target.role_expires_at = until
+    target.role_assigned_by = actor_id
+    target.role_assigned_at = utcnow()
+
+    session.add(
+        RoleAssignmentHistory(
+            chat_id=chat_id,
+            user_id=target_id,
+            actor_id=actor_id,
+            old_role=old_role,
+            new_role=canonical,
+            temporary_until=until,
+            reason=(reason or "Роль назначена").strip(),
+            source=source,
+        )
+    )
+    await add_log(
+        session,
+        chat_id,
+        "role_change",
+        actor_id=actor_id,
+        target_id=target_id,
+        reason=(reason or "Роль назначена").strip(),
+        duration_seconds=duration_seconds,
+        details={"old_role": old_role, "new_role": canonical, "temporary_until": until.isoformat() if until else None},
+    )
+    chat_settings = await get_merged_settings(session, chat_id)
+    if (
+        chat_settings.get("staff_probation_enabled", True)
+        and role_level(canonical) >= 2
+        and role_level(old_role) < 2
+    ):
+        await start_staff_probation(
+            session,
+            chat_id=chat_id,
+            user_id=target_id,
+            role=canonical,
+            actor_id=actor_id,
+            days=int(chat_settings.get("staff_probation_days", 7)),
+        )
+    await session.flush()
+    return target
+
+
+async def set_member_penalty_status(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    actor_id: int,
+    target_id: int,
+    status: str,
+    duration_seconds: int | None = None,
+    reason: str = "",
+    bot: Bot | None = None,
+    automatic: bool = False,
+) -> Membership:
+    if actor_id == target_id and not automatic:
+        raise PermissionError("Нельзя назначить штрафной статус самому себе")
+    actor = await get_membership(session, chat_id, actor_id)
+    target = await get_membership(session, chat_id, target_id)
+    actor_role = "creator" if actor_id in service_settings.admin_ids else effective_role(actor.role, actor.penalty_status)
+    if not automatic:
+        if role_level(actor_role) < 3:
+            raise PermissionError("Штрафной статус может назначить модератор или более высокая роль")
+        if role_level(actor_role) <= role_level(target.role):
+            raise PermissionError("Нельзя изменить статус равной или более высокой роли")
+    if normalize_role(target.role) == "creator":
+        raise PermissionError("Создателю беседы нельзя назначить штрафной статус")
+
+    canonical = normalize_penalty_status(status)
+    old_status = normalize_penalty_status(target.penalty_status)
+    old_penalty_until = as_utc(target.penalty_until)
+    until = temporary_until(duration_seconds) if canonical != "none" else None
+    target.penalty_status = canonical
+    target.penalty_until = until
+
+    # Penalty restrictions are tracked separately from a manually issued mute.
+    # This prevents removing a penalty status from accidentally preserving or
+    # erasing an unrelated moderation punishment.
+    if canonical == "none" and old_status == "severe_violator" and as_utc(target.muted_until) == old_penalty_until:
+        target.muted_until = None
+
+    if bot is not None:
+        try:
+            if canonical == "severe_violator":
+                await bot.restrict_chat_member(chat_id, target_id, quarantine_permissions(), until_date=until)
+            elif canonical == "violator":
+                await bot.restrict_chat_member(chat_id, target_id, quarantine_permissions(), until_date=until)
+            elif target.muted_until is None and target.quarantined_until is None:
+                await bot.restrict_chat_member(chat_id, target_id, full_permissions())
+        except Exception:
+            # The database remains authoritative even if Telegram temporarily
+            # rejects a permission update; the message pipeline enforces it too.
+            pass
+
+    await add_log(
+        session,
+        chat_id,
+        "penalty_status",
+        actor_id=actor_id,
+        target_id=target_id,
+        reason=(reason or "Изменение штрафного статуса").strip(),
+        duration_seconds=duration_seconds,
+        details={"old_status": old_status, "new_status": canonical, "automatic": automatic},
+    )
+    await session.flush()
+    return target
+
+
+async def sync_penalty_status_from_warnings(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    actor_id: int,
+    membership: Membership,
+    settings: dict[str, Any],
+    bot: Bot | None = None,
+) -> None:
+    if not settings.get("penalty_status_auto_enabled", True):
+        return
+    severe_threshold = int(settings.get("severe_violator_warning_threshold", 6))
+    violator_threshold = int(settings.get("violator_warning_threshold", 3))
+    if membership.warnings >= severe_threshold:
+        target_status = "severe_violator"
+        duration = int(settings.get("severe_violator_duration_seconds", 30 * 86400))
+    elif membership.warnings >= violator_threshold:
+        target_status = "violator"
+        duration = int(settings.get("violator_duration_seconds", 7 * 86400))
+    else:
+        target_status = "none"
+        duration = None
+    if normalize_penalty_status(membership.penalty_status) != target_status:
+        await set_member_penalty_status(
+            session,
+            chat_id=chat_id,
+            actor_id=actor_id,
+            target_id=membership.user_id,
+            status=target_status,
+            duration_seconds=duration,
+            reason="Автоматически по количеству предупреждений",
+            bot=bot,
+            automatic=True,
+        )
+
+
+async def get_chat_or_raise(session: AsyncSession, chat_id: int) -> Chat:
+    chat = await session.get(Chat, chat_id)
+    if chat is None:
+        raise ValueError("Chat is not registered. Add the bot to the chat and send /panel there first.")
+    return chat
+
+
+async def get_merged_settings(session: AsyncSession, chat_id: int) -> dict[str, Any]:
+    chat = await get_chat_or_raise(session, chat_id)
+    merged = default_chat_settings()
+    merged.update(chat.settings or {})
+    return merged
+
+
+async def update_chat_settings(
+    session: AsyncSession,
+    chat_id: int,
+    patch: dict[str, Any],
+) -> dict[str, Any]:
+    chat = await get_chat_or_raise(session, chat_id)
+    merged = default_chat_settings()
+    merged.update(chat.settings or {})
+    allowed = set(merged)
+    for key, value in patch.items():
+        if key in allowed:
+            merged[key] = value
+    chat.settings = merged
+    await session.flush()
+    return merged
+
+
+async def user_is_chat_admin(bot: Bot, chat_id: int, user_id: int) -> bool:
+    member = await bot.get_chat_member(chat_id, user_id)
+    return member.status in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}
+
+
+async def require_chat_admin(bot: Bot, chat_id: int, user_id: int) -> None:
+    if not await user_is_chat_admin(bot, chat_id, user_id):
+        raise PermissionError("Only chat administrators can perform this action")
+
+
+async def list_admin_chats(
+    session: AsyncSession,
+    bot: Bot,
+    user_id: int,
+    limit: int = 50,
+) -> list[dict[str, Any]]:
+    chats = (await session.scalars(select(Chat).where(Chat.is_active.is_(True)).limit(limit))).all()
+    result: list[dict[str, Any]] = []
+    for chat in chats:
+        try:
+            # Telegram is the source of truth for title, username and photo.
+            # A temporary getChat failure must not hide a persisted group.
+            try:
+                telegram_chat = await bot.get_chat(chat.id)
+                chat = await upsert_chat(session, telegram_chat)
+            except Exception:
+                pass
+            member = await bot.get_chat_member(chat.id, user_id)
+            if member.status not in {ChatMemberStatus.CREATOR, ChatMemberStatus.ADMINISTRATOR}:
+                continue
+            if member.status == ChatMemberStatus.CREATOR:
+                await ensure_membership(session, chat.id, user_id, "creator")
+                merged = default_chat_settings()
+                merged.update(chat.settings or {})
+                merged["owner_user_id"] = user_id
+                chat.settings = merged
+            details = await premium_access_details(session, chat_id=chat.id, user_id=user_id)
+            result.append(
+                {
+                    "id": chat.id,
+                    "title": chat.title,
+                    "username": chat.username,
+                    "premium": details["active"],
+                    "premium_until": details["until"].isoformat() if details["until"] else None,
+                    "premium_plan": details["plan"],
+                    "premium_source": details["source"],
+                    "owner_id": details["owner_id"],
+                    "avatar_url": chat_avatar_url(chat),
+                }
+            )
+        except Exception:
+            continue
+    await session.flush()
+    return result
+
+
+async def add_log(
+    session: AsyncSession,
+    chat_id: int,
+    action: str,
+    actor_id: int | None = None,
+    target_id: int | None = None,
+    reason: str | None = None,
+    duration_seconds: int | None = None,
+    details: dict[str, Any] | None = None,
+) -> ModerationLog:
+    row = ModerationLog(
+        chat_id=chat_id,
+        action=action,
+        actor_id=actor_id,
+        target_id=target_id,
+        reason=reason,
+        duration_seconds=duration_seconds,
+        details=details or {},
+    )
+    session.add(row)
+    await session.flush()
+    return row
+
+
+def full_permissions() -> ChatPermissions:
+    return ChatPermissions(
+        can_send_messages=True,
+        can_send_audios=True,
+        can_send_documents=True,
+        can_send_photos=True,
+        can_send_videos=True,
+        can_send_video_notes=True,
+        can_send_voice_notes=True,
+        can_send_polls=True,
+        can_send_other_messages=True,
+        can_add_web_page_previews=True,
+        can_invite_users=True,
+        can_pin_messages=False,
+        can_change_info=False,
+        can_manage_topics=False,
+    )
+
+
+def muted_permissions() -> ChatPermissions:
+    return ChatPermissions(can_send_messages=False)
+
+
+def quarantine_permissions() -> ChatPermissions:
+    return ChatPermissions(
+        can_send_messages=True,
+        can_send_audios=False,
+        can_send_documents=False,
+        can_send_photos=False,
+        can_send_videos=False,
+        can_send_video_notes=False,
+        can_send_voice_notes=False,
+        can_send_polls=False,
+        can_send_other_messages=False,
+        can_add_web_page_previews=False,
+        can_invite_users=False,
+        can_pin_messages=False,
+        can_change_info=False,
+        can_manage_topics=False,
+    )
+
+
+
+async def apply_punishment_ladder(
+    session: AsyncSession,
+    bot: Bot,
+    *,
+    chat_id: int,
+    actor_id: int,
+    membership: Membership,
+    settings: dict[str, Any],
+    source_message_id: int | None = None,
+    evidence: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Apply the configured step for the member's current warning count.
+
+    The first step is informational because the warning itself has already been
+    recorded. Later steps use Telegram restrictions directly to avoid recursively
+    creating another warning and to keep the whole ladder atomic.
+    """
+    if not settings.get("punishment_ladder_enabled", False):
+        return None
+    steps = settings.get("punishment_ladder") or []
+    if not isinstance(steps, list):
+        return None
+    current = int(membership.warnings or 0)
+    selected: dict[str, Any] | None = None
+    for item in steps:
+        if not isinstance(item, dict):
+            continue
+        try:
+            threshold = int(item.get("warnings", -1))
+        except (TypeError, ValueError):
+            continue
+        if threshold == current:
+            selected = item
+            break
+    if not selected:
+        return None
+
+    action = str(selected.get("action") or "warn")
+    duration = max(0, int(selected.get("duration_seconds") or 0))
+    label = str(selected.get("label") or action)
+    result: dict[str, Any] = {
+        "warnings": current,
+        "action": action,
+        "duration_seconds": duration,
+        "label": label,
+    }
+    if action == "warn":
+        return result
+    if action == "mute":
+        until = None if duration == 0 else utcnow() + timedelta(seconds=duration)
+        await bot.restrict_chat_member(chat_id, membership.user_id, muted_permissions(), until_date=until)
+        membership.muted_until = until
+    elif action == "penalty_violator":
+        await set_member_penalty_status(
+            session, chat_id=chat_id, actor_id=actor_id, target_id=membership.user_id,
+            status="violator", duration_seconds=duration or 604800,
+            reason="Автоматическая лестница наказаний", bot=bot, automatic=True,
+        )
+    elif action == "penalty_severe":
+        await set_member_penalty_status(
+            session, chat_id=chat_id, actor_id=actor_id, target_id=membership.user_id,
+            status="severe_violator", duration_seconds=duration or 2592000,
+            reason="Автоматическая лестница наказаний", bot=bot, automatic=True,
+        )
+    elif action == "ban":
+        until = None if duration == 0 else utcnow() + timedelta(seconds=duration)
+        await bot.ban_chat_member(chat_id, membership.user_id, until_date=until)
+    else:
+        return None
+
+    await add_log(
+        session, chat_id, f"ladder_{action}", actor_id=actor_id,
+        target_id=membership.user_id, reason=label, duration_seconds=duration,
+        details={"warnings": current, "automatic": True},
+    )
+    case = await create_moderation_case(
+        session, chat_id=chat_id, actor_id=actor_id, target_id=membership.user_id,
+        action=f"ladder_{action}", reason=label, duration_seconds=duration,
+        source_message_id=source_message_id,
+        details={"warnings": current, "automatic": True}, evidence=evidence,
+    )
+    result["case_id"] = case.id
+    result["case_code"] = case.code
+    return result
+
+
+async def perform_action(
+    session: AsyncSession,
+    bot: Bot,
+    *,
+    chat_id: int,
+    actor_id: int,
+    action: str,
+    target_id: int | None = None,
+    duration_seconds: int | None = None,
+    amount: int | None = None,
+    reason: str = "",
+    premium_override: bool = False,
+    source_message_id: int | None = None,
+    evidence: dict[str, Any] | None = None,
+    create_case: bool = True,
+) -> dict[str, Any]:
+    chat = await get_chat_or_raise(session, chat_id)
+    await ensure_entity_available(session, user_id=actor_id, chat_id=chat_id)
+    settings = await get_merged_settings(session, chat_id)
+    premium = premium_override or await has_premium_access(session, chat_id=chat_id, user_id=actor_id)
+    reason = reason.strip() or str(settings.get("default_reason") or "Причина не указана")
+
+    target_required = {
+        "warn", "unwarn", "mute", "unmute", "ban", "unban", "kick", "quarantine", "unquarantine", "case",
+        "restrict_media", "unrestrict_media", "restrict_links", "unrestrict_links",
+        "restrict_commands", "unrestrict_commands",
+    }
+    timed_defaults = {
+        "mute": "default_mute_seconds",
+        "ban": "default_ban_seconds",
+        "quarantine": "default_quarantine_seconds",
+        "restrict_media": "default_restrict_media_seconds",
+        "restrict_links": "default_restrict_links_seconds",
+        "restrict_commands": "default_restrict_commands_seconds",
+    }
+    premium_actions = {"quarantine", "susanoo", "case"}
+    if action in target_required and target_id is None:
+        raise ValueError("Не указан пользователь. Ответьте на его сообщение или укажите @username.")
+    if action in premium_actions and not premium:
+        raise PermissionError("Для этого действия нужен AniGuard Premium")
+    if action == "quarantine" and not settings.get("premium_quarantine", True):
+        raise PermissionError("Модуль «Карантин Pro» отключён в настройках")
+    if action == "case" and not settings.get("premium_cases", True):
+        raise PermissionError("Модуль «Дела и доказательства» отключён в настройках")
+
+    if action in timed_defaults and duration_seconds is None:
+        duration_seconds = int(settings.get(timed_defaults[action], 604800))
+    result: dict[str, Any] = {
+        "action": action,
+        "chat_id": chat_id,
+        "target_id": target_id,
+        "duration_seconds": duration_seconds,
+        "reason": reason,
+    }
+
+    membership = await ensure_membership(session, chat_id, target_id) if target_id is not None else None
+    actor_membership = await get_membership(session, chat_id, actor_id)
+    actor_role = "creator" if actor_id in service_settings.admin_ids else effective_role(actor_membership.role, actor_membership.penalty_status)
+    if membership is not None:
+        validate_action(actor_role, membership.role, action, duration_seconds)
+    else:
+        required_level = ACTION_MIN_LEVEL.get(action, 2)
+        if role_level(actor_role) < required_level:
+            raise PermissionError(f"Для действия «{action}» нужен уровень власти {required_level} или выше")
+
+    actor_power = role_level(actor_role)
+    await ensure_action_permission(
+        session,
+        chat_id=chat_id,
+        user_id=actor_id,
+        action=action,
+        duration_seconds=duration_seconds,
+    )
+
+    if settings.get("test_mode_enabled", False):
+        simulated = {
+            **result,
+            "simulated": True,
+            "message": "Тестовый режим: действие рассчитано, но не применено",
+        }
+        await add_log(
+            session, chat_id, f"test_{action}", actor_id=actor_id, target_id=target_id,
+            reason=reason, duration_seconds=duration_seconds,
+            details={"simulated": True, "amount": amount},
+        )
+        if create_case and action in CASE_ACTIONS:
+            case = await create_moderation_case(
+                session, chat_id=chat_id, actor_id=actor_id, target_id=target_id,
+                action=f"test_{action}", reason=reason, duration_seconds=duration_seconds,
+                source_message_id=source_message_id, details=simulated, evidence=evidence,
+            )
+            simulated["case_id"] = case.id
+            simulated["case_code"] = case.code
+        return simulated
+
+    if action == "unwarn" and actor_power == 2 and target_id is not None:
+        own_warning = await session.scalar(
+            select(ModerationLog.id)
+            .where(
+                ModerationLog.chat_id == chat_id,
+                ModerationLog.target_id == target_id,
+                ModerationLog.actor_id == actor_id,
+                ModerationLog.action == "warn",
+            )
+            .order_by(ModerationLog.id.desc())
+            .limit(1)
+        )
+        if own_warning is None:
+            raise PermissionError("Младший модератор может снимать только предупреждения, выданные им самим")
+
+    if action == "unban" and actor_power == 4 and target_id is not None:
+        latest_ban = await session.scalar(
+            select(ModerationLog)
+            .where(
+                ModerationLog.chat_id == chat_id,
+                ModerationLog.target_id == target_id,
+                ModerationLog.action == "ban",
+            )
+            .order_by(ModerationLog.id.desc())
+            .limit(1)
+        )
+        ban_actor_power = None
+        if latest_ban and isinstance(latest_ban.details, dict):
+            ban_actor_power = latest_ban.details.get("actor_role_level")
+        if ban_actor_power is None and latest_ban and latest_ban.actor_id:
+            ban_actor_membership = await session.scalar(
+                select(Membership).where(
+                    Membership.chat_id == chat_id,
+                    Membership.user_id == latest_ban.actor_id,
+                )
+            )
+            ban_actor_power = role_level(ban_actor_membership.role) if ban_actor_membership else 99
+        if latest_ban is None or int(ban_actor_power or 99) > 4:
+            raise PermissionError("Старший модератор может снимать только баны, выданные модераторами")
+
+    if action == "warn":
+        assert membership is not None
+        membership.warnings += 1
+        result["warnings"] = membership.warnings
+        if (
+            not settings.get("punishment_ladder_enabled", False)
+            and settings["warn_threshold"]
+            and membership.warnings >= int(settings["warn_threshold"])
+        ):
+            auto_duration = int(settings.get("default_mute_seconds", 604800))
+            until = utcnow() + timedelta(seconds=auto_duration)
+            await bot.restrict_chat_member(chat_id, target_id, muted_permissions(), until_date=until)
+            membership.muted_until = until
+            result["auto_muted"] = True
+            result["auto_mute_seconds"] = auto_duration
+        if settings.get("punishment_ladder_enabled", False):
+            ladder_result = await apply_punishment_ladder(
+                session, bot, chat_id=chat_id, actor_id=actor_id, membership=membership,
+                settings=settings, source_message_id=source_message_id, evidence=evidence,
+            )
+            if ladder_result:
+                result["punishment_ladder"] = ladder_result
+        else:
+            await sync_penalty_status_from_warnings(
+                session,
+                chat_id=chat_id,
+                actor_id=actor_id,
+                membership=membership,
+                settings=settings,
+                bot=bot,
+            )
+    elif action == "unwarn":
+        assert membership is not None
+        membership.warnings = max(0, membership.warnings - 1)
+        result["warnings"] = membership.warnings
+        await sync_penalty_status_from_warnings(
+            session,
+            chat_id=chat_id,
+            actor_id=actor_id,
+            membership=membership,
+            settings=settings,
+            bot=bot,
+        )
+    elif action == "mute":
+        until = None if duration_seconds == 0 else utcnow() + timedelta(seconds=int(duration_seconds or 0))
+        await bot.restrict_chat_member(chat_id, target_id, muted_permissions(), until_date=until)
+        assert membership is not None
+        membership.muted_until = until
+        result["until"] = until.isoformat() if until else None
+    elif action == "unmute":
+        assert membership is not None
+        membership.muted_until = None
+        penalty = normalize_penalty_status(membership.penalty_status)
+        permissions = quarantine_permissions() if penalty in {"severe_violator", "violator"} else full_permissions()
+        await bot.restrict_chat_member(chat_id, target_id, permissions, until_date=membership.penalty_until)
+    elif action == "ban":
+        until = None if duration_seconds == 0 else utcnow() + timedelta(seconds=int(duration_seconds or 0))
+        await bot.ban_chat_member(chat_id, target_id, until_date=until)
+        result["until"] = until.isoformat() if until else None
+    elif action == "unban":
+        await bot.unban_chat_member(chat_id, target_id, only_if_banned=True)
+    elif action == "kick":
+        await bot.ban_chat_member(chat_id, target_id)
+        await bot.unban_chat_member(chat_id, target_id, only_if_banned=True)
+    elif action == "purge":
+        if not amount:
+            raise ValueError("Не указано количество сообщений")
+        result["requested_count"] = amount
+    elif action == "slow":
+        delay = int(amount or duration_seconds or 15)
+        settings["slow_mode_seconds"] = max(0, min(delay, 3600))
+        chat.settings = settings
+        result["slow_mode_seconds"] = settings["slow_mode_seconds"]
+    elif action == "lock":
+        chat_info = await bot.get_chat(chat_id)
+        if chat_info.permissions:
+            settings["permissions_before_lock"] = chat_info.permissions.model_dump(exclude_none=True)
+        await bot.set_chat_permissions(chat_id, ChatPermissions(can_send_messages=False))
+        settings["chat_locked"] = True
+        chat.settings = settings
+    elif action == "unlock":
+        previous = settings.get("permissions_before_lock")
+        permissions = ChatPermissions(**previous) if isinstance(previous, dict) and previous else full_permissions()
+        await bot.set_chat_permissions(chat_id, permissions)
+        settings["chat_locked"] = False
+        settings.pop("permissions_before_lock", None)
+        chat.settings = settings
+    elif action == "quarantine":
+        until = None if duration_seconds == 0 else utcnow() + timedelta(seconds=int(duration_seconds or 0))
+        await bot.restrict_chat_member(chat_id, target_id, quarantine_permissions(), until_date=until)
+        assert membership is not None
+        membership.quarantined_until = until
+        result["until"] = until.isoformat() if until else None
+    elif action == "unquarantine":
+        assert membership is not None
+        membership.quarantined_until = None
+        penalty = normalize_penalty_status(membership.penalty_status)
+        permissions = quarantine_permissions() if penalty in {"severe_violator", "violator"} else full_permissions()
+        await bot.restrict_chat_member(chat_id, target_id, permissions, until_date=membership.penalty_until)
+    elif action == "susanoo":
+        chat_info = await bot.get_chat(chat_id)
+        if chat_info.permissions and "permissions_before_lock" not in settings:
+            settings["permissions_before_lock"] = chat_info.permissions.model_dump(exclude_none=True)
+        await bot.set_chat_permissions(chat_id, ChatPermissions(can_send_messages=False))
+        settings["chat_locked"] = True
+        settings["slow_mode_seconds"] = 30
+        chat.settings = settings
+    elif action == "case":
+        result["case_created"] = True
+    elif action in {"restrict_media", "restrict_links", "restrict_commands"}:
+        kind = action.removeprefix("restrict_")
+        await set_restriction(
+            session,
+            chat_id=chat_id,
+            user_id=int(target_id),
+            kind=kind,
+            duration_seconds=int(duration_seconds or 0),
+            actor_id=actor_id,
+            reason=reason,
+        )
+        result["restriction"] = kind
+    elif action in {"unrestrict_media", "unrestrict_links", "unrestrict_commands"}:
+        kind = action.removeprefix("unrestrict_")
+        await clear_restriction(session, chat_id=chat_id, user_id=int(target_id), kind=kind)
+        result["restriction_removed"] = kind
+    else:
+        raise ValueError("Неподдерживаемое действие модерации")
+
+    await add_log(
+        session,
+        chat_id,
+        action,
+        actor_id=actor_id,
+        target_id=target_id,
+        reason=reason,
+        duration_seconds=duration_seconds,
+        details={"amount": amount, "actor_role": normalize_role(actor_role), "actor_role_level": actor_power, **result},
+    )
+    await record_moderator_action(
+        session, chat_id=chat_id, actor_id=actor_id, action=action, settings=settings
+    )
+    if create_case and settings.get("cases_enabled", True) and action in set(settings.get("case_actions") or CASE_ACTIONS):
+        case = await create_moderation_case(
+            session, chat_id=chat_id, actor_id=actor_id, target_id=target_id,
+            action=action, reason=reason, duration_seconds=duration_seconds,
+            source_message_id=source_message_id,
+            details={"amount": amount, "actor_role": normalize_role(actor_role), **result},
+            evidence=evidence if settings.get("evidence_capture_enabled", True) else None,
+        )
+        result["case_id"] = case.id
+        result["case_code"] = case.code
+    await session.flush()
+    return result
+
+
+async def create_report(
+    session: AsyncSession,
+    *,
+    chat_id: int,
+    reporter_id: int,
+    target_id: int,
+    message_id: int,
+    reason: str,
+    category: str = "другое",
+) -> Report:
+    settings = await get_merged_settings(session, chat_id)
+    merge_window = max(60, int(settings.get("report_merge_window_seconds", 900)))
+    since = utcnow() - timedelta(seconds=merge_window)
+    existing = await session.scalar(
+        select(Report).where(
+            Report.chat_id == chat_id,
+            Report.target_id == target_id,
+            Report.message_id == message_id,
+            Report.status.in_(["new", "in_progress"]),
+            Report.created_at >= since,
+        ).order_by(Report.id.desc()).limit(1)
+    )
+    if existing:
+        reporters = list(existing.reporter_ids or [])
+        if reporter_id not in reporters:
+            reporters.append(reporter_id)
+            existing.reporter_ids = reporters
+            existing.duplicate_count = max(1, int(existing.duplicate_count or 1)) + 1
+        if category and existing.category == "другое":
+            existing.category = category
+        await session.flush()
+        return existing
+
+    report = Report(
+        chat_id=chat_id,
+        reporter_id=reporter_id,
+        target_id=target_id,
+        message_id=message_id,
+        reason=reason or "Причина не указана",
+        category=category or "другое",
+        duplicate_count=1,
+        reporter_ids=[reporter_id],
+    )
+    session.add(report)
+    await session.flush()
+    return report
+
+
+async def create_captcha(
+    session: AsyncSession,
+    chat_id: int,
+    user_id: int,
+    expires_in: int,
+    *,
+    answer: str,
+    options: list[str],
+    image_key: str,
+    attempts: int = 3,
+    failure_action: str = "kick",
+) -> CaptchaChallenge:
+    existing = await session.scalar(
+        select(CaptchaChallenge).where(
+            CaptchaChallenge.chat_id == chat_id,
+            CaptchaChallenge.user_id == user_id,
+        )
+    )
+    if existing:
+        await session.delete(existing)
+        await session.flush()
+    challenge = CaptchaChallenge(
+        chat_id=chat_id,
+        user_id=user_id,
+        token=secrets.token_urlsafe(10),
+        expires_at=utcnow() + timedelta(seconds=expires_in),
+        answer=answer,
+        options=list(options),
+        image_key=image_key,
+        attempts_left=max(1, min(int(attempts), 9)),
+        failure_action=failure_action,
+    )
+    session.add(challenge)
+    await session.flush()
+    return challenge
+
+
+async def grant_premium(
+    session: AsyncSession,
+    *,
+    user_id: int,
+    chat_id: int,
+    plan_code: str,
+    stars: int,
+    payload: str,
+    charge_id: str,
+) -> Chat:
+    existing = await session.scalar(
+        select(Payment).where(Payment.telegram_payment_charge_id == charge_id)
+    )
+    if existing:
+        return await get_chat_or_raise(session, chat_id)
+
+    plan = get_plan(plan_code)
+    if plan.stars != stars:
+        raise ValueError("Payment amount does not match the selected plan")
+    chat = await get_chat_or_raise(session, chat_id)
+    current_until = as_utc(chat.premium_until)
+    start = current_until if current_until and current_until > utcnow() else utcnow()
+    chat.premium_until = start + timedelta(days=plan.days)
+    chat.premium_plan = plan.code
+    session.add(
+        Payment(
+            user_id=user_id,
+            chat_id=chat_id,
+            plan_code=plan.code,
+            stars=stars,
+            invoice_payload=payload,
+            telegram_payment_charge_id=charge_id,
+        )
+    )
+    await add_log(
+        session,
+        chat_id,
+        "premium_purchase",
+        actor_id=user_id,
+        reason=f"Plan {plan.code}, {plan.days} days",
+        details={"stars": stars, "charge_id": charge_id},
+    )
+    await session.flush()
+    return chat
+
+
+async def create_invoice_link(
+    bot: Bot,
+    *,
+    user_id: int,
+    chat_id: int,
+    plan_code: str,
+) -> tuple[str, str]:
+    plan = get_plan(plan_code)
+    nonce = secrets.token_hex(5)
+    payload = f"agp:{chat_id}:{user_id}:{plan.code}:{nonce}"
+    link = await bot.create_invoice_link(
+        title=f"AniGuard {plan.title}",
+        description=plan.description,
+        payload=payload,
+        currency="XTR",
+        prices=[LabeledPrice(label=f"Premium {plan.days} дней", amount=plan.stars)],
+        provider_token="",
+    )
+    return link, payload
+
+
+def parse_payment_payload(payload: str) -> tuple[int, int, str]:
+    parts = payload.split(":")
+    if len(parts) != 5 or parts[0] != "agp":
+        raise ValueError("Invalid invoice payload")
+    return int(parts[1]), int(parts[2]), parts[3]
+
+
+async def dashboard_data(session: AsyncSession, chat_id: int) -> dict[str, Any]:
+    chat = await get_chat_or_raise(session, chat_id)
+    members = await session.scalar(
+        select(func.count()).select_from(Membership).where(Membership.chat_id == chat_id)
+    )
+    logs = await session.scalar(
+        select(func.count()).select_from(ModerationLog).where(
+            ModerationLog.chat_id == chat_id,
+            ModerationLog.created_at >= utcnow() - timedelta(days=1),
+        )
+    )
+    reports = await session.scalar(
+        select(func.count()).select_from(Report).where(
+            Report.chat_id == chat_id,
+            Report.status.in_(["new", "in_progress"]),
+        )
+    )
+    rp_count = await session.scalar(
+        select(func.count()).select_from(RPCommand).where(RPCommand.chat_id == chat_id)
+    )
+    rule_count = await session.scalar(
+        select(func.count()).select_from(ModerationRule).where(ModerationRule.chat_id == chat_id)
+    )
+    custom_count = await session.scalar(
+        select(func.count()).select_from(CustomCommand).where(CustomCommand.chat_id == chat_id)
+    )
+    game_count = await session.scalar(
+        select(func.count()).select_from(GameCommand).where(GameCommand.chat_id == chat_id)
+    )
+    return {
+        "chat": {
+            "id": chat.id,
+            "title": chat.title,
+            "premium": (premium_details := await premium_access_details(session, chat_id=chat_id))["active"],
+            "premium_until": premium_details["until"].isoformat() if premium_details["until"] else None,
+            "premium_source": premium_details["source"],
+            "premium_plan": premium_details["plan"],
+            "owner_id": premium_details["owner_id"],
+        },
+        "metrics": {
+            "members": members or 0,
+            "actions_today": logs or 0,
+            "open_reports": reports or 0,
+            "rp_commands": rp_count or 0,
+            "custom_commands": custom_count or 0,
+            "game_commands": (game_count or 0) + len(GAME_ACTIONS),
+            "rules": rule_count or 0,
+        },
+        "settings": await get_merged_settings(session, chat_id),
+    }

@@ -1,0 +1,3601 @@
+{
+  "commands": [
+    {
+      "key": "game_action_1",
+      "number": 1,
+      "trigger": "катон_гокаку",
+      "name": "Катон: Гокаку но Дзюцу",
+      "category": "Огненные техники",
+      "description": "Огромный огненный шар — 850 урона",
+      "premium": false,
+      "aliases": [
+        "катон гокаку"
+      ]
+    },
+    {
+      "key": "game_action_2",
+      "number": 2,
+      "trigger": "катон_рюка",
+      "name": "Катон: Рюка но Дзюцу",
+      "category": "Огненные техники",
+      "description": "Огненный дракон — 720 урона",
+      "premium": false,
+      "aliases": [
+        "катон рюка"
+      ]
+    },
+    {
+      "key": "game_action_3",
+      "number": 3,
+      "trigger": "катон_зукоку",
+      "name": "Катон: Зукоку",
+      "category": "Огненные техники",
+      "description": "Столб пламени — 900 урона",
+      "premium": false,
+      "aliases": [
+        "катон зукоку"
+      ]
+    },
+    {
+      "key": "game_action_4",
+      "number": 4,
+      "trigger": "катон_хаисен",
+      "name": "Катон: Хаисен",
+      "category": "Огненные техники",
+      "description": "Облако пепла — 650 урона и ослепление",
+      "premium": false,
+      "aliases": [
+        "катон хаисен"
+      ]
+    },
+    {
+      "key": "game_action_5",
+      "number": 5,
+      "trigger": "катон_гаман",
+      "name": "Катон: Гаман Юдан",
+      "category": "Огненные техники",
+      "description": "Горящее масло — 1000 урона",
+      "premium": true,
+      "aliases": [
+        "катон гаман"
+      ]
+    },
+    {
+      "key": "game_action_6",
+      "number": 6,
+      "trigger": "чидори",
+      "name": "Чидори",
+      "category": "Молния",
+      "description": "Молниеносный удар — 1200 урона",
+      "premium": false,
+      "aliases": [
+        "чидори"
+      ]
+    },
+    {
+      "key": "game_action_7",
+      "number": 7,
+      "trigger": "кирин",
+      "name": "Кирин",
+      "category": "Молния",
+      "description": "Небесная молния — 2500 урона",
+      "premium": true,
+      "aliases": [
+        "кирин"
+      ]
+    },
+    {
+      "key": "game_action_8",
+      "number": 8,
+      "trigger": "райтон_дзюцу",
+      "name": "Райтон: Дзюцу",
+      "category": "Молния",
+      "description": "Электрический разряд — 600 урона",
+      "premium": false,
+      "aliases": [
+        "райтон дзюцу"
+      ]
+    },
+    {
+      "key": "game_action_9",
+      "number": 9,
+      "trigger": "райтон_райга",
+      "name": "Райтон: Райга",
+      "category": "Молния",
+      "description": "Клинок молнии — 800 урона",
+      "premium": false,
+      "aliases": [
+        "райтон райга"
+      ]
+    },
+    {
+      "key": "game_action_10",
+      "number": 10,
+      "trigger": "расенган_молнии",
+      "name": "Райтон: Расенган",
+      "category": "Молния",
+      "description": "Расенган с молнией — 1500 урона",
+      "premium": true,
+      "aliases": [
+        "расенган молнии"
+      ]
+    },
+    {
+      "key": "game_action_11",
+      "number": 11,
+      "trigger": "расенган",
+      "name": "Расенган",
+      "category": "Расенган и вариации",
+      "description": "Классический Расенган — 1100 урона",
+      "premium": false,
+      "aliases": [
+        "расенган"
+      ]
+    },
+    {
+      "key": "game_action_12",
+      "number": 12,
+      "trigger": "расен_сюрикен",
+      "name": "Фуутон: Расен-сюрикен",
+      "category": "Расенган и вариации",
+      "description": "Запрещённая техника — 3000 урона",
+      "premium": true,
+      "aliases": [
+        "расен сюрикен"
+      ]
+    },
+    {
+      "key": "game_action_13",
+      "number": 13,
+      "trigger": "одама_расенган",
+      "name": "Одама Расенган",
+      "category": "Расенган и вариации",
+      "description": "Огромный Расенган — 1800 урона",
+      "premium": true,
+      "aliases": [
+        "одама расенган"
+      ]
+    },
+    {
+      "key": "game_action_14",
+      "number": 14,
+      "trigger": "расенган_барьер",
+      "name": "Расенган-барьер",
+      "category": "Расенган и вариации",
+      "description": "Защитная волна — 500 урона",
+      "premium": false,
+      "aliases": [
+        "расенган барьер"
+      ]
+    },
+    {
+      "key": "game_action_15",
+      "number": 15,
+      "trigger": "мини_расенган",
+      "name": "Мини-Расенган",
+      "category": "Расенган и вариации",
+      "description": "Маленький Расенган — 300 урона",
+      "premium": false,
+      "aliases": [
+        "мини расенган"
+      ]
+    },
+    {
+      "key": "game_action_16",
+      "number": 16,
+      "trigger": "фуутон_камаитачи",
+      "name": "Фуутон: Камаитачи",
+      "category": "Ветер",
+      "description": "Три лезвия ветра — 700 урона",
+      "premium": false,
+      "aliases": [
+        "фуутон камаитачи"
+      ]
+    },
+    {
+      "key": "game_action_17",
+      "number": 17,
+      "trigger": "фуутон_дайкамаитачи",
+      "name": "Фуутон: Дайкамаитачи",
+      "category": "Ветер",
+      "description": "Огромный воздушный клин — 1000 урона",
+      "premium": true,
+      "aliases": [
+        "фуутон дайкамаитачи"
+      ]
+    },
+    {
+      "key": "game_action_18",
+      "number": 18,
+      "trigger": "фуутон_вакуум",
+      "name": "Фуутон: Вакуум",
+      "category": "Ветер",
+      "description": "Сжатый воздух — 450 урона",
+      "premium": false,
+      "aliases": [
+        "фуутон вакуум"
+      ]
+    },
+    {
+      "key": "game_action_19",
+      "number": 19,
+      "trigger": "фуутон_шторм",
+      "name": "Фуутон: Шторм",
+      "category": "Ветер",
+      "description": "Торнадо — 800 урона",
+      "premium": true,
+      "aliases": [
+        "фуутон шторм"
+      ]
+    },
+    {
+      "key": "game_action_20",
+      "number": 20,
+      "trigger": "ветер_сюрикен",
+      "name": "Ветровой сюрикен",
+      "category": "Ветер",
+      "description": "Усиленный сюрикен — 550 урона",
+      "premium": false,
+      "aliases": [
+        "ветер сюрикен"
+      ]
+    },
+    {
+      "key": "game_action_21",
+      "number": 21,
+      "trigger": "суйтон_водный_дракон",
+      "name": "Суйтон: Водный дракон",
+      "category": "Вода",
+      "description": "Водяной дракон — 950 урона",
+      "premium": true,
+      "aliases": [
+        "суйтон водный дракон"
+      ]
+    },
+    {
+      "key": "game_action_22",
+      "number": 22,
+      "trigger": "суйтон_водная_тюрьма",
+      "name": "Суйтон: Водная тюрьма",
+      "category": "Вода",
+      "description": "Обездвиживание на 3 хода",
+      "premium": false,
+      "aliases": [
+        "суйтон водная тюрьма"
+      ]
+    },
+    {
+      "key": "game_action_23",
+      "number": 23,
+      "trigger": "суйтон_водный_снаряд",
+      "name": "Суйтон: Водный снаряд",
+      "category": "Вода",
+      "description": "Струя под давлением — 600 урона",
+      "premium": false,
+      "aliases": [
+        "суйтон водный снаряд"
+      ]
+    },
+    {
+      "key": "game_action_24",
+      "number": 24,
+      "trigger": "суйтон_великий_водопад",
+      "name": "Суйтон: Великий водопад",
+      "category": "Вода",
+      "description": "Стена воды — 1300 урона",
+      "premium": true,
+      "aliases": [
+        "суйтон великий водопад"
+      ]
+    },
+    {
+      "key": "game_action_25",
+      "number": 25,
+      "trigger": "кисаме_акула",
+      "name": "Суйтон: Водяная акула",
+      "category": "Вода",
+      "description": "Акула из воды — 850 урона",
+      "premium": false,
+      "aliases": [
+        "кисаме акула"
+      ]
+    },
+    {
+      "key": "game_action_26",
+      "number": 26,
+      "trigger": "дотон_каменная_стена",
+      "name": "Дотон: Каменная стена",
+      "category": "Земля",
+      "description": "Каменная стена — 700 урона",
+      "premium": false,
+      "aliases": [
+        "дотон каменная стена"
+      ]
+    },
+    {
+      "key": "game_action_27",
+      "number": 27,
+      "trigger": "дотон_земляное_копье",
+      "name": "Дотон: Земляное копьё",
+      "category": "Земля",
+      "description": "Пять каменных копий — 900 урона",
+      "premium": false,
+      "aliases": [
+        "дотон земляное копье"
+      ]
+    },
+    {
+      "key": "game_action_28",
+      "number": 28,
+      "trigger": "дотон_погребение",
+      "name": "Дотон: Погребение",
+      "category": "Земля",
+      "description": "Захват землёй на 4 хода",
+      "premium": false,
+      "aliases": [
+        "дотон погребение"
+      ]
+    },
+    {
+      "key": "game_action_29",
+      "number": 29,
+      "trigger": "дотон_каменный_дождь",
+      "name": "Дотон: Каменный дождь",
+      "category": "Земля",
+      "description": "Дождь из глыб — 1100 урона",
+      "premium": true,
+      "aliases": [
+        "дотон каменный дождь"
+      ]
+    },
+    {
+      "key": "game_action_30",
+      "number": 30,
+      "trigger": "дотон_броня",
+      "name": "Дотон: Каменная броня",
+      "category": "Земля",
+      "description": "Защита +500 на 3 хода",
+      "premium": false,
+      "aliases": [
+        "дотон броня"
+      ]
+    },
+    {
+      "key": "game_action_31",
+      "number": 31,
+      "trigger": "лист_ураган",
+      "name": "Коноха Сэнпуу",
+      "category": "Тайдзюцу",
+      "description": "Удар ногой — 400 урона",
+      "premium": false,
+      "aliases": [
+        "лист ураган"
+      ]
+    },
+    {
+      "key": "game_action_32",
+      "number": 32,
+      "trigger": "первичный_лотос",
+      "name": "Первичный лотос",
+      "category": "Тайдзюцу",
+      "description": "Запрещённый бросок — 1500 урона",
+      "premium": true,
+      "aliases": [
+        "первичный лотос"
+      ]
+    },
+    {
+      "key": "game_action_33",
+      "number": 33,
+      "trigger": "вторичный_лотос",
+      "name": "Вторичный лотос",
+      "category": "Тайдзюцу",
+      "description": "Серия ударов — 2200 урона",
+      "premium": true,
+      "aliases": [
+        "вторичный лотос"
+      ]
+    },
+    {
+      "key": "game_action_34",
+      "number": 34,
+      "trigger": "пинок_рока_ли",
+      "name": "Динамический вход",
+      "category": "Тайдзюцу",
+      "description": "Внезапный пинок — 500 урона",
+      "premium": false,
+      "aliases": [
+        "пинок рока ли"
+      ]
+    },
+    {
+      "key": "game_action_35",
+      "number": 35,
+      "trigger": "тысяча_рук",
+      "name": "Тысяча рук",
+      "category": "Тайдзюцу",
+      "description": "Тысяча ударов — 1800 урона",
+      "premium": true,
+      "aliases": [
+        "тысяча рук"
+      ]
+    },
+    {
+      "key": "game_action_36",
+      "number": 36,
+      "trigger": "львиный_кулак",
+      "name": "Львиный кулак",
+      "category": "Тайдзюцу",
+      "description": "Удар чакрой — 900 урона",
+      "premium": false,
+      "aliases": [
+        "львиный кулак"
+      ]
+    },
+    {
+      "key": "game_action_37",
+      "number": 37,
+      "trigger": "двойной_удар",
+      "name": "Двойной удар",
+      "category": "Тайдзюцу",
+      "description": "Два кулака — 350 урона",
+      "premium": false,
+      "aliases": [
+        "двойной удар"
+      ]
+    },
+    {
+      "key": "game_action_38",
+      "number": 38,
+      "trigger": "подсечка",
+      "name": "Подсечка",
+      "category": "Тайдзюцу",
+      "description": "Подсечка — 150 урона",
+      "premium": false,
+      "aliases": [
+        "подсечка"
+      ]
+    },
+    {
+      "key": "game_action_39",
+      "number": 39,
+      "trigger": "удар_локтем",
+      "name": "Удар локтем",
+      "category": "Тайдзюцу",
+      "description": "Удар в корпус — 450 урона",
+      "premium": false,
+      "aliases": [
+        "удар локтем"
+      ]
+    },
+    {
+      "key": "game_action_40",
+      "number": 40,
+      "trigger": "комбо_тай_дзюцу",
+      "name": "Комбо тайдзюцу",
+      "category": "Тайдзюцу",
+      "description": "Серия из четырёх ударов — 1200 урона",
+      "premium": true,
+      "aliases": [
+        "комбо тай дзюцу"
+      ]
+    },
+    {
+      "key": "game_action_41",
+      "number": 41,
+      "trigger": "шаринган",
+      "name": "Гендзюцу: Шаринган",
+      "category": "Гендзюцу",
+      "description": "Иллюзия на 2 хода",
+      "premium": false,
+      "aliases": [
+        "шаринган"
+      ]
+    },
+    {
+      "key": "game_action_42",
+      "number": 42,
+      "trigger": "цукуеми",
+      "name": "Цукуёми",
+      "category": "Гендзюцу",
+      "description": "Ментальная атака — 2000 урона",
+      "premium": true,
+      "aliases": [
+        "цукуеми"
+      ]
+    },
+    {
+      "key": "game_action_43",
+      "number": 43,
+      "trigger": "изанами",
+      "name": "Изанами",
+      "category": "Гендзюцу",
+      "description": "Бесконечный цикл на 5 ходов",
+      "premium": true,
+      "aliases": [
+        "изанами"
+      ]
+    },
+    {
+      "key": "game_action_44",
+      "number": 44,
+      "trigger": "гендзюцу_жаба",
+      "name": "Гендзюцу: Жаба",
+      "category": "Гендзюцу",
+      "description": "Страх на 3 хода",
+      "premium": false,
+      "aliases": [
+        "гендзюцу жаба"
+      ]
+    },
+    {
+      "key": "game_action_45",
+      "number": 45,
+      "trigger": "гендзюцу_бесконечность",
+      "name": "Гендзюцу: Бесконечность",
+      "category": "Гендзюцу",
+      "description": "Дезориентация на 4 хода",
+      "premium": false,
+      "aliases": [
+        "гендзюцу бесконечность"
+      ]
+    },
+    {
+      "key": "game_action_46",
+      "number": 46,
+      "trigger": "кай_гендзюцу",
+      "name": "Кай",
+      "category": "Гендзюцу",
+      "description": "Снять гендзюцу",
+      "premium": false,
+      "aliases": [
+        "кай гендзюцу"
+      ]
+    },
+    {
+      "key": "game_action_47",
+      "number": 47,
+      "trigger": "гендзюцу_страх",
+      "name": "Гендзюцу: Страх",
+      "category": "Гендзюцу",
+      "description": "Паника на 2 хода",
+      "premium": false,
+      "aliases": [
+        "гендзюцу страх"
+      ]
+    },
+    {
+      "key": "game_action_48",
+      "number": 48,
+      "trigger": "гендзюцу_сон",
+      "name": "Гендзюцу: Сон",
+      "category": "Гендзюцу",
+      "description": "Сон на 3 хода",
+      "premium": false,
+      "aliases": [
+        "гендзюцу сон"
+      ]
+    },
+    {
+      "key": "game_action_49",
+      "number": 49,
+      "trigger": "мангеке_гендзюцу",
+      "name": "Мангекё-гендзюцу",
+      "category": "Гендзюцу",
+      "description": "Ментальный удар — 1500 урона",
+      "premium": true,
+      "aliases": [
+        "мангеке гендзюцу"
+      ]
+    },
+    {
+      "key": "game_action_50",
+      "number": 50,
+      "trigger": "риннеган_взгляд",
+      "name": "Взгляд Риннегана",
+      "category": "Гендзюцу",
+      "description": "Давление шести путей — 1800 урона",
+      "premium": true,
+      "aliases": [
+        "риннеган взгляд"
+      ]
+    },
+    {
+      "key": "game_action_51",
+      "number": 51,
+      "trigger": "каварими",
+      "name": "Каварими",
+      "category": "Защита и контратаки",
+      "description": "Замена бревном — урон 0",
+      "premium": false,
+      "aliases": [
+        "каварими"
+      ]
+    },
+    {
+      "key": "game_action_52",
+      "number": 52,
+      "trigger": "буншин_подмена",
+      "name": "Подмена клоном",
+      "category": "Защита и контратаки",
+      "description": "Клон принимает удар",
+      "premium": false,
+      "aliases": [
+        "буншин подмена"
+      ]
+    },
+    {
+      "key": "game_action_53",
+      "number": 53,
+      "trigger": "дотон_замена",
+      "name": "Дотон: Замена",
+      "category": "Защита и контратаки",
+      "description": "Уход под землю — урон 0",
+      "premium": false,
+      "aliases": [
+        "дотон замена"
+      ]
+    },
+    {
+      "key": "game_action_54",
+      "number": 54,
+      "trigger": "барьер_чакры",
+      "name": "Барьер чакры",
+      "category": "Защита и контратаки",
+      "description": "Снижение урона на 80%",
+      "premium": false,
+      "aliases": [
+        "барьер чакры"
+      ]
+    },
+    {
+      "key": "game_action_55",
+      "number": 55,
+      "trigger": "контратака_какаши",
+      "name": "Контратака Какаши",
+      "category": "Защита и контратаки",
+      "description": "Уклонение и ответ — 700 урона",
+      "premium": false,
+      "aliases": [
+        "контратака какаши"
+      ]
+    },
+    {
+      "key": "game_action_56",
+      "number": 56,
+      "trigger": "исцеление",
+      "name": "Медицинское исцеление",
+      "category": "Исцеление и поддержка",
+      "description": "Восстановить 800 HP",
+      "premium": false,
+      "aliases": [
+        "исцеление"
+      ]
+    },
+    {
+      "key": "game_action_57",
+      "number": 57,
+      "trigger": "великое_исцеление",
+      "name": "Великое исцеление",
+      "category": "Исцеление и поддержка",
+      "description": "Полное исцеление — 2000 HP",
+      "premium": true,
+      "aliases": [
+        "великое исцеление"
+      ]
+    },
+    {
+      "key": "game_action_58",
+      "number": 58,
+      "trigger": "печать_бьякуго",
+      "name": "Печать Бьякуго",
+      "category": "Исцеление и поддержка",
+      "description": "Регенерация 500 HP за ход",
+      "premium": true,
+      "aliases": [
+        "печать бьякуго"
+      ]
+    },
+    {
+      "key": "game_action_59",
+      "number": 59,
+      "trigger": "чакры_передача",
+      "name": "Передача чакры",
+      "category": "Исцеление и поддержка",
+      "description": "Восстановить 30% чакры",
+      "premium": false,
+      "aliases": [
+        "чакры передача"
+      ]
+    },
+    {
+      "key": "game_action_60",
+      "number": 60,
+      "trigger": "таблетка_солдата",
+      "name": "Таблетка солдата",
+      "category": "Исцеление и поддержка",
+      "description": "+500 HP и +200 чакры",
+      "premium": false,
+      "aliases": [
+        "таблетка солдата"
+      ]
+    },
+    {
+      "key": "game_action_61",
+      "number": 61,
+      "trigger": "призыв_жаба",
+      "name": "Призыв жабы",
+      "category": "Призывы",
+      "description": "Гигантская жаба — 900 урона",
+      "premium": false,
+      "aliases": [
+        "призыв жаба"
+      ]
+    },
+    {
+      "key": "game_action_62",
+      "number": 62,
+      "trigger": "призыв_гамабунта",
+      "name": "Призыв Гамабунты",
+      "category": "Призывы",
+      "description": "Гамабунта — 1500 урона",
+      "premium": true,
+      "aliases": [
+        "призыв гамабунта"
+      ]
+    },
+    {
+      "key": "game_action_63",
+      "number": 63,
+      "trigger": "призыв_змея",
+      "name": "Призыв змеи",
+      "category": "Призывы",
+      "description": "Удушение — 800 урона",
+      "premium": false,
+      "aliases": [
+        "призыв змея"
+      ]
+    },
+    {
+      "key": "game_action_64",
+      "number": 64,
+      "trigger": "призыв_манда",
+      "name": "Призыв Манды",
+      "category": "Призывы",
+      "description": "Манда — 1200 урона",
+      "premium": true,
+      "aliases": [
+        "призыв манда"
+      ]
+    },
+    {
+      "key": "game_action_65",
+      "number": 65,
+      "trigger": "призыв_слизень",
+      "name": "Призыв Кацую",
+      "category": "Призывы",
+      "description": "Лечение на 1500 HP",
+      "premium": false,
+      "aliases": [
+        "призыв слизень"
+      ]
+    },
+    {
+      "key": "game_action_66",
+      "number": 66,
+      "trigger": "призыв_обезьяна",
+      "name": "Призыв обезьяны",
+      "category": "Призывы",
+      "description": "Удар палкой — 600 урона",
+      "premium": false,
+      "aliases": [
+        "призыв обезьяна"
+      ]
+    },
+    {
+      "key": "game_action_67",
+      "number": 67,
+      "trigger": "призыв_пес",
+      "name": "Призыв ниндзя-псов",
+      "category": "Призывы",
+      "description": "Восемь псов — 700 урона",
+      "premium": false,
+      "aliases": [
+        "призыв пес"
+      ]
+    },
+    {
+      "key": "game_action_68",
+      "number": 68,
+      "trigger": "призыв_черепашка",
+      "name": "Призыв черепашки",
+      "category": "Призывы",
+      "description": "Черепашка — 10 урона",
+      "premium": false,
+      "aliases": [
+        "призыв черепашка"
+      ]
+    },
+    {
+      "key": "game_action_69",
+      "number": 69,
+      "trigger": "аматерасу",
+      "name": "Аматерасу",
+      "category": "Техники Акацуки",
+      "description": "Чёрное пламя — 2000 урона",
+      "premium": true,
+      "aliases": [
+        "аматерасу"
+      ]
+    },
+    {
+      "key": "game_action_70",
+      "number": 70,
+      "trigger": "сусаноо",
+      "name": "Сусаноо",
+      "category": "Техники Акацуки",
+      "description": "Меч Сусаноо — 2500 урона",
+      "premium": true,
+      "aliases": [
+        "сусаноо"
+      ]
+    },
+    {
+      "key": "game_action_71",
+      "number": 71,
+      "trigger": "сусаноо_стрела",
+      "name": "Стрела Сусаноо",
+      "category": "Техники Акацуки",
+      "description": "Три магатамы — 2000 урона",
+      "premium": true,
+      "aliases": [
+        "сусаноо стрела"
+      ]
+    },
+    {
+      "key": "game_action_72",
+      "number": 72,
+      "trigger": "печать_проклятия",
+      "name": "Проклятая печать",
+      "category": "Техники Акацуки",
+      "description": "Урон 300 HP за ход",
+      "premium": true,
+      "aliases": [
+        "печать проклятия"
+      ]
+    },
+    {
+      "key": "game_action_73",
+      "number": 73,
+      "trigger": "дзюцу_запечатывания",
+      "name": "Шики Фудзин",
+      "category": "Техники Акацуки",
+      "description": "Запечатывание — 3000 урона",
+      "premium": true,
+      "aliases": [
+        "дзюцу запечатывания"
+      ]
+    },
+    {
+      "key": "game_action_74",
+      "number": 74,
+      "trigger": "печать_пяти_элементов",
+      "name": "Печать пяти элементов",
+      "category": "Техники Акацуки",
+      "description": "Блокировка дзюцу на 5 ходов",
+      "premium": true,
+      "aliases": [
+        "печать пяти элементов"
+      ]
+    },
+    {
+      "key": "game_action_75",
+      "number": 75,
+      "trigger": "черный_прием",
+      "name": "Чёрный приём Риннегана",
+      "category": "Техники Акацуки",
+      "description": "Притяжение — 1000 урона",
+      "premium": true,
+      "aliases": [
+        "черный прием"
+      ]
+    },
+    {
+      "key": "game_action_76",
+      "number": 76,
+      "trigger": "гаара_песок",
+      "name": "Песчаный гроб Гаары",
+      "category": "Техники персонажей",
+      "description": "Песок — 900 урона",
+      "premium": false,
+      "aliases": [
+        "гаара песок"
+      ]
+    },
+    {
+      "key": "game_action_77",
+      "number": 77,
+      "trigger": "гаара_погребение",
+      "name": "Песчаное погребение",
+      "category": "Техники персонажей",
+      "description": "Сабаку Соусоу — 2500 урона",
+      "premium": true,
+      "aliases": [
+        "гаара погребение"
+      ]
+    },
+    {
+      "key": "game_action_78",
+      "number": 78,
+      "trigger": "рока_ли_ворота",
+      "name": "Врата Рока Ли",
+      "category": "Техники персонажей",
+      "description": "Скоростная атака — 1800 урона",
+      "premium": true,
+      "aliases": [
+        "рока ли ворота"
+      ]
+    },
+    {
+      "key": "game_action_79",
+      "number": 79,
+      "trigger": "ли_пять_врат",
+      "name": "Пять врат",
+      "category": "Техники персонажей",
+      "description": "Пять врат — 4000 урона",
+      "premium": true,
+      "aliases": [
+        "ли пять врат"
+      ]
+    },
+    {
+      "key": "game_action_80",
+      "number": 80,
+      "trigger": "неджи_восемь_триграмм",
+      "name": "Восемь триграмм: 64 ладони",
+      "category": "Техники персонажей",
+      "description": "64 удара — 1600 урона",
+      "premium": true,
+      "aliases": [
+        "неджи восемь триграмм"
+      ]
+    },
+    {
+      "key": "game_action_81",
+      "number": 81,
+      "trigger": "неджи_вращение",
+      "name": "Хакке Кайтен",
+      "category": "Техники персонажей",
+      "description": "Абсолютная защита — 500 урона",
+      "premium": true,
+      "aliases": [
+        "неджи вращение"
+      ]
+    },
+    {
+      "key": "game_action_82",
+      "number": 82,
+      "trigger": "шикамару_тень",
+      "name": "Техника теневого подражания",
+      "category": "Техники персонажей",
+      "description": "Контроль тенью",
+      "premium": false,
+      "aliases": [
+        "шикамару тень"
+      ]
+    },
+    {
+      "key": "game_action_83",
+      "number": 83,
+      "trigger": "шикамару_удушение",
+      "name": "Теневое удушение",
+      "category": "Техники персонажей",
+      "description": "Удушение тенью — 700 урона",
+      "premium": true,
+      "aliases": [
+        "шикамару удушение"
+      ]
+    },
+    {
+      "key": "game_action_84",
+      "number": 84,
+      "trigger": "киба_фанг",
+      "name": "Гатсуга",
+      "category": "Техники персонажей",
+      "description": "Двойной торнадо — 850 урона",
+      "premium": false,
+      "aliases": [
+        "киба фанг"
+      ]
+    },
+    {
+      "key": "game_action_85",
+      "number": 85,
+      "trigger": "ино_перенос",
+      "name": "Шинтеншин но Дзюцу",
+      "category": "Техники персонажей",
+      "description": "Контроль разума на 3 хода",
+      "premium": true,
+      "aliases": [
+        "ино перенос"
+      ]
+    },
+    {
+      "key": "game_action_86",
+      "number": 86,
+      "trigger": "чоуджи_бабочка",
+      "name": "Режим бабочки Чоуджи",
+      "category": "Техники персонажей",
+      "description": "Таран — 2000 урона",
+      "premium": true,
+      "aliases": [
+        "чоуджи бабочка"
+      ]
+    },
+    {
+      "key": "game_action_87",
+      "number": 87,
+      "trigger": "тен_тен_оружие",
+      "name": "Дождь оружия Тен-Тен",
+      "category": "Техники персонажей",
+      "description": "Пятьсот клинков — 1400 урона",
+      "premium": true,
+      "aliases": [
+        "тен тен оружие"
+      ]
+    },
+    {
+      "key": "game_action_88",
+      "number": 88,
+      "trigger": "орочимару_змеи",
+      "name": "Сенэйдзясю",
+      "category": "Техники персонажей",
+      "description": "Тысячи змей — 1000 урона",
+      "premium": true,
+      "aliases": [
+        "орочимару змеи"
+      ]
+    },
+    {
+      "key": "game_action_89",
+      "number": 89,
+      "trigger": "джирайя_масло",
+      "name": "Гама Юдан",
+      "category": "Техники персонажей",
+      "description": "Горящее масло — 1200 урона",
+      "premium": true,
+      "aliases": [
+        "джирайя масло"
+      ]
+    },
+    {
+      "key": "game_action_90",
+      "number": 90,
+      "trigger": "минато_телепорт",
+      "name": "Хирайшин Минато",
+      "category": "Техники персонажей",
+      "description": "Телепорт и Расенган — 1600 урона",
+      "premium": true,
+      "aliases": [
+        "минато телепорт"
+      ]
+    },
+    {
+      "key": "game_action_91",
+      "number": 91,
+      "trigger": "дай_пять",
+      "name": "Дать пять",
+      "category": "Дружеские взаимодействия",
+      "description": "Дружеское приветствие",
+      "premium": false,
+      "aliases": [
+        "дай пять"
+      ]
+    },
+    {
+      "key": "game_action_92",
+      "number": 92,
+      "trigger": "обнять",
+      "name": "Обнять",
+      "category": "Дружеские взаимодействия",
+      "description": "Объятие и восстановление",
+      "premium": false,
+      "aliases": [
+        "обнять"
+      ]
+    },
+    {
+      "key": "game_action_93",
+      "number": 93,
+      "trigger": "покормить_рамен",
+      "name": "Покормить раменом",
+      "category": "Дружеские взаимодействия",
+      "description": "Рамен — восстановить 500 HP",
+      "premium": false,
+      "aliases": [
+        "покормить рамен"
+      ]
+    },
+    {
+      "key": "game_action_94",
+      "number": 94,
+      "trigger": "подмигнуть",
+      "name": "Подмигнуть",
+      "category": "Дружеские взаимодействия",
+      "description": "Поднять уверенность",
+      "premium": false,
+      "aliases": [
+        "подмигнуть"
+      ]
+    },
+    {
+      "key": "game_action_95",
+      "number": 95,
+      "trigger": "показать_книгу",
+      "name": "Показать книгу Ича-Ича",
+      "category": "Дружеские взаимодействия",
+      "description": "Смущение на 2 хода",
+      "premium": false,
+      "aliases": [
+        "показать книгу"
+      ]
+    },
+    {
+      "key": "game_action_96",
+      "number": 96,
+      "trigger": "тренировка",
+      "name": "Совместная тренировка",
+      "category": "Дружеские взаимодействия",
+      "description": "Оба получают 100 XP",
+      "premium": false,
+      "aliases": [
+        "тренировка"
+      ]
+    },
+    {
+      "key": "game_action_97",
+      "number": 97,
+      "trigger": "рассказать_историю",
+      "name": "Рассказать историю",
+      "category": "Дружеские / Нейтральные взаимодействия",
+      "description": "🔥📖 +150 к мудрости! Цель засыпает на середине...",
+      "premium": false,
+      "aliases": [
+        "рассказать историю"
+      ]
+    },
+    {
+      "key": "game_action_98",
+      "number": 98,
+      "trigger": "похвалить",
+      "name": "Похвалить",
+      "category": "Дружеские / Нейтральные взаимодействия",
+      "description": "⭐ +300 к морали! Цель сияет!",
+      "premium": false,
+      "aliases": [
+        "похвалить"
+      ]
+    },
+    {
+      "key": "game_action_99",
+      "number": 99,
+      "trigger": "бросить_вызов",
+      "name": "Бросить вызов",
+      "category": "Дружеские / Нейтральные взаимодействия",
+      "description": "⚔️🔥 Дуэль начинается! Оба получают +200 к атаке!",
+      "premium": false,
+      "aliases": [
+        "бросить вызов"
+      ]
+    },
+    {
+      "key": "game_action_100",
+      "number": 100,
+      "trigger": "поделиться_чакрой",
+      "name": "Поделиться чакрой",
+      "category": "Дружеские / Нейтральные взаимодействия",
+      "description": "🔵 Цель восстанавливает 50% чакры!",
+      "premium": false,
+      "aliases": [
+        "поделиться чакрой"
+      ]
+    },
+    {
+      "key": "game_action_101",
+      "number": 101,
+      "trigger": "режим_биджу",
+      "name": "Режим биджу",
+      "category": "Эпичные / Ультимативные",
+      "description": "💥💥💥💥 5000 урона! Цель стирается с карты!",
+      "premium": true,
+      "aliases": [
+        "режим биджу"
+      ]
+    },
+    {
+      "key": "game_action_102",
+      "number": 102,
+      "trigger": "режим_мудреца",
+      "name": "Режим мудреца",
+      "category": "Эпичные / Ультимативные",
+      "description": "🐸 Сенсорная атака!",
+      "premium": true,
+      "aliases": [
+        "режим мудреца"
+      ]
+    },
+    {
+      "key": "game_action_103",
+      "number": 103,
+      "trigger": "режим_рика",
+      "name": "Режим рика",
+      "category": "Эпичные / Ультимативные",
+      "description": "☀️🌙 Сила Шести Путей!",
+      "premium": true,
+      "aliases": [
+        "режим рика"
+      ]
+    },
+    {
+      "key": "game_action_104",
+      "number": 104,
+      "trigger": "биджу_дама",
+      "name": "Биджу дама",
+      "category": "Эпичные / Ультимативные",
+      "description": "💥💥💥💥 4000 урона! Грибное облако! Кратер 100 метров!",
+      "premium": true,
+      "aliases": [
+        "биджу дама"
+      ]
+    },
+    {
+      "key": "game_action_105",
+      "number": 105,
+      "trigger": "муген_цукуёми",
+      "name": "Муген цукуёми",
+      "category": "Эпичные / Ультимативные",
+      "description": "🌍💤 Все обездвижены! Цель видит идеальный мир!",
+      "premium": true,
+      "aliases": [
+        "муген цукуёми"
+      ]
+    },
+    {
+      "key": "game_action_106",
+      "number": 106,
+      "trigger": "ринне_тенсей",
+      "name": "Ринне тенсей",
+      "category": "Эпичные / Ультимативные",
+      "description": "💚💚💚 Цель: +9999 HP!",
+      "premium": true,
+      "aliases": [
+        "ринне тенсей"
+      ]
+    },
+    {
+      "key": "game_action_107",
+      "number": 107,
+      "trigger": "восемь_врат",
+      "name": "Восемь врат",
+      "category": "Эпичные / Ультимативные",
+      "description": "💥💥💥💥💥💥 10000 урона! Цель ИСПАРЯЕТСЯ!",
+      "premium": true,
+      "aliases": [
+        "восемь врат"
+      ]
+    },
+    {
+      "key": "game_action_108",
+      "number": 108,
+      "trigger": "инфинит_расенган",
+      "name": "Инфинит расенган",
+      "category": "Эпичные / Ультимативные",
+      "description": "💥💥💥💥💥 8000 урона! Цель стёрт в порошок!",
+      "premium": true,
+      "aliases": [
+        "инфинит расенган"
+      ]
+    },
+    {
+      "key": "game_action_109",
+      "number": 109,
+      "trigger": "сусаноо_индра",
+      "name": "Сусаноо индра",
+      "category": "Эпичные / Ультимативные",
+      "description": "⚡ Сила Индры Оцуцуки!",
+      "premium": true,
+      "aliases": [
+        "сусаноо индра"
+      ]
+    },
+    {
+      "key": "game_action_110",
+      "number": 110,
+      "trigger": "ашура_режим",
+      "name": "Ашура режим",
+      "category": "Эпичные / Ультимативные",
+      "description": "💥💥💥💥💥 7500 урона!",
+      "premium": true,
+      "aliases": [
+        "ашура режим"
+      ]
+    },
+    {
+      "key": "game_action_111",
+      "number": 111,
+      "trigger": "украсть_рамен",
+      "name": "Украсть рамен",
+      "category": "Смешные / Бытовые",
+      "description": "😤 Цель в ярости! +500 к атаке от злости!",
+      "premium": false,
+      "aliases": [
+        "украсть рамен"
+      ]
+    },
+    {
+      "key": "game_action_112",
+      "number": 112,
+      "trigger": "бросить_лягушку",
+      "name": "Бросить лягушку",
+      "category": "Смешные / Бытовые",
+      "description": "💥 50 урона! Цель в слизи!",
+      "premium": false,
+      "aliases": [
+        "бросить лягушку"
+      ]
+    },
+    {
+      "key": "game_action_113",
+      "number": 113,
+      "trigger": "подставить_подножку",
+      "name": "Подставить подножку",
+      "category": "Смешные / Бытовые",
+      "description": "💥 100 урона! Цель целует грязь!",
+      "premium": false,
+      "aliases": [
+        "подставить подножку"
+      ]
+    },
+    {
+      "key": "game_action_114",
+      "number": 114,
+      "trigger": "нарисовать_на_лице",
+      "name": "Нарисовать на лице",
+      "category": "Смешные / Бытовые",
+      "description": "🖊️😈 Инициатор подкрадывается, пока Цель спит, и рисует усы!",
+      "premium": false,
+      "aliases": [
+        "нарисовать на лице"
+      ]
+    },
+    {
+      "key": "game_action_115",
+      "number": 115,
+      "trigger": "крикнуть_над_ухом",
+      "name": "Крикнуть над ухом",
+      "category": "Смешные / Бытовые",
+      "description": "💥 200 урона! Цель подпрыгивает на 3 метра!",
+      "premium": false,
+      "aliases": [
+        "крикнуть над ухом"
+      ]
+    },
+    {
+      "key": "game_action_116",
+      "number": 116,
+      "trigger": "кинуть_сюрикен_в_спину",
+      "name": "Кинуть сюрикен в спину",
+      "category": "Смешные / Бытовые",
+      "description": "💥 300 урона! Цель: «АЙ! КТО?!»",
+      "premium": false,
+      "aliases": [
+        "кинуть сюрикен в спину"
+      ]
+    },
+    {
+      "key": "game_action_117",
+      "number": 117,
+      "trigger": "заменить_свиток",
+      "name": "Заменить свиток",
+      "category": "Смешные / Бытовые",
+      "description": "📜😈 Инициатор подменяет свиток Цель на «Ича-Ича»!",
+      "premium": false,
+      "aliases": [
+        "заменить свиток"
+      ]
+    },
+    {
+      "key": "game_action_118",
+      "number": 118,
+      "trigger": "налить_чай",
+      "name": "Налить чай",
+      "category": "Смешные / Бытовые",
+      "description": "🍵💚 +100 HP! Уют!",
+      "premium": false,
+      "aliases": [
+        "налить чай"
+      ]
+    },
+    {
+      "key": "game_action_119",
+      "number": 119,
+      "trigger": "щелчок_по_лбу",
+      "name": "Щелчок по лбу",
+      "category": "Смешные / Бытовые",
+      "description": "💥 10 урона! Но обидно!",
+      "premium": false,
+      "aliases": [
+        "щелчок по лбу"
+      ]
+    },
+    {
+      "key": "game_action_120",
+      "number": 120,
+      "trigger": "сесть_на_голову",
+      "name": "Сесть на голову",
+      "category": "Смешные / Бытовые",
+      "description": "💥 50 урона! Унижение!",
+      "premium": false,
+      "aliases": [
+        "сесть на голову"
+      ]
+    },
+    {
+      "key": "game_action_121",
+      "number": 121,
+      "trigger": "риннеган_притяжение",
+      "name": "Риннеган притяжение",
+      "category": "Космические / Оцуцуки",
+      "description": "💥 1000 урона! Сопротивление бесполезно!",
+      "premium": true,
+      "aliases": [
+        "риннеган притяжение"
+      ]
+    },
+    {
+      "key": "game_action_122",
+      "number": 122,
+      "trigger": "риннеган_отталкивание",
+      "name": "Риннеган отталкивание",
+      "category": "Космические / Оцуцуки",
+      "description": "💥💥 1500 урона! Всё вокруг разрушено!",
+      "premium": true,
+      "aliases": [
+        "риннеган отталкивание"
+      ]
+    },
+    {
+      "key": "game_action_123",
+      "number": 123,
+      "trigger": "чибаку_тенсей",
+      "name": "Чибаку тенсей",
+      "category": "Космические / Оцуцуки",
+      "description": "💥💥💥 3000 урона! Цель в ловушке на 10 ходов!",
+      "premium": true,
+      "aliases": [
+        "чибаку тенсей"
+      ]
+    },
+    {
+      "key": "game_action_124",
+      "number": 124,
+      "trigger": "тенсэй",
+      "name": "Тенсэй",
+      "category": "Космические / Оцуцуки",
+      "description": "🌀 Цель исчез! Вернётся через 5 ходов!",
+      "premium": true,
+      "aliases": [
+        "тенсэй"
+      ]
+    },
+    {
+      "key": "game_action_125",
+      "number": 125,
+      "trigger": "оцуцуки_удар",
+      "name": "Оцуцуки удар",
+      "category": "Космические / Оцуцуки",
+      "description": "💥💥💥💥 5000 урона! Цель на коленях!",
+      "premium": true,
+      "aliases": [
+        "оцуцуки удар"
+      ]
+    },
+    {
+      "key": "game_action_126",
+      "number": 126,
+      "trigger": "карма",
+      "name": "Карма",
+      "category": "Космические / Оцуцуки",
+      "description": "🔷 Цель получает -500 HP/ход!",
+      "premium": true,
+      "aliases": [
+        "карма"
+      ]
+    },
+    {
+      "key": "game_action_127",
+      "number": 127,
+      "trigger": "пространственный_разлом",
+      "name": "Пространственный разлом",
+      "category": "Космические / Оцуцуки",
+      "description": "🌀💨 Цель исчезает! Урон 0, но потерян на 3 хода!",
+      "premium": true,
+      "aliases": [
+        "пространственный разлом"
+      ]
+    },
+    {
+      "key": "game_action_128",
+      "number": 128,
+      "trigger": "биджу_режим_полный",
+      "name": "Биджу режим полный",
+      "category": "Космические / Оцуцуки",
+      "description": "💥💥💥💥 4500 урона! Цель в стратосфере!",
+      "premium": true,
+      "aliases": [
+        "биджу режим полный"
+      ]
+    },
+    {
+      "key": "game_action_129",
+      "number": 129,
+      "trigger": "гудам_дама_залп",
+      "name": "Гудам дама залп",
+      "category": "Космические / Оцуцуки",
+      "description": "💥💥💥💥💥💥 9000 урона! Континент расколот!",
+      "premium": true,
+      "aliases": [
+        "гудам дама залп"
+      ]
+    },
+    {
+      "key": "game_action_130",
+      "number": 130,
+      "trigger": "печать_луны",
+      "name": "Печать луны",
+      "category": "Космические / Оцуцуки",
+      "description": "🌙💨 Бан на 99 ходов!",
+      "premium": true,
+      "aliases": [
+        "печать луны"
+      ]
+    },
+    {
+      "key": "game_action_131",
+      "number": 131,
+      "trigger": "стать_хокаге",
+      "name": "Стать хокаге",
+      "category": "Ролевые / Сюжетные",
+      "description": "🎩🔥 Инициатор надевает шляпу Хокаге!",
+      "premium": false,
+      "aliases": [
+        "стать хокаге"
+      ]
+    },
+    {
+      "key": "game_action_132",
+      "number": 132,
+      "trigger": "вступить_в_акуцуки",
+      "name": "Вступить в акуцуки",
+      "category": "Ролевые / Сюжетные",
+      "description": "☁️🖤 Оба получают метку Акацуки! +500 к атаке!",
+      "premium": false,
+      "aliases": [
+        "вступить в акуцуки"
+      ]
+    },
+    {
+      "key": "game_action_133",
+      "number": 133,
+      "trigger": "предать_деревню",
+      "name": "Предать деревню",
+      "category": "Ролевые / Сюжетные",
+      "description": "🌑😈 Инициатор надевает повязку с царапиной!",
+      "premium": false,
+      "aliases": [
+        "предать деревню"
+      ]
+    },
+    {
+      "key": "game_action_134",
+      "number": 134,
+      "trigger": "найти_свиток",
+      "name": "Найти свиток",
+      "category": "Ролевые / Сюжетные",
+      "description": "📜✨ Инициатор находит древний свиток!",
+      "premium": false,
+      "aliases": [
+        "найти свиток"
+      ]
+    },
+    {
+      "key": "game_action_135",
+      "number": 135,
+      "trigger": "экзамен_чунин",
+      "name": "Экзамен чунин",
+      "category": "Ролевые / Сюжетные",
+      "description": "📝⚔️ Битва начинается! Победитель получает ранг Чунина!",
+      "premium": false,
+      "aliases": [
+        "экзамен чунин"
+      ]
+    },
+    {
+      "key": "game_action_136",
+      "number": 136,
+      "trigger": "миссия_ранг_S",
+      "name": "Миссия ранг S",
+      "category": "Ролевые / Сюжетные",
+      "description": "📋⚔️ Оба получают квест! Награда: 5000 опыта!",
+      "premium": false,
+      "aliases": [
+        "миссия ранг S"
+      ]
+    },
+    {
+      "key": "game_action_137",
+      "number": 137,
+      "trigger": "встретить_легенду",
+      "name": "Встретить легенду",
+      "category": "Ролевые / Сюжетные",
+      "description": "👴🔥 Оба получают +1000 к опыту!",
+      "premium": false,
+      "aliases": [
+        "встретить легенду"
+      ]
+    },
+    {
+      "key": "game_action_138",
+      "number": 138,
+      "trigger": "найти_биджу",
+      "name": "Найти биджу",
+      "category": "Ролевые / Сюжетные",
+      "description": "✨ Сила Биджу!",
+      "premium": false,
+      "aliases": [
+        "найти биджу"
+      ]
+    },
+    {
+      "key": "game_action_139",
+      "number": 139,
+      "trigger": "спасти_деревню",
+      "name": "Спасти деревню",
+      "category": "Ролевые / Сюжетные",
+      "description": "🏘️🔥 Инициатор и Цель защищают деревню от вторжения!",
+      "premium": false,
+      "aliases": [
+        "спасти деревню"
+      ]
+    },
+    {
+      "key": "game_action_140",
+      "number": 140,
+      "trigger": "стать_друзьями",
+      "name": "Стать друзьями",
+      "category": "Ролевые / Сюжетные",
+      "description": "🤝💕 Связь дружбы установлена! +500 к морали обоим!",
+      "premium": false,
+      "aliases": [
+        "стать друзьями"
+      ]
+    },
+    {
+      "key": "game_action_141",
+      "number": 141,
+      "trigger": "расенган_в_лицо",
+      "name": "Расенган в лицо",
+      "category": "Бонусные / Секретные",
+      "description": "💥💥 1500 урона! Цель в форме кратера!",
+      "premium": true,
+      "aliases": [
+        "расенган в лицо"
+      ]
+    },
+    {
+      "key": "game_action_142",
+      "number": 142,
+      "trigger": "чидори_в_спину",
+      "name": "Чидори в спину",
+      "category": "Бонусные / Секретные",
+      "description": "💥💥 1400 урона! Цель не ожидал!",
+      "premium": false,
+      "aliases": [
+        "чидори в спину"
+      ]
+    },
+    {
+      "key": "game_action_143",
+      "number": 143,
+      "trigger": "гаара_песчаный_гроб",
+      "name": "Гаара песчаный гроб",
+      "category": "Бонусные / Секретные",
+      "description": "💥💥💥 2500 урона! Цель спрессован!",
+      "premium": true,
+      "aliases": [
+        "гаара песчаный гроб"
+      ]
+    },
+    {
+      "key": "game_action_144",
+      "number": 144,
+      "trigger": "ли_пьяный_кулак",
+      "name": "Ли пьяный кулак",
+      "category": "Бонусные / Секретные",
+      "description": "💥💥 1300 урона! Цель не может предугадать!",
+      "premium": false,
+      "aliases": [
+        "ли пьяный кулак"
+      ]
+    },
+    {
+      "key": "game_action_145",
+      "number": 145,
+      "trigger": "какаши_тысяча_птиц",
+      "name": "Какаши тысяча птиц",
+      "category": "Бонусные / Секретные",
+      "description": "💥💥 1600 урона! Цель парализован!",
+      "premium": true,
+      "aliases": [
+        "какаши тысяча птиц"
+      ]
+    },
+    {
+      "key": "game_action_146",
+      "number": 146,
+      "trigger": "наруто_2000_клонов",
+      "name": "Наруто 2000 клонов",
+      "category": "Бонусные / Секретные",
+      "description": "💥💥💥💥 3500 урона! Цель погребён под оравой!",
+      "premium": true,
+      "aliases": [
+        "наруто 2000 клонов"
+      ]
+    },
+    {
+      "key": "game_action_147",
+      "number": 147,
+      "trigger": "саске_аматерасу_чидори",
+      "name": "Саске аматерасу чидори",
+      "category": "Бонусные / Секретные",
+      "description": "💥💥💥💥💥 5500 урона! Цель горит и парализован!",
+      "premium": true,
+      "aliases": [
+        "саске аматерасу чидори"
+      ]
+    },
+    {
+      "key": "game_action_148",
+      "number": 148,
+      "trigger": "майто_гай_вечерний_слон",
+      "name": "Майто гай вечерний слон",
+      "category": "Бонусные / Секретные",
+      "description": "💥💥💥💥 6000 урона!",
+      "premium": true,
+      "aliases": [
+        "майто гай вечерний слон"
+      ]
+    },
+    {
+      "key": "game_action_149",
+      "number": 149,
+      "trigger": "итачи_цукуёми_аматерасу",
+      "name": "Итачи цукуёми аматерасу",
+      "category": "Бонусные / Секретные",
+      "description": "💥💥💥💥💥 8000 урона! Цель сломлен!",
+      "premium": true,
+      "aliases": [
+        "итачи цукуёми аматерасу"
+      ]
+    },
+    {
+      "key": "game_action_150",
+      "number": 150,
+      "trigger": "воля_огня",
+      "name": "Воля огня",
+      "category": "Бонусные / Секретные",
+      "description": "🔥✨ Цель полностью восстанавливается! +9999 HP!",
+      "premium": true,
+      "aliases": [
+        "воля огня"
+      ]
+    },
+    {
+      "key": "game_action_151",
+      "number": 151,
+      "trigger": "тобирама_водный_дракон",
+      "name": "Тобирама водный дракон",
+      "category": "Техники Тобирамы / Воды",
+      "description": "💥 1400 урона! Цель унесён течением!",
+      "premium": false,
+      "aliases": [
+        "тобирама водный дракон"
+      ]
+    },
+    {
+      "key": "game_action_152",
+      "number": 152,
+      "trigger": "тобирама_летящий_гром",
+      "name": "Тобирама летящий гром",
+      "category": "Техники Тобирамы / Воды",
+      "description": "💥💥 1700 урона! Цель не увидел движения!",
+      "premium": true,
+      "aliases": [
+        "тобирама летящий гром"
+      ]
+    },
+    {
+      "key": "game_action_153",
+      "number": 153,
+      "trigger": "тобирама_тёмный_барьер",
+      "name": "Тобирама тёмный барьер",
+      "category": "Техники Тобирамы / Воды",
+      "description": "Цель ослеплён! Не видит 4 хода!",
+      "premium": false,
+      "aliases": [
+        "тобирама тёмный барьер"
+      ]
+    },
+    {
+      "key": "game_action_154",
+      "number": 154,
+      "trigger": "суйтон_водяной_кнут",
+      "name": "Суйтон водяной кнут",
+      "category": "Техники Тобирамы / Воды",
+      "description": "💥 650 урона! Цель связан! 2 хода без движения!",
+      "premium": false,
+      "aliases": [
+        "суйтон водяной кнут"
+      ]
+    },
+    {
+      "key": "game_action_155",
+      "number": 155,
+      "trigger": "суйтон_зеркало",
+      "name": "Суйтон зеркало",
+      "category": "Техники Тобирамы / Воды",
+      "description": "💥 Цель получает СВОЙ урон x2!",
+      "premium": false,
+      "aliases": [
+        "суйтон зеркало"
+      ]
+    },
+    {
+      "key": "game_action_156",
+      "number": 156,
+      "trigger": "хирузен_огненный_дракон",
+      "name": "Хирузен огненный дракон",
+      "category": "Техники Хирузена / Огня",
+      "description": "💥💥 1600 урона! Цель в кольце огня!",
+      "premium": true,
+      "aliases": [
+        "хирузен огненный дракон"
+      ]
+    },
+    {
+      "key": "game_action_157",
+      "number": 157,
+      "trigger": "хирузен_обезьяний_король",
+      "name": "Хирузен обезьяний король",
+      "category": "Техники Хирузена / Огня",
+      "description": "💥💥 1500 урона! Цель пробивает скалу!",
+      "premium": true,
+      "aliases": [
+        "хирузен обезьяний король"
+      ]
+    },
+    {
+      "key": "game_action_158",
+      "number": 158,
+      "trigger": "хирузен_печать_смерти",
+      "name": "Хирузен печать смерти",
+      "category": "Техники Хирузена / Огня",
+      "description": "💥💥💥 3000 урона! Цель запечатан!",
+      "premium": true,
+      "aliases": [
+        "хирузен печать смерти"
+      ]
+    },
+    {
+      "key": "game_action_159",
+      "number": 159,
+      "trigger": "хирузен_земляной_вал",
+      "name": "Хирузен земляной вал",
+      "category": "Техники Хирузена / Огня",
+      "description": "💥 800 урона! Цель прижат к скале!",
+      "premium": false,
+      "aliases": [
+        "хирузен земляной вал"
+      ]
+    },
+    {
+      "key": "game_action_160",
+      "number": 160,
+      "trigger": "хирузен_комбо_стихий",
+      "name": "Хирузен комбо стихий",
+      "category": "Техники Хирузена / Огня",
+      "description": "💥💥💥💥💥 4000 урона! Цель уничтожен!",
+      "premium": true,
+      "aliases": [
+        "хирузен комбо стихий"
+      ]
+    },
+    {
+      "key": "game_action_161",
+      "number": 161,
+      "trigger": "ямато_деревянный_дракон",
+      "name": "Ямато деревянный дракон",
+      "category": "Техники Ямато / Дерева",
+      "description": "💥 1200 урона! Цель связан деревом! 5 ходов!",
+      "premium": false,
+      "aliases": [
+        "ямато деревянный дракон"
+      ]
+    },
+    {
+      "key": "game_action_162",
+      "number": 162,
+      "trigger": "ямато_деревянный_мир",
+      "name": "Ямато деревянный мир",
+      "category": "Техники Ямато / Дерева",
+      "description": "💥💥 2000 урона! Цель погребён в лесу!",
+      "premium": true,
+      "aliases": [
+        "ямато деревянный мир"
+      ]
+    },
+    {
+      "key": "game_action_163",
+      "number": 163,
+      "trigger": "ямато_деревянные_стены",
+      "name": "Ямато деревянные стены",
+      "category": "Техники Ямато / Дерева",
+      "description": "🌳 «Из этого леса нет выхода.»",
+      "premium": false,
+      "aliases": [
+        "ямато деревянные стены"
+      ]
+    },
+    {
+      "key": "game_action_164",
+      "number": 164,
+      "trigger": "ямато_подавление_биджу",
+      "name": "Ямато подавление биджу",
+      "category": "Техники Ямато / Дерева",
+      "description": "🚫 Цель не может использовать дзюцу 6 ходов!",
+      "premium": true,
+      "aliases": [
+        "ямато подавление биджу"
+      ]
+    },
+    {
+      "key": "game_action_165",
+      "number": 165,
+      "trigger": "ямато_деревянный_клон",
+      "name": "Ямато деревянный клон",
+      "category": "Техники Ямато / Дерева",
+      "description": "💥 700 урона! Щепки летят!",
+      "premium": false,
+      "aliases": [
+        "ямато деревянный клон"
+      ]
+    },
+    {
+      "key": "game_action_166",
+      "number": 166,
+      "trigger": "сасори_кукла",
+      "name": "Сасори кукла",
+      "category": "Техники Сасори / Кукол",
+      "description": "💥 900 урона! Яд 3 хода!",
+      "premium": false,
+      "aliases": [
+        "сасори кукла"
+      ]
+    },
+    {
+      "key": "game_action_167",
+      "number": 167,
+      "trigger": "сасори_сто_кукол",
+      "name": "Сасори сто кукол",
+      "category": "Техники Сасори / Кукол",
+      "description": "💥💥💥 2500 урона! Цель изрезан!",
+      "premium": true,
+      "aliases": [
+        "сасори сто кукол"
+      ]
+    },
+    {
+      "key": "game_action_168",
+      "number": 168,
+      "trigger": "сасори_яд",
+      "name": "Сасори яд",
+      "category": "Техники Сасори / Кукол",
+      "description": "☠️ Яд: -400 HP/ход на 8 ходов!",
+      "premium": false,
+      "aliases": [
+        "сасори яд"
+      ]
+    },
+    {
+      "key": "game_action_169",
+      "number": 169,
+      "trigger": "сасори_железный_песок",
+      "name": "Сасори железный песок",
+      "category": "Техники Сасори / Кукол",
+      "description": "⚫ «Железный песок сильнее обычного.»",
+      "premium": true,
+      "aliases": [
+        "сасори железный песок"
+      ]
+    },
+    {
+      "key": "game_action_170",
+      "number": 170,
+      "trigger": "сасори_третья_казекаге",
+      "name": "Сасори третья казекаге",
+      "category": "Техники Сасори / Кукол",
+      "description": "💥💥💥 2200 урона! Цель погребён!",
+      "premium": true,
+      "aliases": [
+        "сасори третья казекаге"
+      ]
+    },
+    {
+      "key": "game_action_171",
+      "number": 171,
+      "trigger": "дейдара_с1",
+      "name": "Дейдара с1",
+      "category": "Техники Дейдары / Взрывов",
+      "description": "💥 800 урона! Цель оглушён!",
+      "premium": false,
+      "aliases": [
+        "дейдара с1"
+      ]
+    },
+    {
+      "key": "game_action_172",
+      "number": 172,
+      "trigger": "дейдара_с2",
+      "name": "Дейдара с2",
+      "category": "Техники Дейдары / Взрывов",
+      "description": "💥💥 1500 урона! Серия взрывов!",
+      "premium": true,
+      "aliases": [
+        "дейдара с2"
+      ]
+    },
+    {
+      "key": "game_action_173",
+      "number": 173,
+      "trigger": "дейдара_с3",
+      "name": "Дейдара с3",
+      "category": "Техники Дейдары / Взрывов",
+      "description": "💥💥💥 2500 урона! Кратер 50 метров!",
+      "premium": true,
+      "aliases": [
+        "дейдара с3"
+      ]
+    },
+    {
+      "key": "game_action_174",
+      "number": 174,
+      "trigger": "дейдара_с4",
+      "name": "Дейдара с4",
+      "category": "Техники Дейдары / Взрывов",
+      "description": "💥💥💥💥 4000 урона! Цель взрывается изнутри!",
+      "premium": true,
+      "aliases": [
+        "дейдара с4"
+      ]
+    },
+    {
+      "key": "game_action_175",
+      "number": 175,
+      "trigger": "дейдара_с0",
+      "name": "Дейдара с0",
+      "category": "Техники Дейдары / Взрывов",
+      "description": "💥💥💥💥💥 9999 урона! Цель ИСПАРЁН!",
+      "premium": true,
+      "aliases": [
+        "дейдара с0"
+      ]
+    },
+    {
+      "key": "game_action_176",
+      "number": 176,
+      "trigger": "хидан_ритуал",
+      "name": "Хидан ритуал",
+      "category": "Техники Хидана и Какузу",
+      "description": "💥💥 1500 урона! Цель кричит!",
+      "premium": true,
+      "aliases": [
+        "хидан ритуал"
+      ]
+    },
+    {
+      "key": "game_action_177",
+      "number": 177,
+      "trigger": "хидан_коса",
+      "name": "Хидан коса",
+      "category": "Техники Хидана и Какузу",
+      "description": "💥 700 урона! Инициатор лижет кровь с лезвия!",
+      "premium": false,
+      "aliases": [
+        "хидан коса"
+      ]
+    },
+    {
+      "key": "game_action_178",
+      "number": 178,
+      "trigger": "какузу_нити",
+      "name": "Какузу нити",
+      "category": "Техники Хидана и Какузу",
+      "description": "💥 900 урона! Цель связан!",
+      "premium": false,
+      "aliases": [
+        "какузу нити"
+      ]
+    },
+    {
+      "key": "game_action_179",
+      "number": 179,
+      "trigger": "какузу_пять_сердец",
+      "name": "Какузу пять сердец",
+      "category": "Техники Хидана и Какузу",
+      "description": "💥💥💥💥 3000 урона! Цель атакован 4 стихиями!",
+      "premium": true,
+      "aliases": [
+        "какузу пять сердец"
+      ]
+    },
+    {
+      "key": "game_action_180",
+      "number": 180,
+      "trigger": "какузу_маска_огня",
+      "name": "Какузу маска огня",
+      "category": "Техники Хидана и Какузу",
+      "description": "💥💥 1200 урона! Цель горит!",
+      "premium": false,
+      "aliases": [
+        "какузу маска огня"
+      ]
+    },
+    {
+      "key": "game_action_181",
+      "number": 181,
+      "trigger": "пейн_шинра",
+      "name": "Пейн шинра",
+      "category": "Техники Пейна / Риннегана",
+      "description": "💥💥 1500 урона! Цель пробивает 5 стен!",
+      "premium": true,
+      "aliases": [
+        "пейн шинра"
+      ]
+    },
+    {
+      "key": "game_action_182",
+      "number": 182,
+      "trigger": "пейн_баншо",
+      "name": "Пейн баншо",
+      "category": "Техники Пейна / Риннегана",
+      "description": "💥 1000 урона! Цель не может сопротивляться!",
+      "premium": true,
+      "aliases": [
+        "пейн баншо"
+      ]
+    },
+    {
+      "key": "game_action_183",
+      "number": 183,
+      "trigger": "пейн_чибаку",
+      "name": "Пейн чибаку",
+      "category": "Техники Пейна / Риннегана",
+      "description": "💥💥💥 3000 урона! Цель в каменной сфере!",
+      "premium": true,
+      "aliases": [
+        "пейн чибаку"
+      ]
+    },
+    {
+      "key": "game_action_184",
+      "number": 184,
+      "trigger": "пейн_шесть_путей",
+      "name": "Пейн шесть путей",
+      "category": "Техники Пейна / Риннегана",
+      "description": "💥💥💥💥💥 5000 урона! Цель уничтожен!",
+      "premium": true,
+      "aliases": [
+        "пейн шесть путей"
+      ]
+    },
+    {
+      "key": "game_action_185",
+      "number": 185,
+      "trigger": "пейн_ракета",
+      "name": "Пейн ракета",
+      "category": "Техники Пейна / Риннегана",
+      "description": "💥💥💥 2500 урона! Цель падает 10 секунд!",
+      "premium": true,
+      "aliases": [
+        "пейн ракета"
+      ]
+    },
+    {
+      "key": "game_action_186",
+      "number": 186,
+      "trigger": "конан_бумажный_шторм",
+      "name": "Конан бумажный шторм",
+      "category": "Техники Конан / Бумаги",
+      "description": "💥 1100 урона! Цель изрезан бумагой!",
+      "premium": false,
+      "aliases": [
+        "конан бумажный шторм"
+      ]
+    },
+    {
+      "key": "game_action_187",
+      "number": 187,
+      "trigger": "конан_бумажный_ангел",
+      "name": "Конан бумажный ангел",
+      "category": "Техники Конан / Бумаги",
+      "description": "💥💥 1400 урона! Цель в бумажном аду!",
+      "premium": false,
+      "aliases": [
+        "конан бумажный ангел"
+      ]
+    },
+    {
+      "key": "game_action_188",
+      "number": 188,
+      "trigger": "конан_600_миллиардов",
+      "name": "Конан 600 миллиардов",
+      "category": "Техники Конан / Бумаги",
+      "description": "💥💥💥💥💥💥 8000 урона! Цель стёрт!",
+      "premium": true,
+      "aliases": [
+        "конан 600 миллиардов"
+      ]
+    },
+    {
+      "key": "game_action_189",
+      "number": 189,
+      "trigger": "киллер_би_рап",
+      "name": "Киллер би рап",
+      "category": "Техники Киллер Би / Биджу",
+      "description": "💥 500 урона! Цель в шоке от рифм!",
+      "premium": false,
+      "aliases": [
+        "киллер би рап"
+      ]
+    },
+    {
+      "key": "game_action_190",
+      "number": 190,
+      "trigger": "киллер_би_хвост",
+      "name": "Киллер би хвост",
+      "category": "Техники Киллер Би / Биджу",
+      "description": "💥💥 1800 урона! Цель отлетает!",
+      "premium": true,
+      "aliases": [
+        "киллер би хвост"
+      ]
+    },
+    {
+      "key": "game_action_191",
+      "number": 191,
+      "trigger": "киллер_би_чернила",
+      "name": "Киллер би чернила",
+      "category": "Техники Киллер Би / Биджу",
+      "description": "💥 600 урона! Цель ослеплён на 3 хода!",
+      "premium": false,
+      "aliases": [
+        "киллер би чернила"
+      ]
+    },
+    {
+      "key": "game_action_192",
+      "number": 192,
+      "trigger": "киллер_би_биджу_дама",
+      "name": "Киллер би биджу дама",
+      "category": "Техники Киллер Би / Биджу",
+      "description": "💥💥💥💥 4000 урона! Горы сравнены!",
+      "premium": true,
+      "aliases": [
+        "киллер би биджу дама"
+      ]
+    },
+    {
+      "key": "game_action_193",
+      "number": 193,
+      "trigger": "райкаге_броня",
+      "name": "Райкаге броня",
+      "category": "Техники Райкаге",
+      "description": "⚡ «Скорость — моя сила!»",
+      "premium": true,
+      "aliases": [
+        "райкаге броня"
+      ]
+    },
+    {
+      "key": "game_action_194",
+      "number": 194,
+      "trigger": "райкаге_адский_удар",
+      "name": "Райкаге адский удар",
+      "category": "Техники Райкаге",
+      "description": "💥💥💥 2200 урона! Цель пробивает гору!",
+      "premium": true,
+      "aliases": [
+        "райкаге адский удар"
+      ]
+    },
+    {
+      "key": "game_action_195",
+      "number": 195,
+      "trigger": "райкаге_гильотина",
+      "name": "Райкаге гильотина",
+      "category": "Техники Райкаге",
+      "description": "💥💥 1900 урона! Цель вбит в землю!",
+      "premium": true,
+      "aliases": [
+        "райкаге гильотина"
+      ]
+    },
+    {
+      "key": "game_action_196",
+      "number": 196,
+      "trigger": "мэй_кислота",
+      "name": "Мэй кислота",
+      "category": "Техники Мэй Тэруми / Ооноки",
+      "description": "💥 1000 урона! Броня расплавлена!",
+      "premium": false,
+      "aliases": [
+        "мэй кислота"
+      ]
+    },
+    {
+      "key": "game_action_197",
+      "number": 197,
+      "trigger": "мэй_лава",
+      "name": "Мэй лава",
+      "category": "Техники Мэй Тэруми / Ооноки",
+      "description": "💥💥 1500 урона! Цель обожжён!",
+      "premium": true,
+      "aliases": [
+        "мэй лава"
+      ]
+    },
+    {
+      "key": "game_action_198",
+      "number": 198,
+      "trigger": "ооноки_пыль",
+      "name": "Ооноки пыль",
+      "category": "Техники Мэй Тэруми / Ооноки",
+      "description": "💥💥💥 3000 урона! Цель РАСПЫЛЁН на молекулы!",
+      "premium": true,
+      "aliases": [
+        "ооноки пыль"
+      ]
+    },
+    {
+      "key": "game_action_199",
+      "number": 199,
+      "trigger": "ооноки_каменный_голем",
+      "name": "Ооноки каменный голем",
+      "category": "Техники Мэй Тэруми / Ооноки",
+      "description": "💥💥 1800 урона! Цель в кратере!",
+      "premium": true,
+      "aliases": [
+        "ооноки каменный голем"
+      ]
+    },
+    {
+      "key": "game_action_200",
+      "number": 200,
+      "trigger": "ооноки_полёт",
+      "name": "Ооноки полёт",
+      "category": "Техники Мэй Тэруми / Ооноки",
+      "description": "💥💥 1200 урона! Цель уклоняется... но не от всех!",
+      "premium": false,
+      "aliases": [
+        "ооноки полёт"
+      ]
+    },
+    {
+      "key": "game_action_201",
+      "number": 201,
+      "trigger": "тэмари_веер",
+      "name": "Тэмари веер",
+      "category": "Техники Тэмари / Канкуро / Шино",
+      "description": "💥 900 урона! Цель изрезан ветром!",
+      "premium": false,
+      "aliases": [
+        "тэмари веер"
+      ]
+    },
+    {
+      "key": "game_action_202",
+      "number": 202,
+      "trigger": "тэмари_ураган",
+      "name": "Тэмари ураган",
+      "category": "Техники Тэмари / Канкуро / Шино",
+      "description": "💥💥 1400 урона! Цель улетает за горизонт!",
+      "premium": false,
+      "aliases": [
+        "тэмари ураган"
+      ]
+    },
+    {
+      "key": "game_action_203",
+      "number": 203,
+      "trigger": "канкуро_ворона",
+      "name": "Канкуро ворона",
+      "category": "Техники Тэмари / Канкуро / Шино",
+      "description": "💥 800 урона! Яд 3 хода!",
+      "premium": false,
+      "aliases": [
+        "канкуро ворона"
+      ]
+    },
+    {
+      "key": "game_action_204",
+      "number": 204,
+      "trigger": "канкуро_муравей",
+      "name": "Канкуро муравей",
+      "category": "Техники Тэмари / Канкуро / Шино",
+      "description": "🎭 «Муравей сильнее, чем кажется.»",
+      "premium": false,
+      "aliases": [
+        "канкуро муравей"
+      ]
+    },
+    {
+      "key": "game_action_205",
+      "number": 205,
+      "trigger": "канкуро_саламандра",
+      "name": "Канкуро саламандра",
+      "category": "Техники Тэмари / Канкуро / Шино",
+      "description": "☠️ Цель отравлен! -500 HP/ход на 5 ходов!",
+      "premium": false,
+      "aliases": [
+        "канкуро саламандра"
+      ]
+    },
+    {
+      "key": "game_action_206",
+      "number": 206,
+      "trigger": "шино_жуки",
+      "name": "Шино жуки",
+      "category": "Техники Тэмари / Канкуро / Шино",
+      "description": "💥 700 урона! -300 чакры/ход на 5 ходов!",
+      "premium": false,
+      "aliases": [
+        "шино жуки"
+      ]
+    },
+    {
+      "key": "game_action_207",
+      "number": 207,
+      "trigger": "шино_жучий_шторм",
+      "name": "Шино жучий шторм",
+      "category": "Техники Тэмари / Канкуро / Шино",
+      "description": "💥💥 1300 урона! Цель покрыт жуками!",
+      "premium": false,
+      "aliases": [
+        "шино жучий шторм"
+      ]
+    },
+    {
+      "key": "game_action_208",
+      "number": 208,
+      "trigger": "шино_жучий_кокон",
+      "name": "Шино жучий кокон",
+      "category": "Техники Тэмари / Канкуро / Шино",
+      "description": "🔒 Цель обездвижен на 4 хода!",
+      "premium": false,
+      "aliases": [
+        "шино жучий кокон"
+      ]
+    },
+    {
+      "key": "game_action_209",
+      "number": 209,
+      "trigger": "хината_два_удара",
+      "name": "Хината два удара",
+      "category": "Техники Хинаты / Сакуры / Ино",
+      "description": "💥 600 урона! Цель теряет чакру!",
+      "premium": false,
+      "aliases": [
+        "хината два удара"
+      ]
+    },
+    {
+      "key": "game_action_210",
+      "number": 210,
+      "trigger": "хината_защита",
+      "name": "Хината защита",
+      "category": "Техники Хинаты / Сакуры / Ино",
+      "description": "💥 400 урона! Абсолютная защита!",
+      "premium": false,
+      "aliases": [
+        "хината защита"
+      ]
+    },
+    {
+      "key": "game_action_211",
+      "number": 211,
+      "trigger": "хината_львиные_кулаки",
+      "name": "Хината львиные кулаки",
+      "category": "Техники Хинаты / Сакуры / Ино",
+      "description": "💥💥 1200 урона! Цель парализован!",
+      "premium": false,
+      "aliases": [
+        "хината львиные кулаки"
+      ]
+    },
+    {
+      "key": "game_action_212",
+      "number": 212,
+      "trigger": "сакура_удар",
+      "name": "Сакура удар",
+      "category": "Техники Хинаты / Сакуры / Ино",
+      "description": "💥💥💥 2500 урона! Цель пробивает землю на 10 метров!",
+      "premium": true,
+      "aliases": [
+        "сакура удар"
+      ]
+    },
+    {
+      "key": "game_action_213",
+      "number": 213,
+      "trigger": "сакура_исцеление",
+      "name": "Сакура исцеление",
+      "category": "Техники Хинаты / Сакуры / Ино",
+      "description": "💚 «Я не только бью. Я ещё и лечу.»",
+      "premium": true,
+      "aliases": [
+        "сакура исцеление"
+      ]
+    },
+    {
+      "key": "game_action_214",
+      "number": 214,
+      "trigger": "сакура_сотня_ударов",
+      "name": "Сакура сотня ударов",
+      "category": "Техники Хинаты / Сакуры / Ино",
+      "description": "💥💥💥💥 3500 урона! Цель в фарш!",
+      "premium": true,
+      "aliases": [
+        "сакура сотня ударов"
+      ]
+    },
+    {
+      "key": "game_action_215",
+      "number": 215,
+      "trigger": "ино_перенос_разума",
+      "name": "Ино перенос разума",
+      "category": "Техники Хинаты / Сакуры / Ино",
+      "description": "🎭 Контроль на 3 хода!",
+      "premium": false,
+      "aliases": [
+        "ино перенос разума"
+      ]
+    },
+    {
+      "key": "game_action_216",
+      "number": 216,
+      "trigger": "ино_ментальный_удар",
+      "name": "Ино ментальный удар",
+      "category": "Техники Хинаты / Сакуры / Ино",
+      "description": "💥 800 урона! Цель бьёт себя!",
+      "premium": false,
+      "aliases": [
+        "ино ментальный удар"
+      ]
+    },
+    {
+      "key": "game_action_217",
+      "number": 217,
+      "trigger": "чоджи_гигант",
+      "name": "Чоджи гигант",
+      "category": "Техники Чоуджи / Асумы / Куренай",
+      "description": "💥💥 2000 урона! Цель расплющен!",
+      "premium": true,
+      "aliases": [
+        "чоджи гигант"
+      ]
+    },
+    {
+      "key": "game_action_218",
+      "number": 218,
+      "trigger": "чоджи_бабочка",
+      "name": "Чоджи бабочка",
+      "category": "Техники Чоуджи / Асумы / Куренай",
+      "description": "💥💥💥 3000 урона! Цель пробивает гору!",
+      "premium": true,
+      "aliases": [
+        "чоджи бабочка"
+      ]
+    },
+    {
+      "key": "game_action_219",
+      "number": 219,
+      "trigger": "асума_клинки",
+      "name": "Асума клинки",
+      "category": "Техники Чоуджи / Асумы / Куренай",
+      "description": "💥💥 1300 урона! Ветер усиливает порез!",
+      "premium": false,
+      "aliases": [
+        "асума клинки"
+      ]
+    },
+    {
+      "key": "game_action_220",
+      "number": 220,
+      "trigger": "асума_вихрь",
+      "name": "Асума вихрь",
+      "category": "Техники Чоуджи / Асумы / Куренай",
+      "description": "💥💥 1500 урона! Цель изрезан!",
+      "premium": true,
+      "aliases": [
+        "асума вихрь"
+      ]
+    },
+    {
+      "key": "game_action_221",
+      "number": 221,
+      "trigger": "куренай_иллюзия_цветов",
+      "name": "Куренай иллюзия цветов",
+      "category": "Техники Чоуджи / Асумы / Куренай",
+      "description": "😵 Дезориентация на 3 хода!",
+      "premium": false,
+      "aliases": [
+        "куренай иллюзия цветов"
+      ]
+    },
+    {
+      "key": "game_action_222",
+      "number": 222,
+      "trigger": "куренай_дерево_иллюзий",
+      "name": "Куренай дерево иллюзий",
+      "category": "Техники Чоуджи / Асумы / Куренай",
+      "description": "🔒 Обездвижен на 4 хода!",
+      "premium": false,
+      "aliases": [
+        "куренай дерево иллюзий"
+      ]
+    },
+    {
+      "key": "game_action_223",
+      "number": 223,
+      "trigger": "киба_волк",
+      "name": "Киба волк",
+      "category": "Техники Кибы / Шино / Анко",
+      "description": "💥💥 1100 урона! Цель изрезан!",
+      "premium": false,
+      "aliases": [
+        "киба волк"
+      ]
+    },
+    {
+      "key": "game_action_224",
+      "number": 224,
+      "trigger": "киба_двойной_волк",
+      "name": "Киба двойной волк",
+      "category": "Техники Кибы / Шино / Анко",
+      "description": "🐺🐺 «Двойная сила!»",
+      "premium": true,
+      "aliases": [
+        "киба двойной волк"
+      ]
+    },
+    {
+      "key": "game_action_225",
+      "number": 225,
+      "trigger": "анко_змеи",
+      "name": "Анко змеи",
+      "category": "Техники Кибы / Шино / Анко",
+      "description": "💥 900 урона! Яд 3 хода!",
+      "premium": false,
+      "aliases": [
+        "анко змеи"
+      ]
+    },
+    {
+      "key": "game_action_226",
+      "number": 226,
+      "trigger": "анко_огненная_змея",
+      "name": "Анко огненная змея",
+      "category": "Техники Кибы / Шино / Анко",
+      "description": "💥💥 1200 урона! Цель горит!",
+      "premium": false,
+      "aliases": [
+        "анко огненная змея"
+      ]
+    },
+    {
+      "key": "game_action_227",
+      "number": 227,
+      "trigger": "кабуто_скальпель",
+      "name": "Кабуто скальпель",
+      "category": "Техники Кабуто / Кимимаро / Джуго",
+      "description": "💥 800 урона! Цель не может двигаться!",
+      "premium": false,
+      "aliases": [
+        "кабуто скальпель"
+      ]
+    },
+    {
+      "key": "game_action_228",
+      "number": 228,
+      "trigger": "кабуто_мёртвые",
+      "name": "Кабуто мёртвые",
+      "category": "Техники Кабуто / Кимимаро / Джуго",
+      "description": "💥💥💥 2500 урона! Цель окружён!",
+      "premium": true,
+      "aliases": [
+        "кабуто мёртвые"
+      ]
+    },
+    {
+      "key": "game_action_229",
+      "number": 229,
+      "trigger": "кимимаро_кости",
+      "name": "Кимимаро кости",
+      "category": "Техники Кабуто / Кимимаро / Джуго",
+      "description": "💥💥 1300 урона! Цель пронзён!",
+      "premium": false,
+      "aliases": [
+        "кимимаро кости"
+      ]
+    },
+    {
+      "key": "game_action_230",
+      "number": 230,
+      "trigger": "кимимаро_танец",
+      "name": "Кимимаро танец",
+      "category": "Техники Кабуто / Кимимаро / Джуго",
+      "description": "💥💥 1600 урона! Цель исколот!",
+      "premium": true,
+      "aliases": [
+        "кимимаро танец"
+      ]
+    },
+    {
+      "key": "game_action_231",
+      "number": 231,
+      "trigger": "кимимаро_позвоночник",
+      "name": "Кимимаро позвоночник",
+      "category": "Техники Кабуто / Кимимаро / Джуго",
+      "description": "💥💥 1400 урона! Цель отброшен!",
+      "premium": false,
+      "aliases": [
+        "кимимаро позвоночник"
+      ]
+    },
+    {
+      "key": "game_action_232",
+      "number": 232,
+      "trigger": "джуго_ярость",
+      "name": "Джуго ярость",
+      "category": "Техники Кабуто / Кимимаро / Джуго",
+      "description": "💥💥💥 2200 урона! Цель пробивает стену!",
+      "premium": true,
+      "aliases": [
+        "джуго ярость"
+      ]
+    },
+    {
+      "key": "game_action_233",
+      "number": 233,
+      "trigger": "суигецу_вода",
+      "name": "Суигецу вода",
+      "category": "Техники Кабуто / Кимимаро / Джуго",
+      "description": "💥💥 1000 урона! Цель в шоке!",
+      "premium": false,
+      "aliases": [
+        "суигецу вода"
+      ]
+    },
+    {
+      "key": "game_action_234",
+      "number": 234,
+      "trigger": "карин_укус",
+      "name": "Карин укус",
+      "category": "Техники Кабуто / Кимимаро / Джуго",
+      "description": "🩸 «Кусай меня! Это лечит!»",
+      "premium": false,
+      "aliases": [
+        "карин укус"
+      ]
+    },
+    {
+      "key": "game_action_235",
+      "number": 235,
+      "trigger": "мадара_метеор",
+      "name": "Мадара метеор",
+      "category": "Техники Мадары / Обито / Хаширамы",
+      "description": "💥💥💥💥💥 6000 урона! Кратер 500 метров!",
+      "premium": true,
+      "aliases": [
+        "мадара метеор"
+      ]
+    },
+    {
+      "key": "game_action_236",
+      "number": 236,
+      "trigger": "мадара_сусаноо_меч",
+      "name": "Мадара сусаноо меч",
+      "category": "Техники Мадары / Обито / Хаширамы",
+      "description": "🔵 «Это сила Учиха!»",
+      "premium": true,
+      "aliases": [
+        "мадара сусаноо меч"
+      ]
+    },
+    {
+      "key": "game_action_237",
+      "number": 237,
+      "trigger": "мадара_лимон",
+      "name": "Мадара лимон",
+      "category": "Техники Мадары / Обито / Хаширамы",
+      "description": "💥💥💥💥 4000 урона! Цель связан!",
+      "premium": true,
+      "aliases": [
+        "мадара лимон"
+      ]
+    },
+    {
+      "key": "game_action_238",
+      "number": 238,
+      "trigger": "обито_камуй",
+      "name": "Обито камуй",
+      "category": "Техники Мадары / Обито / Хаширамы",
+      "description": "🌀💨 Цель исчезает! 5 ходов в пустоте!",
+      "premium": true,
+      "aliases": [
+        "обито камуй"
+      ]
+    },
+    {
+      "key": "game_action_239",
+      "number": 239,
+      "trigger": "обито_интанджибл",
+      "name": "Обито интанджибл",
+      "category": "Техники Мадары / Обито / Хаширамы",
+      "description": "💥💥 1500 урона! Цель в шоке!",
+      "premium": true,
+      "aliases": [
+        "обито интанджибл"
+      ]
+    },
+    {
+      "key": "game_action_240",
+      "number": 240,
+      "trigger": "хаширама_лес",
+      "name": "Хаширама лес",
+      "category": "Техники Мадары / Обито / Хаширамы",
+      "description": "💥💥💥💥 4000 урона! Цель погребён!",
+      "premium": true,
+      "aliases": [
+        "хаширама лес"
+      ]
+    },
+    {
+      "key": "game_action_241",
+      "number": 241,
+      "trigger": "хаширама_дракон",
+      "name": "Хаширама дракон",
+      "category": "Техники Мадары / Обито / Хаширамы",
+      "description": "💥💥💥 3000 урона! Цель раздавлен!",
+      "premium": true,
+      "aliases": [
+        "хаширама дракон"
+      ]
+    },
+    {
+      "key": "game_action_242",
+      "number": 242,
+      "trigger": "хаширама_сенпо",
+      "name": "Хаширама сенпо",
+      "category": "Техники Мадары / Обито / Хаширамы",
+      "description": "💥💥💥💥 5000 урона! Цель в стратосфере!",
+      "premium": true,
+      "aliases": [
+        "хаширама сенпо"
+      ]
+    },
+    {
+      "key": "game_action_243",
+      "number": 243,
+      "trigger": "минато_телепорт_удар",
+      "name": "Минато телепорт удар",
+      "category": "Техники Минато / Кушины",
+      "description": "💥💥 1800 урона! Цель не увидел!",
+      "premium": true,
+      "aliases": [
+        "минато телепорт удар"
+      ]
+    },
+    {
+      "key": "game_action_244",
+      "number": 244,
+      "trigger": "минато_печать",
+      "name": "Минато печать",
+      "category": "Техники Минато / Кушины",
+      "description": "🌀💨 Цель исчез! Вернётся через 5 ходов!",
+      "premium": false,
+      "aliases": [
+        "минато печать"
+      ]
+    },
+    {
+      "key": "game_action_245",
+      "number": 245,
+      "trigger": "минато_расенган_залп",
+      "name": "Минато расенган залп",
+      "category": "Техники Минато / Кушины",
+      "description": "💥💥💥💥 4000 урона! Цель уничтожен!",
+      "premium": true,
+      "aliases": [
+        "минато расенган залп"
+      ]
+    },
+    {
+      "key": "game_action_246",
+      "number": 246,
+      "trigger": "кушина_цепи",
+      "name": "Кушина цепи",
+      "category": "Техники Минато / Кушины",
+      "description": "🔒 Цель связан! -500 чакры/ход!",
+      "premium": false,
+      "aliases": [
+        "кушина цепи"
+      ]
+    },
+    {
+      "key": "game_action_247",
+      "number": 247,
+      "trigger": "кушина_ярость",
+      "name": "Кушина ярость",
+      "category": "Техники Минато / Кушины",
+      "description": "💥💥 1500 урона! Цель в стене!",
+      "premium": true,
+      "aliases": [
+        "кушина ярость"
+      ]
+    },
+    {
+      "key": "game_action_248",
+      "number": 248,
+      "trigger": "кагуя_измерение",
+      "name": "Кагуя измерение",
+      "category": "Техники Оцуцуки / Кагуи",
+      "description": "🌋💥 2000 урона! Цель горит!",
+      "premium": true,
+      "aliases": [
+        "кагуя измерение"
+      ]
+    },
+    {
+      "key": "game_action_249",
+      "number": 249,
+      "trigger": "кагуя_кость",
+      "name": "Кагуя кость",
+      "category": "Техники Оцуцуки / Кагуи",
+      "description": "💥💥 1500 урона! Цель пронзён!",
+      "premium": true,
+      "aliases": [
+        "кагуя кость"
+      ]
+    },
+    {
+      "key": "game_action_250",
+      "number": 250,
+      "trigger": "кагуя_бесконечность",
+      "name": "Кагуя бесконечность",
+      "category": "Техники Оцуцуки / Кагуи",
+      "description": "🌍💤 Все обездвижены!",
+      "premium": true,
+      "aliases": [
+        "кагуя бесконечность"
+      ]
+    },
+    {
+      "key": "game_action_251",
+      "number": 251,
+      "trigger": "момошики_поглощение",
+      "name": "Момошики поглощение",
+      "category": "Техники Оцуцуки / Кагуи",
+      "description": "👽 «Твоя сила — моя сила.»",
+      "premium": true,
+      "aliases": [
+        "момошики поглощение"
+      ]
+    },
+    {
+      "key": "game_action_252",
+      "number": 252,
+      "trigger": "момошики_биджу_дама",
+      "name": "Момошики биджу дама",
+      "category": "Техники Оцуцуки / Кагуи",
+      "description": "👽 «Слабый. Твоя чакра — мусор.»",
+      "premium": true,
+      "aliases": [
+        "момошики биджу дама"
+      ]
+    },
+    {
+      "key": "game_action_253",
+      "number": 253,
+      "trigger": "киншики_топор",
+      "name": "Киншики топор",
+      "category": "Техники Оцуцуки / Кагуи",
+      "description": "💥💥💥 2500 урона! Цель рассечён!",
+      "premium": true,
+      "aliases": [
+        "киншики топор"
+      ]
+    },
+    {
+      "key": "game_action_254",
+      "number": 254,
+      "trigger": "урашики_крючок",
+      "name": "Урашики крючок",
+      "category": "Техники Оцуцуки / Кагуи",
+      "description": "💥 1000 урона! -1000 чакры!",
+      "premium": true,
+      "aliases": [
+        "урашики крючок"
+      ]
+    },
+    {
+      "key": "game_action_255",
+      "number": 255,
+      "trigger": "ишшики_сжатие",
+      "name": "Ишшики сжатие",
+      "category": "Техники Оцуцуки / Кагуи",
+      "description": "🔬 Цель крошечный! 3 хода!",
+      "premium": true,
+      "aliases": [
+        "ишшики сжатие"
+      ]
+    },
+    {
+      "key": "game_action_256",
+      "number": 256,
+      "trigger": "борuto_расенган",
+      "name": "Борuto расенган",
+      "category": "Техники Борuto / Сарады / Мицуки / Каваки",
+      "description": "💥💥 1200 урона! Цель отброшен!",
+      "premium": false,
+      "aliases": [
+        "борuto расенган"
+      ]
+    },
+    {
+      "key": "game_action_257",
+      "number": 257,
+      "trigger": "борuto_камуи_расенган",
+      "name": "Борuto камуи расенган",
+      "category": "Техники Борuto / Сарады / Мицуки / Каваки",
+      "description": "💥💥💥 2500 урона! Цель взрывается изнутри!",
+      "premium": true,
+      "aliases": [
+        "борuto камуи расенган"
+      ]
+    },
+    {
+      "key": "game_action_258",
+      "number": 258,
+      "trigger": "борuto_джоган",
+      "name": "Борuto джоган",
+      "category": "Техники Борuto / Сарады / Мицуки / Каваки",
+      "description": "😵 Цель парализован страхом на 3 хода!",
+      "premium": false,
+      "aliases": [
+        "борuto джоган"
+      ]
+    },
+    {
+      "key": "game_action_259",
+      "number": 259,
+      "trigger": "сарада_шаринган",
+      "name": "Сарада шаринган",
+      "category": "Техники Борuto / Сарады / Мицуки / Каваки",
+      "description": "💥💥 1300 урона! Цель не понял, что произошло!",
+      "premium": false,
+      "aliases": [
+        "сарада шаринган"
+      ]
+    },
+    {
+      "key": "game_action_260",
+      "number": 260,
+      "trigger": "сарада_чидори",
+      "name": "Сарада чидори",
+      "category": "Техники Борuto / Сарады / Мицуки / Каваки",
+      "description": "⚡🔴 «Мама, папа — я сильнее вас обоих!»",
+      "premium": true,
+      "aliases": [
+        "сарада чидори"
+      ]
+    },
+    {
+      "key": "game_action_261",
+      "number": 261,
+      "trigger": "мицуки_змея",
+      "name": "Мицуки змея",
+      "category": "Техники Борuto / Сарады / Мицуки / Каваки",
+      "description": "💥 800 урона! Цель связан!",
+      "premium": false,
+      "aliases": [
+        "мицуки змея"
+      ]
+    },
+    {
+      "key": "game_action_262",
+      "number": 262,
+      "trigger": "мицуки_сенпо",
+      "name": "Мицуки сенпо",
+      "category": "Техники Борuto / Сарады / Мицуки / Каваки",
+      "description": "💥💥💥 2200 урона! Цель не увидел!",
+      "premium": true,
+      "aliases": [
+        "мицуки сенпо"
+      ]
+    },
+    {
+      "key": "game_action_263",
+      "number": 263,
+      "trigger": "каваки_карма",
+      "name": "Каваки карма",
+      "category": "Техники Борuto / Сарады / Мицуки / Каваки",
+      "description": "💥💥💥 2500 урона! Цель пробивает стену!",
+      "premium": true,
+      "aliases": [
+        "каваки карма"
+      ]
+    },
+    {
+      "key": "game_action_264",
+      "number": 264,
+      "trigger": "каваки_сжатие",
+      "name": "Каваки сжатие",
+      "category": "Техники Борuto / Сарады / Мицуки / Каваки",
+      "description": "🔬 Цель размером с ладонь! 3 хода!",
+      "premium": false,
+      "aliases": [
+        "каваки сжатие"
+      ]
+    },
+    {
+      "key": "game_action_265",
+      "number": 265,
+      "trigger": "каваки_взрыв",
+      "name": "Каваки взрыв",
+      "category": "Техники Борuto / Сарады / Мицуки / Каваки",
+      "description": "🔷💥 «Ишшики дал мне силу.»",
+      "premium": true,
+      "aliases": [
+        "каваки взрыв"
+      ]
+    },
+    {
+      "key": "game_action_266",
+      "number": 266,
+      "trigger": "найти_свиток_запрета",
+      "name": "Найти свиток запрета",
+      "category": "Ситуационные / Ролевые",
+      "description": "📜🔥 Инициатор находит запретный свиток!",
+      "premium": false,
+      "aliases": [
+        "найти свиток запрета"
+      ]
+    },
+    {
+      "key": "game_action_267",
+      "number": 267,
+      "trigger": "встретить_орочимару",
+      "name": "Встретить орочимару",
+      "category": "Ситуационные / Ролевые",
+      "description": "🐍 Оба получают +500 к атаке, но -200 к морали!",
+      "premium": false,
+      "aliases": [
+        "встретить орочимару"
+      ]
+    },
+    {
+      "key": "game_action_268",
+      "number": 268,
+      "trigger": "найти_ичираку",
+      "name": "Найти ичираку",
+      "category": "Ситуационные / Ролевые",
+      "description": "🍜😋 Оба восстанавливают 1000 HP!",
+      "premium": false,
+      "aliases": [
+        "найти ичираку"
+      ]
+    },
+    {
+      "key": "game_action_269",
+      "number": 269,
+      "trigger": "экзамен_генин",
+      "name": "Экзамен генин",
+      "category": "Ситуационные / Ролевые",
+      "description": "📝 Оба решают задачу! Победитель +500 опыта!",
+      "premium": false,
+      "aliases": [
+        "экзамен генин"
+      ]
+    },
+    {
+      "key": "game_action_270",
+      "number": 270,
+      "trigger": "миссия_ранг_D",
+      "name": "Миссия ранг D",
+      "category": "Ситуационные / Ролевые",
+      "description": "📋 +50 опыта. Кошка найдена. Поцарапаны.",
+      "premium": false,
+      "aliases": [
+        "миссия ранг D"
+      ]
+    },
+    {
+      "key": "game_action_271",
+      "number": 271,
+      "trigger": "миссия_ранг_A",
+      "name": "Миссия ранг A",
+      "category": "Ситуационные / Ролевые",
+      "description": "⚔️🔥 Эпичная битва! Оба получают +2000 опыта!",
+      "premium": false,
+      "aliases": [
+        "миссия ранг A"
+      ]
+    },
+    {
+      "key": "game_action_272",
+      "number": 272,
+      "trigger": "встретить_джирайю",
+      "name": "Встретить джирайю",
+      "category": "Ситуационные / Ролевые",
+      "description": "👴🔥 Оба получают +1000 к опыту!",
+      "premium": false,
+      "aliases": [
+        "встретить джирайю"
+      ]
+    },
+    {
+      "key": "game_action_273",
+      "number": 273,
+      "trigger": "встретить_цунade",
+      "name": "Встретить цунade",
+      "category": "Ситуационные / Ролевые",
+      "description": "👊💥 Инициатор получает 500 урона от Цунаде!",
+      "premium": false,
+      "aliases": [
+        "встретить цунade"
+      ]
+    },
+    {
+      "key": "game_action_274",
+      "number": 274,
+      "trigger": "встретить_какаши",
+      "name": "Встретить какаши",
+      "category": "Ситуационные / Ролевые",
+      "description": "📖😑 Инициатор и Цель ждут Какаши...",
+      "premium": false,
+      "aliases": [
+        "встретить какаши"
+      ]
+    },
+    {
+      "key": "game_action_275",
+      "number": 275,
+      "trigger": "встретить_гай",
+      "name": "Встретить гай",
+      "category": "Ситуационные / Ролевые",
+      "description": "💪 +500 к силе! -200 к энергии!",
+      "premium": false,
+      "aliases": [
+        "встретить гай"
+      ]
+    },
+    {
+      "key": "game_action_276",
+      "number": 276,
+      "trigger": "найти_акуцуки",
+      "name": "Найти акуцуки",
+      "category": "Ситуационные / Ролевые",
+      "description": "☁️😱 Оба получают статус «Паника»!",
+      "premium": false,
+      "aliases": [
+        "найти акуцуки"
+      ]
+    },
+    {
+      "key": "game_action_278",
+      "number": 278,
+      "trigger": "стать_друзьями_навсегда",
+      "name": "Стать друзьями навсегда",
+      "category": "Ситуационные / Ролевые",
+      "description": "🤝💕 Связь дружбы MAX! +1000 к морали!",
+      "premium": false,
+      "aliases": [
+        "стать друзьями навсегда"
+      ]
+    },
+    {
+      "key": "game_action_279",
+      "number": 279,
+      "trigger": "стать_соперниками",
+      "name": "Стать соперниками",
+      "category": "Ситуационные / Ролевые",
+      "description": "⚔️🔥 Оба получают +500 к атаке!",
+      "premium": false,
+      "aliases": [
+        "стать соперниками"
+      ]
+    },
+    {
+      "key": "game_action_280",
+      "number": 280,
+      "trigger": "стать_командой",
+      "name": "Стать командой",
+      "category": "Ситуационные / Ролевые",
+      "description": "🔥 «Вместе мы сила!»",
+      "premium": false,
+      "aliases": [
+        "стать командой"
+      ]
+    },
+    {
+      "key": "game_action_281",
+      "number": 281,
+      "trigger": "призвать_шаринган",
+      "name": "Призвать шаринган",
+      "category": "Легендарные / Мифические",
+      "description": "🔴 «Проклятие Учиха... и сила.»",
+      "premium": true,
+      "aliases": [
+        "призвать шаринган"
+      ]
+    },
+    {
+      "key": "game_action_282",
+      "number": 282,
+      "trigger": "призвать_мангекё",
+      "name": "Призвать мангекё",
+      "category": "Легендарные / Мифические",
+      "description": "💥💥💥 3000 урона! Цель горит!",
+      "premium": true,
+      "aliases": [
+        "призвать мангекё"
+      ]
+    },
+    {
+      "key": "game_action_283",
+      "number": 283,
+      "trigger": "призвать_риннеган",
+      "name": "Призвать риннеган",
+      "category": "Легендарные / Мифические",
+      "description": "💥💥💥💥 4000 урона! Цель не может встать!",
+      "premium": true,
+      "aliases": [
+        "призвать риннеган"
+      ]
+    },
+    {
+      "key": "game_action_284",
+      "number": 284,
+      "trigger": "призвать_бьякуган",
+      "name": "Призвать бьякуган",
+      "category": "Легендарные / Мифические",
+      "description": "💥💥 1200 урона! Цель парализован!",
+      "premium": true,
+      "aliases": [
+        "призвать бьякуган"
+      ]
+    },
+    {
+      "key": "game_action_285",
+      "number": 285,
+      "trigger": "призвать_сенриннеган",
+      "name": "Призвать сенриннеган",
+      "category": "Легендарные / Мифические",
+      "description": "🟣🟠 «Сила Шести Путей Мудреца!»",
+      "premium": true,
+      "aliases": [
+        "призвать сенриннеган"
+      ]
+    },
+    {
+      "key": "game_action_286",
+      "number": 286,
+      "trigger": "танец_ли",
+      "name": "Танец ли",
+      "category": "Развлекательные / Пасхалки",
+      "description": "Цель заворожён! Не может атаковать 2 хода!",
+      "premium": false,
+      "aliases": [
+        "танец ли"
+      ]
+    },
+    {
+      "key": "game_action_287",
+      "number": 287,
+      "trigger": "песня_киллер_би",
+      "name": "Песня киллер би",
+      "category": "Развлекательные / Пасхалки",
+      "description": "🎤💥 Цель получает 300 урона от кринжа!",
+      "premium": false,
+      "aliases": [
+        "песня киллер би"
+      ]
+    },
+    {
+      "key": "game_action_288",
+      "number": 288,
+      "trigger": "книга_ича_ича",
+      "name": "Книга ича ича",
+      "category": "Развлекательные / Пасхалки",
+      "description": "📖😏 Инициатор читает «Ича-Ича» вслух!",
+      "premium": false,
+      "aliases": [
+        "книга ича ича"
+      ]
+    },
+    {
+      "key": "game_action_289",
+      "number": 289,
+      "trigger": "рамен_соревнование",
+      "name": "Рамен соревнование",
+      "category": "Развлекательные / Пасхалки",
+      "description": "🤢 Цель проигрывает! -200 HP от переедания!",
+      "premium": false,
+      "aliases": [
+        "рамен соревнование"
+      ]
+    },
+    {
+      "key": "game_action_290",
+      "number": 290,
+      "trigger": "бег_по_воде",
+      "name": "Бег по воде",
+      "category": "Развлекательные / Пасхалки",
+      "description": "💥 100 урона! Цель мокрый!",
+      "premium": false,
+      "aliases": [
+        "бег по воде"
+      ]
+    },
+    {
+      "key": "game_action_291",
+      "number": 291,
+      "trigger": "бег_по_деревьям",
+      "name": "Бег по деревьям",
+      "category": "Развлекательные / Пасхалки",
+      "description": "🌳 «Нужно больше чакры...»",
+      "premium": false,
+      "aliases": [
+        "бег по деревьям"
+      ]
+    },
+    {
+      "key": "game_action_292",
+      "number": 292,
+      "trigger": "прыжок_с_горы",
+      "name": "Прыжок с горы",
+      "category": "Развлекательные / Пасхалки",
+      "description": "💥 500 урона при приземлении!",
+      "premium": false,
+      "aliases": [
+        "прыжок с горы"
+      ]
+    },
+    {
+      "key": "game_action_293",
+      "number": 293,
+      "trigger": "спрятаться_за_дерево",
+      "name": "Спрятаться за дерево",
+      "category": "Развлекательные / Пасхалки",
+      "description": "🌳🙈 Инициатор прячется за деревом!",
+      "premium": false,
+      "aliases": [
+        "спрятаться за дерево"
+      ]
+    },
+    {
+      "key": "game_action_294",
+      "number": 294,
+      "trigger": "превратиться_в_камень",
+      "name": "Превратиться в камень",
+      "category": "Развлекательные / Пасхалки",
+      "description": "💥 100 урона Инициатор! «АЙ! ЭТО Я!»",
+      "premium": false,
+      "aliases": [
+        "превратиться в камень"
+      ]
+    },
+    {
+      "key": "game_action_295",
+      "number": 295,
+      "trigger": "превратиться_в_юзер",
+      "name": "Превратиться в юзер",
+      "category": "Развлекательные / Пасхалки",
+      "description": "🎭🙈 Инициатор превращается в Цель!",
+      "premium": false,
+      "aliases": [
+        "превратиться в юзер"
+      ]
+    },
+    {
+      "key": "game_action_296",
+      "number": 296,
+      "trigger": "финальный_расенган",
+      "name": "Финальный расенган",
+      "category": "Финальные / Эпичные",
+      "description": "💥💥💥💥💥💥 10000 урона! Цель ИСПАРЁН!",
+      "premium": true,
+      "aliases": [
+        "финальный расенган"
+      ]
+    },
+    {
+      "key": "game_action_297",
+      "number": 297,
+      "trigger": "финальное_чидори",
+      "name": "Финальное чидори",
+      "category": "Финальные / Эпичные",
+      "description": "💥💥💥💥💥💥 10000 урона! Цель ПРОНЗЁН!",
+      "premium": true,
+      "aliases": [
+        "финальное чидори"
+      ]
+    },
+    {
+      "key": "game_action_298",
+      "number": 298,
+      "trigger": "финальный_аматерасу",
+      "name": "Финальный аматерасу",
+      "category": "Финальные / Эпичные",
+      "description": "🖤🔥💥💥💥💥💥 12000 урона! Цель СГОРАЕТ!",
+      "premium": true,
+      "aliases": [
+        "финальный аматерасу"
+      ]
+    },
+    {
+      "key": "game_action_299",
+      "number": 299,
+      "trigger": "воля_огня_финал",
+      "name": "Воля огня финал",
+      "category": "Финальные / Эпичные",
+      "description": "🔥✨ Цель полностью восстанавливается!",
+      "premium": true,
+      "aliases": [
+        "воля огня финал"
+      ]
+    },
+    {
+      "key": "game_action_300",
+      "number": 300,
+      "trigger": "даттебайо",
+      "name": "Даттебайо",
+      "category": "Финальные / Эпичные",
+      "description": "🍥😁 Инициатор улыбается Цель!",
+      "premium": true,
+      "aliases": [
+        "даттебайо"
+      ]
+    }
+  ],
+  "premium": true,
+  "syntax": {
+    "slash_optional": true,
+    "underscore_optional": true,
+    "force_game_prefix": [
+      "игра",
+      "game"
+    ]
+  }
+}

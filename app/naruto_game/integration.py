@@ -9,6 +9,8 @@ from aiogram.types import BotCommand, BotCommandScopeChat
 from . import models as _models  # noqa: F401
 from .router import router as naruto_router
 from .extended_router import router as extended_router
+from .advanced_router import router as advanced_router
+from .social_router import SocialPresenceMiddleware, router as social_router
 
 logger = logging.getLogger(__name__)
 _installed = False
@@ -28,6 +30,37 @@ _GAME_COMMANDS = [
     BotCommand(command="world", description="Состояние мира"),
     BotCommand(command="raid", description="Мировой рейд"),
     BotCommand(command="market", description="Рынок игроков"),
+    BotCommand(command="settlement", description="Telegram-поселение шиноби"),
+    BotCommand(command="friend", description="Друзья и связь шиноби"),
+    BotCommand(command="duel", description="Дуэль с игроком"),
+    BotCommand(command="student", description="Наставник и ученики"),
+    BotCommand(command="chatwar", description="Война Telegram-поселений"),
+    BotCommand(command="tournament", description="Турнир в группе"),
+    BotCommand(command="alliance", description="Альянс кланов"),
+    BotCommand(command="nmail", description="Почта шиноби"),
+    BotCommand(command="mmo_top", description="MMO-рейтинг мира"),
+    BotCommand(command="clanroles", description="Роли клана в стиле Naruto"),
+    BotCommand(command="clanbase", description="База и казна клана"),
+    BotCommand(command="chatmission", description="Групповая миссия поселения"),
+    BotCommand(command="deal", description="Безопасная сделка reply/ID"),
+    BotCommand(command="marry", description="Семейный союз персонажей"),
+    BotCommand(command="privacy", description="Приватность игрового профиля"),
+    BotCommand(command="territory", description="Карта и захват территорий"),
+    BotCommand(command="worldwar", description="Большая война деревень"),
+    BotCommand(command="mobilize", description="Мобилизация на фронт"),
+    BotCommand(command="front", description="Фронт и военные действия"),
+    BotCommand(command="peace", description="Мирные переговоры Каге"),
+    BotCommand(command="npc", description="Живые NPC и отношения"),
+    BotCommand(command="promise", description="Обещания персонажам"),
+    BotCommand(command="livemission", description="Динамическая живая миссия"),
+    BotCommand(command="events", description="Текущие события мира"),
+    BotCommand(command="recommend", description="Что делать дальше"),
+    BotCommand(command="returnlog", description="Сводка за время отсутствия"),
+    BotCommand(command="path", description="Путь и специализация шиноби"),
+    BotCommand(command="research", description="Создание своей техники"),
+    BotCommand(command="legend", description="Путь легендарного шиноби"),
+    BotCommand(command="epithet", description="Прозвище шиноби"),
+    BotCommand(command="legacy", description="Летопись и наследие"),
 ]
 
 
@@ -67,9 +100,17 @@ def install_naruto_game() -> None:
     # Extended systems are nested under the same RPG router so they share access controls.
     if extended_router.parent_router is None:
         naruto_router.include_router(extended_router)
+    # Advanced natural-language aliases must be evaluated before the broad
+    # social "Наруто, ..." handler.
+    if advanced_router.parent_router is None:
+        naruto_router.include_router(advanced_router)
+    if social_router.parent_router is None:
+        naruto_router.include_router(social_router)
 
     # Reuse AniGuard's maintenance/block/penalty/command-restriction checks.
     naruto_router.message.outer_middleware(AccessMiddleware())
+    # Count only real Naruto-RPG actions inside registered Telegram settlements.
+    naruto_router.message.outer_middleware(SocialPresenceMiddleware())
     naruto_router.edited_message.outer_middleware(AccessMiddleware())
     naruto_router.callback_query.outer_middleware(AccessMiddleware())
     naruto_router.startup.register(_register_game_commands)

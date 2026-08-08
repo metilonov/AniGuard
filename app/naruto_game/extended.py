@@ -1315,8 +1315,8 @@ async def clan_war(session: AsyncSession, user_id: int, target_name: str) -> str
     if not own_member:
         raise GameError("Вы не состоите в клане.")
     own_clan = await session.get(NinjaClan, own_member.clan_id)
-    if not own_clan or own_clan.leader_id != user_id:
-        raise GameError("Объявлять клановую войну может только глава клана.")
+    if not own_clan or (own_clan.leader_id != user_id and own_member.role != "commander"):
+        raise GameError("Объявлять клановую войну может 👑 Клан-лидер или ⚔️ Джонин-командир.")
     target = await session.scalar(select(NinjaClan).where(func.lower(NinjaClan.name) == target_name.strip().casefold()))
     if not target or target.id == own_clan.id:
         raise GameError("Клан-противник не найден.")

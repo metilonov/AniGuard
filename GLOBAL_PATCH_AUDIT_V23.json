@@ -1,0 +1,25 @@
+{
+  "version": "23",
+  "features": {
+    "detailed_moderation_responses": true,
+    "ordinary_style": true,
+    "naruto_style": true,
+    "custom_style_packs": true,
+    "style_moderation": true,
+    "group_style_code": true,
+    "command_constructor": true,
+    "edit_existing_commands": true,
+    "portrait_case_reel": true,
+    "visible_case_cells_mobile": "4-5",
+    "admin_stars_byn": true,
+    "user_avatars": true,
+    "russian_recent_events": true,
+    "admin_refresh_ms": 1000
+  },
+  "validation": {
+    "pytest": "historical v23 report; see GLOBAL_PATCH_AUDIT_V23_1.json",
+    "python_compileall": "passed",
+    "javascript_syntax": "passed"
+  },
+  "superseded_by": "23.1"
+}

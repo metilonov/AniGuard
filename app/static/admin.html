@@ -1,0 +1,2386 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="aniguard-build" content="admin-pin-lifetime-v23.3">
+<title>AniGuard Admin — панель владельца</title>
+<style>
+:root{
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --radius: 24px;
+  --shadow: 0 18px 48px rgba(0,0,0,.16);
+  --transition: .18s ease;
+  --font: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+}
+html[data-theme="dark"]{
+  --bg:#0e1117;
+  --bg-2:#151b24;
+  --card:#1a212c;
+  --card-2:#212a36;
+  --card-soft:#253142;
+  --text:#f3f6fb;
+  --muted:#97a4b6;
+  --line:#2d3a4c;
+  --accent:#36a3e7;
+  --accent-2:#2486d1;
+  --accent-soft:rgba(54,163,231,.17);
+  --success:#3ec48b;
+  --success-soft:rgba(62,196,139,.16);
+  --warning:#f1b44c;
+  --warning-soft:rgba(241,180,76,.15);
+  --danger:#ff6e7c;
+  --danger-soft:rgba(255,110,124,.16);
+  --info:#86b7ff;
+  --info-soft:rgba(134,183,255,.16);
+}
+html[data-theme="light"]{
+  --bg:#eef2f6;
+  --bg-2:#f6f8fb;
+  --card:#ffffff;
+  --card-2:#f8fafc;
+  --card-soft:#f2f6fa;
+  --text:#111827;
+  --muted:#6b7789;
+  --line:#d7e0ea;
+  --accent:#198bd6;
+  --accent-2:#0f77bc;
+  --accent-soft:rgba(25,139,214,.12);
+  --success:#1f9f6d;
+  --success-soft:rgba(31,159,109,.12);
+  --warning:#c68819;
+  --warning-soft:rgba(198,136,25,.12);
+  --danger:#dd5568;
+  --danger-soft:rgba(221,85,104,.12);
+  --info:#4f86ff;
+  --info-soft:rgba(79,134,255,.12);
+}
+
+.resource-live{display:grid;gap:10px}
+.resource-status{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border:1px solid var(--line);border-radius:22px;background:var(--card)}
+.resource-status strong{font-size:16px}.resource-status small{color:var(--muted)}
+.resource-dot{width:10px;height:10px;border-radius:50%;background:var(--success);box-shadow:0 0 0 5px var(--success-soft)}
+.resource-dot.degraded{background:var(--warning);box-shadow:0 0 0 5px var(--warning-soft)}
+.resource-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.resource-card{padding:14px;border:1px solid var(--line);border-radius:22px;background:var(--card)}
+.resource-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.resource-card small{color:var(--muted)}.resource-card b{font-size:21px}
+.resource-bar{height:8px;border-radius:999px;background:var(--card-soft);overflow:hidden;margin-top:12px}.resource-bar span{display:block;height:100%;width:0;background:var(--accent);border-radius:inherit;transition:width .3s ease}.resource-bar.warning span{background:var(--warning)}.resource-bar.danger span{background:var(--danger)}
+.operation-card{position:relative;padding-top:44px}.operation-number{position:absolute;left:14px;top:14px;min-width:26px;height:26px;padding:0 7px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:900}
+.operation-state{position:absolute;right:14px;top:17px;font-size:11px;font-weight:800;color:var(--success)}
+.live-timestamp{font-variant-numeric:tabular-nums}
+@media(max-width:520px){.resource-grid{grid-template-columns:1fr}.operation-card{padding-top:42px}}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--font);font-style:normal;text-rendering:optimizeLegibility}
+body{min-width:320px}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+a{text-decoration:none;color:inherit}
+.hidden{display:none !important}
+svg{display:block}
+.app-shell{width:min(100%,780px);margin:0 auto;padding:14px 14px calc(116px + var(--safe-bottom))}
+.topbar{
+  position:sticky;top:0;z-index:30;margin:0 -14px 12px;padding:8px 14px 12px;
+  display:flex;align-items:center;gap:10px;justify-content:space-between;
+  background:linear-gradient(to bottom, color-mix(in srgb,var(--bg) 96%, transparent), color-mix(in srgb,var(--bg) 84%, transparent));
+  backdrop-filter:blur(18px)
+}
+.topbar-left{
+  min-width:0;display:flex;align-items:center;gap:12px;flex:1
+}
+.topbar-actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;flex:0 0 auto}
+.icon-btn{
+  width:46px;height:46px;border-radius:17px;border:1px solid var(--line);
+  background:var(--card);display:grid;place-items:center;transition:var(--transition);
+  box-shadow:0 8px 18px rgba(0,0,0,.08)
+}
+.refresh-btn{
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  line-height:0;
+}
+.refresh-btn svg{
+  position:absolute;
+  left:50%;
+  top:50%;
+  width:21px;
+  height:21px;
+  display:block;
+  margin:0;
+  stroke-width:2.15;
+  transform:translate(-50%,-50%);
+  transform-origin:center;
+}
+
+.icon-btn:active{transform:scale(.97);background:var(--card-soft)}
+.icon-btn svg{width:22px;height:22px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.admin-chip{
+  border:0;background:none;padding:0;display:flex;align-items:center;gap:12px;min-width:0;text-align:left
+}
+.avatar{
+  position:relative;flex:0 0 54px;width:54px;height:54px;border-radius:18px;
+  display:grid;place-items:center;overflow:hidden;
+  background:linear-gradient(160deg,var(--accent),#5fd6ff);
+  color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.18), 0 8px 24px rgba(0,0,0,.14)
+}
+.avatar small{position:absolute;right:4px;bottom:4px;width:18px;height:18px;border-radius:50%;background:#0d1320;color:#fff;display:grid;place-items:center;font-size:10px;border:1px solid rgba(255,255,255,.18)}
+.avatar.admin svg{width:28px;height:28px}
+.avatar img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:inherit;z-index:2}
+.avatar img + small{z-index:3}
+.admin-title{font-size:20px;font-weight:800;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.admin-sub{margin-top:3px;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.search-wrap{
+  display:flex;align-items:center;gap:10px;min-height:54px;margin-bottom:16px;padding:0 16px;
+  border-radius:22px;border:1px solid var(--line);background:var(--card)
+}
+.search-wrap svg{width:20px;height:20px;stroke:var(--muted);stroke-width:2;fill:none}
+.search-wrap input{
+  width:100%;border:0;outline:0;background:transparent;color:var(--text)
+}
+.page{display:none}
+.page.active{display:block}
+.section-head{
+  margin:22px 2px 10px;display:flex;align-items:center;justify-content:space-between;gap:12px
+}
+.section-head h2{
+  margin:0;font-size:19px;line-height:1.2;font-weight:800;letter-spacing:-.01em
+}
+.section-head span{font-size:13px;color:var(--muted)}
+
+.metrics{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px
+}
+.metric{
+  min-width:0;min-height:128px;padding:18px;border-radius:28px;border:1px solid var(--line);background:var(--card);
+  display:grid;grid-template-columns:64px minmax(0,1fr);gap:16px;align-items:center;
+  box-shadow:0 1px 0 rgba(255,255,255,.02)
+}
+.metric.wide{grid-column:1/-1}
+.metric-icon,.dashboard-card-icon{
+  width:64px;height:64px;border-radius:22px;display:grid;place-items:center;flex:0 0 auto;
+  color:#fff;background:linear-gradient(145deg,#39b9f4,#218ed8);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.24),0 12px 28px rgba(28,149,220,.18)
+}
+.metric-icon svg,.dashboard-card-icon svg{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.metric-copy{min-width:0;display:block}
+.metric small{display:block;color:var(--muted);font-size:13px;font-weight:750;line-height:1.25}
+.metric b{display:block;margin-top:8px;font-size:25px;line-height:1.08;overflow-wrap:anywhere}
+.metric em{display:block;margin-top:7px;font-size:11px;color:var(--accent);font-style:normal;line-height:1.3}
+.cards,.dashboard-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.dashboard-card{
+  min-width:0;min-height:230px;padding:17px;border-radius:28px;border:1px solid var(--line);background:var(--card);
+  display:flex;flex-direction:column;box-shadow:0 1px 0 rgba(255,255,255,.02)
+}
+.dashboard-card.wide{grid-column:1/-1;min-height:190px}
+.dashboard-card-head{display:flex;align-items:center;gap:13px;min-width:0}
+.dashboard-card-icon{width:58px;height:58px;border-radius:20px}
+.dashboard-card-icon svg{width:30px;height:30px}
+.dashboard-card h3{margin:0;font-size:17px;line-height:1.2;overflow-wrap:anywhere}
+.dashboard-card p{margin:13px 0 0;color:var(--muted);font-size:13px;line-height:1.48}
+.dashboard-card .card-actions{margin-top:auto;padding-top:15px}
+.dashboard-card .card-actions button{width:100%;min-height:43px;padding:9px 10px;border-radius:14px}
+
+.card-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.primary,.secondary,.danger,.success,.ghost{
+  min-height:46px;border-radius:15px;padding:11px 14px;border:1px solid var(--line);
+  transition:var(--transition);font-weight:700
+}
+.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.secondary{background:var(--card-2)}
+.success{background:var(--success-soft);border-color:color-mix(in srgb,var(--success) 25%, var(--line));color:var(--success)}
+.danger{background:var(--danger-soft);border-color:color-mix(in srgb,var(--danger) 25%, var(--line));color:var(--danger)}
+.ghost{background:transparent}
+.primary:active,.secondary:active,.success:active,.danger:active,.ghost:active{transform:scale(.985)}
+.list{
+  overflow:hidden;border-radius:24px;border:1px solid var(--line);background:var(--card)
+}
+.row{
+  width:100%;display:grid;grid-template-columns:46px minmax(0,1fr) auto;gap:12px;align-items:center;
+  padding:14px;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left
+}
+.row:last-child{border-bottom:0}
+.row-icon{
+  width:46px;height:46px;border-radius:16px;display:grid;place-items:center;
+  background:var(--accent-soft);color:var(--accent)
+}
+.row-icon svg{width:24px;height:24px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.row-copy{min-width:0}
+.row-title{
+  display:block;font-size:16px;font-weight:760;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.row-sub{
+  display:block;margin-top:5px;font-size:13px;color:var(--muted);line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.row-extra{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex:0 0 auto}
+.badge{
+  display:inline-block;
+  padding:0;
+  margin:0;
+  background:transparent;
+  border:none;
+  border-radius:0;
+  font-size:12px;
+  font-weight:700;
+  color:var(--muted);
+  white-space:nowrap;
+  line-height:1.2;
+  text-align:right;
+  box-sizing:border-box;
+}
+.badge.success,
+.badge.warning,
+.badge.info,
+.badge.danger,
+.badge.muted{
+  background:transparent !important;
+  border:none !important;
+  color:var(--muted) !important;
+}
+.chat-list{
+  display:grid;gap:10px
+}
+.chat-card{
+  padding:14px;border-radius:26px;border:1px solid var(--line);background:var(--card)
+}
+.chat-top{
+  display:grid;grid-template-columns:56px minmax(0,1fr);gap:12px;align-items:center
+}
+.chat-meta{min-width:0}
+.chat-name{
+  font-size:18px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-style:normal;letter-spacing:0
+}
+.chat-id,.chat-link{
+  display:block;margin-top:4px;font-size:13px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.chat-id{color:var(--muted)}
+.chat-link{color:var(--accent);font-weight:650}
+.chat-actions{
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:14px
+}
+.action-btn{
+  min-height:48px;border-radius:15px;border:1px solid var(--line);background:var(--card-2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:7px 5px;transition:var(--transition)
+}
+.action-btn:active{transform:scale(.98)}
+.action-btn svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.action-btn span{display:block;font-size:10px;font-weight:760;line-height:1.1;color:var(--text)}
+.action-btn.info{color:var(--info);background:var(--info-soft)}
+.action-btn.premium{color:var(--success);background:var(--success-soft)}
+.action-btn.control{color:var(--warning);background:var(--warning-soft)}
+.action-btn.settings{color:var(--accent);background:var(--accent-soft)}
+.action-btn.log{color:var(--danger);background:var(--danger-soft)}
+
+.user-table{
+  display:grid;gap:10px
+}
+.user-card{
+  padding:14px;border-radius:24px;border:1px solid var(--line);background:var(--card)
+}
+.user-head{
+  display:grid;grid-template-columns:52px minmax(0,1fr);gap:12px;align-items:center
+}
+.user-name{font-size:17px;font-weight:800;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-id,.user-username{display:block;margin-top:4px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-id{font-size:12px;color:var(--muted)}
+.user-username{font-size:13px;color:var(--accent);font-weight:650}
+.user-actions{
+  margin-top:13px;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px
+}
+.tool-btn{
+  min-height:48px;border-radius:15px;border:1px solid var(--line);background:var(--card-2);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:7px 5px;transition:var(--transition)
+}
+.tool-btn svg{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tool-btn span{font-size:10px;font-weight:760}
+.tool-btn.info{color:var(--info)}
+.tool-btn.premium{color:var(--success)}
+.tool-btn.coin{color:var(--warning)}
+.tool-btn.ref{color:var(--accent)}
+.tool-btn.block{color:var(--danger)}
+.sheet-backdrop{
+  display:none;position:fixed;inset:0;z-index:60;padding:12px;background:rgba(0,0,0,.45);align-items:flex-end
+}
+.sheet-backdrop.open{display:flex}
+.sheet{
+  width:min(100%,720px);max-height:calc(100vh - 24px);margin:0 auto;overflow:auto;
+  border-radius:30px;border:1px solid var(--line);background:var(--bg-2);box-shadow:var(--shadow)
+}
+.sheet-handle{width:58px;height:5px;border-radius:999px;background:var(--line);margin:12px auto 0}
+.sheet-head{
+  padding:16px 16px 10px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px
+}
+.sheet-title{margin:0;font-size:22px;line-height:1.15;font-weight:820}
+.sheet-sub{margin:6px 0 0;font-size:13px;color:var(--muted);line-height:1.4}
+.sheet-body{padding:0 16px 18px}
+.close-btn{
+  width:42px;height:42px;border-radius:16px;border:1px solid var(--line);background:var(--card);display:grid;place-items:center
+}
+.close-btn svg{width:20px;height:20px;stroke:currentColor;stroke-width:2;fill:none}
+.profile-hero{
+  display:grid;grid-template-columns:72px minmax(0,1fr);gap:14px;align-items:center;
+  padding:14px;border-radius:24px;border:1px solid var(--line);background:var(--card)
+}
+.profile-hero .avatar{width:72px;height:72px;border-radius:22px;flex:0 0 72px}
+.profile-hero .avatar.admin svg{width:38px;height:38px}
+.profile-name{
+  font-size:22px;font-weight:850;line-height:1.18;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-style:normal
+}
+.profile-id,.profile-username{display:block;margin-top:4px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.profile-id{font-size:13px;color:var(--muted)}
+.profile-username{font-size:14px;color:var(--accent);font-weight:700}
+.facts{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px
+}
+.fact{
+  padding:14px;border-radius:20px;border:1px solid var(--line);background:var(--card)
+}
+.fact small{display:block;font-size:12px;color:var(--muted)}
+.fact b{display:block;margin-top:6px;font-size:18px;line-height:1.2}
+.form{display:grid;gap:12px}
+.search-inline{
+  display:flex;align-items:center;gap:10px;min-height:48px;padding:0 14px;
+  border-radius:16px;border:1px solid var(--line);background:var(--card)
+}
+.search-inline svg{width:18px;height:18px;stroke:var(--muted);stroke-width:2;fill:none}
+.search-inline input{width:100%;border:0;outline:0;background:transparent;color:var(--text)}
+.hidden-field{display:none}
+
+.field{display:grid;gap:7px}
+.field label{font-size:14px;font-weight:700}
+.field input,.field select,.field textarea{
+  width:100%;padding:12px 13px;border-radius:16px;border:1px solid var(--line);background:var(--card);outline:0
+}
+.field textarea{min-height:110px;resize:vertical}
+.inline{
+  display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px
+}
+.console{
+  padding:14px;border-radius:20px;border:1px solid var(--line);background:#0f141c;color:#ced7e3;
+  white-space:pre-wrap;font-size:12px;line-height:1.6;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace
+}
+.bottom-nav{
+  position:fixed;left:50%;bottom:calc(10px + var(--safe-bottom));transform:translateX(-50%);
+  width:min(640px,calc(100% - 20px));z-index:40;padding:7px;display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;border-radius:32px;border:1px solid var(--line);
+  background:color-mix(in srgb,var(--card) 94%, transparent);backdrop-filter:blur(18px);box-shadow:var(--shadow)
+}
+.nav-btn{
+  min-height:70px;border-radius:25px;border:0;background:transparent;color:var(--muted);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;transition:var(--transition)
+}
+.nav-btn svg{width:24px;height:24px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.nav-btn span{font-size:11px;font-weight:760}
+.nav-btn.active{background:var(--accent-soft);color:var(--accent)}
+.auth-screen{
+  min-height:100vh;display:grid;place-items:center;padding:20px
+}
+.auth-card{
+  width:min(100%,430px);padding:24px;border-radius:30px;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow)
+}
+.auth-top{
+  display:flex;align-items:center;gap:14px
+}
+.auth-title{font-size:28px;font-weight:850;line-height:1.1}
+.auth-text{margin:4px 0 0;font-size:14px;color:var(--muted);line-height:1.5}
+.auth-error{min-height:20px;margin-top:10px;font-size:13px;color:var(--danger);text-align:center}
+.switch-row{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:18px;border:1px solid var(--line);background:var(--card)
+}
+.switch-copy b{display:block;font-size:15px}
+.switch-copy span{display:block;margin-top:4px;font-size:13px;color:var(--muted)}
+.switch{
+  position:relative;width:52px;height:31px;flex:0 0 52px
+}
+.switch input{position:absolute;inset:0;opacity:0}
+.switch span{
+  position:absolute;inset:0;border-radius:999px;background:var(--line);transition:var(--transition)
+}
+.switch span:after{
+  content:"";position:absolute;top:3px;left:3px;width:25px;height:25px;border-radius:50%;background:#fff;transition:var(--transition)
+}
+.switch input:checked + span{background:var(--accent)}
+.switch input:checked + span:after{transform:translateX(21px)}
+.toast{
+  position:fixed;left:50%;bottom:96px;transform:translate(-50%,10px);z-index:100;
+  padding:12px 14px;border-radius:16px;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow);
+  opacity:0;pointer-events:none;transition:var(--transition);max-width:calc(100% - 28px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.mini-list{display:grid;gap:8px;margin-top:14px}
+.pill{
+  display:inline-flex;align-items:center;gap:8px;padding:8px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:12px;font-weight:700
+}
+.kpi-row{display:flex;flex-wrap:wrap;gap:8px}
+@media (max-width:700px){
+  .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cards,.dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .inline,.facts{grid-template-columns:1fr}
+}
+@media (max-width:520px){
+  .chat-actions,.user-actions{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .topbar{padding-top:10px}
+  .admin-title{font-size:18px}
+  .section-head h2{font-size:18px}
+}
+@media (max-width:420px){
+  .metrics,.dashboard-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .metric{min-height:112px;padding:12px;grid-template-columns:48px minmax(0,1fr);gap:10px;border-radius:22px}
+  .metric-icon{width:48px;height:48px;border-radius:17px}
+  .metric-icon svg{width:27px;height:27px}
+  .metric small{font-size:11px}.metric b{font-size:19px}.metric em{font-size:9px}
+  .dashboard-card{min-height:218px;padding:13px;border-radius:22px}
+  .dashboard-card.wide{min-height:180px}
+  .dashboard-card-head{align-items:flex-start;gap:9px;flex-direction:column}
+  .dashboard-card-icon{width:48px;height:48px;border-radius:17px}
+  .dashboard-card-icon svg{width:26px;height:26px}
+  .dashboard-card h3{font-size:15px}.dashboard-card p{font-size:11px}
+  .dashboard-card .card-actions button{font-size:12px}
+  .badge{font-size:11px}
+}
+.auth-card .field,.auth-card .switch-row{display:none}
+
+.store-kpi-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.store-kpi{padding:14px;border:1px solid var(--line);border-radius:20px;background:var(--card)}
+.store-kpi small{display:block;color:var(--muted);font-size:12px}.store-kpi b{display:block;margin-top:6px;font-size:22px}
+.admin-thread{display:grid;gap:10px;max-height:330px;overflow:auto;padding:8px;border:1px solid var(--line);border-radius:20px;background:var(--bg-2)}
+.admin-message{max-width:88%;padding:11px 13px;border-radius:17px;background:var(--card);line-height:1.45}.admin-message.support{margin-left:auto;background:var(--accent-soft)}
+.admin-message small{display:block;margin-top:5px;color:var(--muted);font-size:11px}
+.order-status{display:inline-flex;padding:6px 9px;border-radius:999px;font-size:11px;font-weight:800}.order-status.pending{color:var(--warning);background:var(--warning-soft)}.order-status.approved{color:var(--success);background:var(--success-soft)}.order-status.rejected{color:var(--danger);background:var(--danger-soft)}.order-status.paid{color:var(--accent);background:var(--accent-soft)}
+.admin-store-row{display:grid;gap:8px;padding:14px;border:1px solid var(--line);border-radius:20px;background:var(--card)}
+.admin-store-row-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.admin-store-row p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+.button-grid{display:grid;gap:10px}.button-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:520px){.store-kpi-grid,.button-grid.two{grid-template-columns:1fr}}
+
+
+.event-avatar{width:46px;height:46px}
+.event-avatar .avatar{width:46px;height:46px;min-width:46px;flex-basis:46px;border-radius:15px;font-size:13px}
+.event-list .row{grid-template-columns:46px minmax(0,1fr) auto}
+.metric b{overflow-wrap:anywhere}
+@media(max-width:420px){.metric b{font-size:19px}}
+</style>
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="shield-star" viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.9-2.8 7.8-7 9-4.2-1.2-7-4.1-7-9V6z"/><path d="m12 8 .9 1.9 2.1.3-1.5 1.5.3 2.1L12 12.8l-1.8 1 .3-2.1-1.5-1.5 2.1-.3z"/></symbol>
+  <symbol id="moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a9 9 0 1 0 10.5 10.5z"/></symbol>
+  <symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+  <symbol id="refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="dots" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="19" r="1.4" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+  <symbol id="overview" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></symbol>
+  <symbol id="users" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2 20a6 6 0 0 1 12 0M10 20a6 6 0 0 1 12 0"/></symbol>
+  <symbol id="chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/></symbol>
+  <symbol id="crown" viewBox="0 0 24 24"><path d="m4 17 2-9 4 4 2-7 2 7 4-4 2 9z"/><path d="M6 21h12"/></symbol>
+  <symbol id="gear" viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="4"/></symbol>
+  <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  <symbol id="info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol>
+  <symbol id="diamond" viewBox="0 0 24 24"><path d="m4 8 4-4h8l4 4-8 12z"/><path d="M4 8h16M8 4l4 16 4-16"/></symbol>
+  <symbol id="pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+  <symbol id="play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></symbol>
+  <symbol id="sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-4M20 13V3"/><path d="M2 14h4M10 8h4M18 13h4"/></symbol>
+  <symbol id="file" viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v6h6M10 13h6M10 17h6"/></symbol>
+  <symbol id="coin" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v5c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 11v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/></symbol>
+  <symbol id="ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m6 6 12 12"/></symbol>
+  <symbol id="gift" viewBox="0 0 24 24"><path d="M20 12v8H4v-8M12 4v16M3 8h18v4H3z"/><path d="M12 8H8.5a2.5 2.5 0 1 1 0-5c2 0 3.5 2.2 3.5 5ZM12 8h3.5a2.5 2.5 0 1 0 0-5C13.5 3 12 5.2 12 8Z"/></symbol>
+  <symbol id="send" viewBox="0 0 24 24"><path d="m3 11 18-8-7 18-3-7z"/><path d="m11 14 10-11"/></symbol>
+  <symbol id="download" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M4 21h16"/></symbol>
+  <symbol id="ticket" viewBox="0 0 24 24"><path d="M4 7h16v10H4z"/><path d="M8 7v10M16 7v10"/></symbol>
+  <symbol id="pulse" viewBox="0 0 24 24"><path d="M3 12h4l2-4 4 8 2-4h6"/></symbol>
+  <symbol id="key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l2 2M13 10l2 2"/></symbol>
+  <symbol id="spark" viewBox="0 0 24 24"><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></symbol>
+  <symbol id="logout" viewBox="0 0 24 24"><path d="M10 4H4v16h6"/><path d="m14 8 4 4-4 4M18 12H9"/></symbol>
+  <symbol id="link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 1 0-7l1.5-1.5a5 5 0 1 1 7 7L17 13"/><path d="M14 11a5 5 0 0 1 0 7L12.5 19.5a5 5 0 0 1-7-7L7 11"/></symbol>
+  <symbol id="user-round" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="mail" viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="m4 7 8 6 8-6"/></symbol>
+  <symbol id="megaphone" viewBox="0 0 24 24"><path d="M4 12v3h3l9 4V5l-9 4H4z"/><path d="M7 15l1.5 4h3L10 15"/><path d="M18 8c1.8.8 3 2.2 3 4s-1.2 3.2-3 4"/></symbol>
+  <symbol id="case-box" viewBox="0 0 24 24"><path d="M4 8h16v12H4z"/><path d="M8 8V5h8v3M4 12h16M10 12v2h4v-2"/></symbol>
+  <symbol id="support-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/><path d="M17 18v3M14 21h6"/></symbol>
+  <symbol id="wallet-history" viewBox="0 0 24 24"><path d="M4 7h14a2 2 0 0 1 2 2v9H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M4 7 15 4v3M15 11h7v4h-7a2 2 0 0 1 0-4Z"/><path d="M17.5 13h.01"/></symbol>
+
+
+  <!-- Уникальные иконки обзора v23.2: ни одна карточка не повторяет другую -->
+  <symbol id="metric-users-total" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0M16 7h5M18.5 4.5v5"/></symbol>
+  <symbol id="metric-premium-users" viewBox="0 0 24 24"><circle cx="9" cy="10" r="3"/><path d="M3 21a6 6 0 0 1 12 0M16 4l1.2 2.5L20 7l-2 2 .5 3-2.5-1.4L13.5 12l.5-3-2-2 2.8-.5z"/></symbol>
+  <symbol id="metric-active-24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M4 4l2 2M20 4l-2 2"/></symbol>
+  <symbol id="metric-active-7" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 3v4M17 3v4M3 10h18M8 15l2 2 5-5"/></symbol>
+  <symbol id="metric-chats" viewBox="0 0 24 24"><path d="M3 5h14v10H8l-5 4z"/><path d="M9 9h4M9 12h6M18 8h3v9h-5l-3 3v-3"/></symbol>
+  <symbol id="metric-premium-chats" viewBox="0 0 24 24"><path d="M3 6h13v9H8l-5 4z"/><path d="m18 4 1 2 2 .4-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1L15 6.4 17 6z"/></symbol>
+  <symbol id="metric-stars" viewBox="0 0 24 24"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/><path d="M9 12h6"/></symbol>
+  <symbol id="metric-byn" viewBox="0 0 24 24"><path d="M7 3v18M7 5h7a4 4 0 0 1 0 8H7M7 13h8a4 4 0 0 1 0 8H7"/><path d="M4 9h15M4 16h16"/></symbol>
+  <symbol id="metric-anicoin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 17 4-10 4 10M9.5 13h5"/><circle cx="12" cy="12" r="6"/></symbol>
+  <symbol id="metric-reports" viewBox="0 0 24 24"><path d="M5 21V4M5 5h11l-2 4 2 4H5"/><path d="M19 15v4M17 17h4"/></symbol>
+  <symbol id="metric-appeals" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h5M9 17l2-2 2 2 3-4"/></symbol>
+  <symbol id="metric-cases" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V4h8v3M3 12h18M10 12v3h4v-3"/></symbol>
+  <symbol id="metric-threats" viewBox="0 0 24 24"><path d="M12 3 3 20h18z"/><path d="M12 9v5M12 17h.01"/></symbol>
+  <symbol id="metric-ads" viewBox="0 0 24 24"><path d="M4 10v5h4l9 4V6l-9 4z"/><path d="M8 15l1 5h3l-1-5M19 9c1.3.7 2 1.7 2 3s-.7 2.3-2 3"/></symbol>
+  <symbol id="metric-ad-income" viewBox="0 0 24 24"><path d="M3 13h4l8 4V7l-8 4H3z"/><circle cx="18" cy="17" r="3"/><path d="M18 15v4M16.5 16h2.2M16.5 18h2.2"/></symbol>
+  <symbol id="metric-case-openings" viewBox="0 0 24 24"><path d="M4 9h16v11H4zM8 9V5h8v4"/><path d="M4 13h16M10 13v3h4v-3"/><path d="m18 3 .6 1.4L20 5l-1.4.6L18 7l-.6-1.4L16 5l1.4-.6z"/></symbol>
+  <symbol id="metric-support" viewBox="0 0 24 24"><path d="M5 13a7 7 0 0 1 14 0v5"/><path d="M5 14H3v4a2 2 0 0 0 2 2h2v-6zM19 14h2v4a2 2 0 0 1-2 2h-2v-6z"/><path d="M15 21h-3"/></symbol>
+
+  <symbol id="action-grant-premium" viewBox="0 0 24 24"><path d="m4 17 2-9 4 4 2-7 2 7 4-4 2 9zM6 21h12"/><path d="M12 15v4M10 17h4"/></symbol>
+  <symbol id="action-add-coin" viewBox="0 0 24 24"><ellipse cx="10" cy="7" rx="6" ry="3"/><path d="M4 7v5c0 1.7 2.7 3 6 3M16 7v4"/><circle cx="17" cy="17" r="4"/><path d="M17 15v4M15 17h4"/></symbol>
+  <symbol id="action-broadcast" viewBox="0 0 24 24"><path d="M3 11v4h4l10 5V6L7 11z"/><path d="m7 15 2 5h3l-2-5M20 9v6"/></symbol>
+  <symbol id="action-export" viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5zM14 3v6h6"/><path d="M12 11v7M9 15l3 3 3-3"/></symbol>
+  <symbol id="action-global-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m6 6 12 12"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></symbol>
+  <symbol id="action-report-monitor" viewBox="0 0 24 24"><path d="M4 20V5h10l-2 4 2 4H4"/><path d="M15 18h2l1.5-4 2 7L22 18h1"/></symbol>
+  <symbol id="action-promos" viewBox="0 0 24 24"><path d="M4 8h16v12H4zM3 8l3-4h12l3 4"/><path d="M12 8v12M8 12h.01M16 16h.01M9 17l6-6"/></symbol>
+  <symbol id="action-security-log" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.8 2.7 7.7 7 9 4.3-1.3 7-4.2 7-9V6z"/><path d="M9 12h6M9 9h4M9 15h5"/></symbol>
+  <symbol id="action-style-moderation" viewBox="0 0 24 24"><path d="M4 18 15 7l3 3L7 21H4zM14 6l2-2 4 4-2 2"/><path d="m6 5 .7 1.7L8.5 7.5l-1.8.8L6 10l-.7-1.7-1.8-.8 1.8-.8z"/></symbol>
+  <symbol id="action-ad-moderation" viewBox="0 0 24 24"><path d="M3 11v4h4l9 4V7l-9 4z"/><path d="M18 8c2 1 3 2.2 3 4s-1 3-3 4M8 15l1.5 4"/><path d="m12 10 2 2 4-4"/></symbol>
+  <symbol id="action-support-chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12h5"/><circle cx="18" cy="18" r="3"/><path d="M18 16.5v3"/></symbol>
+  <symbol id="action-case-history" viewBox="0 0 24 24"><path d="M4 8h16v12H4zM8 8V5h8v3"/><path d="M12 12v4l3 2M12 12a5 5 0 1 0 5 5"/></symbol>
+  <symbol id="action-wallet-history" viewBox="0 0 24 24"><path d="M3 7h15a2 2 0 0 1 2 2v10H3z"/><path d="m3 7 12-3v3M15 11h7v5h-7a2.5 2.5 0 0 1 0-5z"/><path d="M7 16h4M7 12h3"/></symbol>
+  <symbol id="action-ad-settings" viewBox="0 0 24 24"><path d="M3 10v5h4l8 4V6l-8 4z"/><path d="M18 6v3M18 15v3M16 12h4"/><circle cx="18" cy="12" r="2"/></symbol>
+
+</svg>
+
+<section id="authScreen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-top">
+      <div class="avatar admin">
+        <svg viewBox="0 0 24 24"><use href="#shield-star"></use></svg>
+        <small>AG</small>
+      </div>
+      <div>
+        <div class="auth-title">AniGuard Admin</div>
+        <p class="auth-text">Доступ проверяется по защищённой авторизации Telegram Mini App. Панель открывается только владельцам, указанным в ADMIN_IDS.</p>
+      </div>
+    </div>
+
+    <div class="form" style="margin-top:18px">
+      <div class="field">
+        <label for="loginInput">Логин</label>
+        <input id="loginInput" value="Admin" autocomplete="username">
+      </div>
+      <div class="field">
+        <label for="passwordInput">Пароль</label>
+        <input id="passwordInput" type="password" placeholder="Введите пароль" autocomplete="current-password">
+      </div>
+      <div class="switch-row">
+        <div class="switch-copy">
+          <b>Запомнить вход</b>
+          <span>Для текущей эмуляции</span>
+        </div>
+        <label class="switch"><input id="rememberInput" type="checkbox"><span></span></label>
+      </div>
+      <button id="loginBtn" class="primary">Проверить доступ</button>
+      <div id="authError" class="auth-error"></div>
+      <button id="themeAuthBtn" class="secondary" type="button">Сменить тему</button>
+    </div>
+  </div>
+</section>
+
+<section id="appScreen" class="hidden">
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button id="adminChip" class="admin-chip">
+          <div class="avatar admin">
+            <svg viewBox="0 0 24 24"><use href="#shield-star"></use></svg>
+            <small>AG</small>
+          </div>
+          <div style="min-width:0">
+            <div class="admin-title">AniGuard Admin</div>
+            <div id="headerSub" class="admin-sub">Главная панель управления ботом</div>
+          </div>
+        </button>
+      </div>
+      <div class="topbar-actions">
+        <button id="themeBtn" class="icon-btn" title="Сменить тему"></button>
+        <button id="refreshBtn" class="icon-btn refresh-btn" title="Обновить"><svg viewBox="0 0 24 24"><use href="#refresh"></use></svg></button>
+        <button id="menuBtn" class="icon-btn" title="Меню"><svg viewBox="0 0 24 24"><use href="#dots"></use></svg></button>
+      </div>
+    </header>
+
+    <label class="search-wrap">
+      <svg viewBox="0 0 24 24"><use href="#search"></use></svg>
+      <input id="searchInput" type="search" placeholder="Поиск по текущему разделу">
+    </label>
+
+    <main>
+      <section id="page-overview" class="page active"><div id="overviewRoot"></div></section>
+      <section id="page-users" class="page"><div id="usersRoot"></div></section>
+      <section id="page-chats" class="page"><div id="chatsRoot"></div></section>
+      <section id="page-premium" class="page"><div id="premiumRoot"></div></section>
+      <section id="page-system" class="page"><div id="systemRoot"></div></section>
+    </main>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-page="overview"><svg viewBox="0 0 24 24"><use href="#overview"></use></svg><span>Обзор</span></button>
+    <button class="nav-btn" data-page="users"><svg viewBox="0 0 24 24"><use href="#users"></use></svg><span>Юзеры</span></button>
+    <button class="nav-btn" data-page="chats"><svg viewBox="0 0 24 24"><use href="#chat"></use></svg><span>Беседы</span></button>
+    <button class="nav-btn" data-page="premium"><svg viewBox="0 0 24 24"><use href="#crown"></use></svg><span>Premium</span></button>
+    <button class="nav-btn" data-page="system"><svg viewBox="0 0 24 24"><use href="#gear"></use></svg><span>Система</span></button>
+  </nav>
+</section>
+
+<div id="sheetBackdrop" class="sheet-backdrop">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-head">
+      <div>
+        <h2 id="sheetTitle" class="sheet-title">Панель</h2>
+        <p id="sheetSub" class="sheet-sub">Описание окна</p>
+      </div>
+      <button class="close-btn" id="sheetClose"><svg viewBox="0 0 24 24"><use href="#close"></use></svg></button>
+    </div>
+    <div id="sheetBody" class="sheet-body"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+(() => {
+  const $ = (s, root=document) => root.querySelector(s);
+  const $$ = (s, root=document) => Array.from(root.querySelectorAll(s));
+  const icon = (id) => `<svg viewBox="0 0 24 24"><use href="#${id}"></use></svg>`;
+  const fmt = (n) => Number(n).toLocaleString('ru-RU');
+  const initials = (name) => (name || '').split(/\s+/).slice(0,2).map(v => v[0] || '').join('').toUpperCase();
+  const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
+
+  function avatarMarkup(name, avatarUrl='', admin=false){
+    const fallback = admin
+      ? `${icon('shield-star')}<small>AG</small>`
+      : escapeHtml(initials(name));
+    const image = avatarUrl
+      ? `<img src="${escapeHtml(avatarUrl)}" alt="Аватар ${escapeHtml(name || 'AniGuard')}" loading="lazy" onerror="this.remove()">`
+      : '';
+    return `<div class="avatar${admin ? ' admin' : ''}">${fallback}${image}</div>`;
+  }
+
+  function updateAdminHeaderAvatar(){
+    const node = $('#adminChip .avatar.admin');
+    if (!node) return;
+    node.outerHTML = avatarMarkup(data.admin.name || 'AniGuard Admin', data.admin.avatar_url || '', true);
+  }
+
+  const data = {
+    admin: {name:'AniGuard Admin'},
+    theme: localStorage.getItem('aniguard_admin_theme') || 'dark',
+    loginAttempts: 0,
+    lockUntil: 0,
+    currentPage: 'overview',
+    settings: {
+      maintenance:false,
+      registration:true,
+      premiumInheritance:true,
+      paymentNotify:true,
+      autoReports:true,
+      themeAuto:false,
+      backupAlerts:true
+    },
+    users: [],
+    chats: [],
+    payments: [],
+    reports: [],
+    tickets: [],
+    promos: [],
+    logs: [],
+    storeOverview: {pending_ads:0, open_tickets:0, case_openings:0, coin_sales_stars:0, ad_sales_stars:0, audience:{channel:0,bot:0,rewarded:0}},
+    storeAds: [],
+    supportTickets: [],
+    caseOpenings: [],
+    walletTransactions: [],
+    resources: {provider:'starting',status:'starting',cpu_percent:0,cpu_limit:4,memory_usage_mb:0,memory_limit_mb:2048,memory_percent:0,disk_usage_mb:0,disk_limit_mb:15360,disk_percent:0,uptime:'—',updated_at:null,error:null},
+    liveStats: {},
+    liveIncidents: [],
+    liveTimer: null,
+    liveBusy: false
+  };
+
+  const tg = window.Telegram?.WebApp;
+
+  function telegramInitData(){
+    return tg?.initData || '';
+  }
+
+  function devUserId(){
+    return new URLSearchParams(location.search).get('dev_user_id') || '';
+  }
+
+  async function api(path, options={}){
+    const headers = new Headers(options.headers || {});
+    if (telegramInitData()) headers.set('X-Telegram-Init-Data', telegramInitData());
+    else if (devUserId()) headers.set('X-Dev-User-Id', devUserId());
+    if (options.body && !(options.body instanceof FormData)) headers.set('Content-Type', 'application/json');
+    const response = await fetch(path, {...options, headers});
+    if (!response.ok) {
+      let message = `HTTP ${response.status}`;
+      try { const body = await response.json(); message = body.detail || message; } catch (_) {}
+      throw new Error(message);
+    }
+    if (response.status === 204) return null;
+    return response.json();
+  }
+
+  function formatDate(value, withTime=true){
+    if (!value || value === 'Навсегда') return value || null;
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleString('ru-RU', withTime ? {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'} : {day:'2-digit',month:'2-digit',year:'numeric'});
+  }
+
+  function applyDashboard(payload){
+    data.remoteStats = payload.stats || {};
+    data.admin = payload.admin || data.admin;
+    data.users = (payload.users || []).map(u => ({...u, joined:formatDate(u.joined,false), last:formatDate(u.last), premiumUntil:formatDate(u.premiumUntil)}));
+    data.chats = (payload.chats || []).map(c => ({...c, premiumUntil:formatDate(c.premiumUntil)}));
+    data.payments = (payload.payments || []).map(p => ({...p, date:formatDate(p.date)}));
+    data.reports = (payload.reports || []).map(r => ({...r, date:formatDate(r.date)}));
+    data.tickets = (payload.tickets || []).map(t => ({...t, date:formatDate(t.date)}));
+    data.promos = payload.promos || [];
+    data.logs = (payload.logs || []).map(item => ({...item, time:formatDate(item.time)}));
+    data.settings = {...data.settings, ...(payload.settings || {})};
+    const name = data.admin.name || 'AniGuard Admin';
+    $$('.admin-title').forEach(node => node.textContent = name);
+    updateAdminHeaderAvatar();
+  }
+
+
+  function pct(value){ return Math.max(0, Math.min(100, Number(value || 0))); }
+  function resourceClass(value){ return value >= 90 ? 'danger' : value >= 75 ? 'warning' : ''; }
+  function resourceProviderLabel(r){
+    const provider=String(r?.provider || 'starting');
+    if(provider.startsWith('cgroup')) return 'Контейнер AniGuard (cgroup)';
+    if(provider.startsWith('process')) return 'Процесс AniGuard';
+    return 'Мониторинг AniGuard';
+  }
+  function resourceSourceLabel(source){
+    if(String(source || '').startsWith('cgroup')) return 'контейнер cgroup';
+    return 'процесс Python';
+  }
+
+  function applyLiveData(payload){
+    data.liveStats = payload.stats || {};
+    data.remoteStats = {...(data.remoteStats || {}), ...(payload.stats || {})};
+    data.resources = payload.resources || data.resources;
+    data.liveIncidents = payload.incidents || [];
+    const r = data.resources;
+    const setText = (id, value) => { const node = $('#' + id); if (node) node.textContent = value; };
+    setText('liveCpu', `${Number(r.cpu_percent || 0).toFixed(1)}%`);
+    setText('liveCpuMeta', `${Number(r.cpu_limit || 4)} vCPU · ${resourceSourceLabel(r.cpu_source)} · обновление 1 сек.`);
+    setText('liveRam', `${Number(r.memory_usage_mb || 0).toFixed(0)} МБ из ${Number(r.memory_limit_mb || 0).toFixed(0)} МБ`);
+    setText('liveRamMeta', `${Number(r.memory_percent || 0).toFixed(1)}% · ${resourceSourceLabel(r.memory_source)}`);
+    setText('liveDisk', `${(Number(r.disk_usage_mb || 0) / 1024).toFixed(3)} ГБ из ${(Number(r.disk_limit_mb || 0) / 1024).toFixed(0)} ГБ`);
+    setText('liveDiskMeta', `${Number(r.disk_percent || 0).toFixed(2)}% лимита · только файлы AniGuard`);
+    setText('liveUptime', r.uptime || '—');
+    setText('liveProvider', resourceProviderLabel(r));
+    setText('liveResourceStatus', r.error || `API AniGuard через ${location.host || 'домен проекта'} · работает`);
+    setText('liveUpdated', payload.server_time ? new Date(payload.server_time).toLocaleTimeString('ru-RU') : '—');
+    const dot = $('#resourceDot'); if (dot) dot.classList.toggle('degraded', r.status !== 'online');
+    [['cpuBar',r.cpu_percent],['ramBar',r.memory_percent],['diskBar',r.disk_percent]].forEach(([id,value]) => { const node=$('#'+id); if(node){ node.className=`resource-bar ${resourceClass(Number(value||0))}`; const span=node.querySelector('span'); if(span) span.style.width=pct(value)+'%'; }});
+    if (data.currentPage === 'overview') renderOverview();
+  }
+
+  async function loadLiveData(){
+    if (data.liveBusy || $('#appScreen').classList.contains('hidden')) return;
+    data.liveBusy = true;
+    try { applyLiveData(await api('/api/admin/live')); }
+    catch (err) { data.resources = {...data.resources,status:'degraded',error:err.message}; applyLiveData({stats:data.liveStats,resources:data.resources,incidents:data.liveIncidents,server_time:new Date().toISOString()}); }
+    finally { data.liveBusy = false; }
+  }
+
+  function startLiveUpdates(){
+    clearInterval(data.liveTimer);
+    loadLiveData();
+    data.liveTimer = setInterval(loadLiveData, 1000);
+  }
+
+  async function loadRemoteData(){
+    if (!telegramInitData() && !devUserId()) throw new Error('Откройте админ-панель кнопкой из команды /admin в Telegram. Для DEV_MODE можно добавить ?dev_user_id=ВАШ_ID.');
+    const me = await api('/api/me');
+    if (!me.is_bot_admin) throw new Error('Доступ разрешён только владельцу AniGuard.');
+    const [dashboard, storeOverview] = await Promise.all([
+      api('/api/admin/dashboard'),
+      api('/api/admin/store/overview'),
+    ]);
+    applyDashboard(dashboard);
+    data.storeOverview = storeOverview || data.storeOverview;
+    renderAll();
+    return dashboard;
+  }
+
+  async function reloadRemoteData(message='Данные обновлены'){
+    await loadRemoteData();
+    if (message) showToast(message);
+  }
+
+  async function post(path, body){
+    return api(path, {method:'POST', body:JSON.stringify(body || {})});
+  }
+
+  async function downloadExport(filename='aniguard_export.json'){
+    const exportHeaders = {};
+    if (telegramInitData()) exportHeaders['X-Telegram-Init-Data'] = telegramInitData();
+    else if (devUserId()) exportHeaders['X-Dev-User-Id'] = devUserId();
+    const response = await fetch('/api/admin/export', {headers:exportHeaders});
+    if (!response.ok) {
+      let msg = 'Не удалось сформировать файл';
+      try { msg = (await response.json()).detail || msg; } catch (_) {}
+      throw new Error(msg);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function showToast(text){
+    const node = $('#toast');
+    node.textContent = text;
+    node.classList.add('show');
+    clearTimeout(showToast.t);
+    showToast.t = setTimeout(() => node.classList.remove('show'), 1800);
+  }
+
+  function applyTheme(theme){
+    data.theme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('aniguard_admin_theme', theme);
+    const btn = $('#themeBtn');
+    if (btn) btn.innerHTML = theme === 'dark' ? icon('sun') : icon('moon');
+  }
+
+  function toggleTheme(){
+    applyTheme(data.theme === 'dark' ? 'light' : 'dark');
+    showToast(data.theme === 'dark' ? 'Тёмная тема' : 'Светлая тема');
+  }
+
+  function openSheet(title, sub, html){
+    $('#sheetTitle').textContent = title;
+    $('#sheetSub').textContent = sub;
+    $('#sheetBody').innerHTML = html;
+    $('#sheetBackdrop').classList.add('open');
+  }
+  function closeSheet(){
+    $('#sheetBackdrop').classList.remove('open');
+  }
+
+  function addLog(text, tag='admin'){
+    const d = new Date();
+    const time = d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+    data.logs.unshift({time, text, tag});
+  }
+
+  function ownerOf(chat){ return data.users.find(u => u.id === chat.ownerId); }
+
+  function stats(){
+    return data.remoteStats || {
+      users:0, premiumUsers:0, active24:0, active7:0, chats:0, premiumChats:0,
+      expiringPremium:0, revenue:0, revenueStars:0, revenueByn:0, aniCoin:0,
+      reports:0, appeals:0, cases:0, threats:0, securityAlerts:0,
+      advertising:0, advertisingRevenueStars:0, advertisingRevenueByn:0,
+      caseOpenings:0, support:0, stylesPending:0
+    };
+  }
+
+  function headerSubText(){
+    return {
+      overview:'Главная панель управления ботом',
+      users:'Управление пользователями',
+      chats:'Панель управления беседами',
+      premium:'Premium, промокоды и подписки',
+      system:'Система, уведомления и безопасность'
+    }[data.currentPage];
+  }
+
+  function metric(label, value, sub='', iconId='metric-users-total', wide=false){
+    return `<div class="metric ${wide ? 'wide' : ''}"><span class="metric-icon"><svg viewBox="0 0 24 24"><use href="#${iconId}"></use></svg></span><span class="metric-copy"><small>${label}</small><b>${value}</b>${sub ? `<em>${sub}</em>` : ''}</span></div>`;
+  }
+
+  function dashboardCard(title, description, action, buttonText, iconId, buttonClass='secondary', wide=false, counter=''){
+    return `<article class="dashboard-card ${wide ? 'wide' : ''}"><div class="dashboard-card-head"><span class="dashboard-card-icon"><svg viewBox="0 0 24 24"><use href="#${iconId}"></use></svg></span><h3>${title}</h3></div><p>${description}</p><div class="card-actions"><button class="${buttonClass}" data-action="${action}">${buttonText}${counter ? ` (${counter})` : ''}</button></div></article>`;
+  }
+
+  function badge(value = '', tone = '') {
+    const text = String(value ?? '').trim();
+    if (!text) return '';
+    const allowedTones = new Set(['success', 'warning', 'info', 'danger', 'muted']);
+    const normalizedTone = String(tone ?? '').trim();
+    const toneClass = allowedTones.has(normalizedTone) ? ` ${normalizedTone}` : '';
+    return `<span class="badge${toneClass}">${escapeHtml(text)}</span>`;
+  }
+
+  function renderOverview(){
+    const s = stats();
+    const revenueStars = Number(s.revenueStars ?? s.revenue ?? 0);
+    const revenueByn = Number(s.revenueByn || 0);
+    const adStars = Number(s.advertisingRevenueStars ?? data.storeOverview.ad_sales_stars ?? 0);
+    const adByn = Number(s.advertisingRevenueByn || 0);
+    const reports = Number(s.reports || 0);
+    const appeals = Number(s.appeals ?? data.liveStats.appeals ?? 0);
+    const cases = Number(s.cases ?? data.liveStats.cases ?? 0);
+    const threats = Number(s.threats ?? s.securityAlerts ?? data.liveStats.securityAlerts ?? 0);
+    const advertising = Number(s.advertising ?? data.storeOverview.pending_ads ?? 0);
+    const caseOpenings = Number(s.caseOpenings ?? data.storeOverview.case_openings ?? 0);
+    const support = Number(s.support ?? data.storeOverview.open_tickets ?? 0);
+    const stylesPending = Number(s.stylesPending || 0);
+    $('#overviewRoot').innerHTML = `
+      <div class="metrics">
+        ${metric('Пользователей', fmt(s.users || 0), 'Всего зарегистрировано', 'metric-users-total')}
+        ${metric('Premium пользователей', fmt(s.premiumUsers || 0), 'С активной подпиской', 'metric-premium-users')}
+        ${metric('Активные 24 часа', fmt(s.active24 || 0), 'За последние сутки', 'metric-active-24')}
+        ${metric('Активные 7 дней', fmt(s.active7 || 0), 'За последнюю неделю', 'metric-active-7')}
+        ${metric('Беседы', fmt(s.chats || 0), 'Подключено к AniGuard', 'metric-chats')}
+        ${metric('Premium беседы', fmt(s.premiumChats || 0), 'С активной подпиской', 'metric-premium-chats')}
+        ${metric('Доход Stars', `${fmt(revenueStars)} Stars`, `${fmt(revenueStars)} Stars | ${Number(revenueByn).toFixed(2)} BYN`, 'metric-stars')}
+        ${metric('Доход BYN', `${Number(revenueByn).toFixed(2)} BYN`, `Курс: 1 Star ≈ ${Number(s.starBynRate || 0).toFixed(4)} BYN`, 'metric-byn')}
+        ${metric('AniCoin', fmt(s.aniCoin || 0), 'Внутренняя валюта в обороте', 'metric-anicoin', true)}
+        ${metric('Жалобы', fmt(reports), 'Требуют проверки', 'metric-reports')}
+        ${metric('Апелляции', fmt(appeals), 'Ждут решения', 'metric-appeals')}
+        ${metric('Дела', fmt(cases), 'Открытые расследования', 'metric-cases')}
+        ${metric('Угрозы', fmt(threats), 'События безопасности', 'metric-threats')}
+        ${metric('Реклама', fmt(advertising), 'Заказов на модерации', 'metric-ads')}
+        ${metric('Доход с рекламы', `${fmt(adStars)} Stars | ${Number(adByn).toFixed(2)} BYN`, 'Оплаченные заказы', 'metric-ad-income')}
+        ${metric('Кейсы', fmt(caseOpenings), 'Всего открытий', 'metric-case-openings')}
+        ${metric('Поддержка', fmt(support), 'Открытых диалогов', 'metric-support')}
+      </div>
+
+      <div class="section-head"><h2>Быстрые действия</h2><span>Два отдельных блока в строке</span></div>
+      <div class="dashboard-grid">
+        ${dashboardCard('Выдать Premium', 'Пользователю или беседе с фиксированным сроком и записью в журнале.', 'grant-premium', 'Открыть', 'action-grant-premium', 'primary')}
+        ${dashboardCard('Начислить AniCoin', 'Пополнение баланса, бонусы, подарки и компенсации пользователю.', 'coin-manager', 'Открыть', 'action-add-coin')}
+        ${dashboardCard('Рассылка', 'Сообщение пользователям, владельцам бесед или Premium-аудитории.', 'broadcast', 'Создать', 'action-broadcast')}
+        ${dashboardCard('Экспорт отчёта', 'Выгрузка статистики, платежей, подписок и активности.', 'export-report', 'Экспорт', 'action-export')}
+      </div>
+
+      <div class="section-head"><h2>Полезные функции</h2><span>Каждая функция — отдельная карточка</span></div>
+      <div class="dashboard-grid">
+        ${dashboardCard('Глобальный бан', 'Блокировка пользователя во всех беседах, где активен AniGuard.', 'global-ban', 'Открыть', 'action-global-ban', 'danger')}
+        ${dashboardCard('Мониторинг жалоб', 'Очередь обращений, приоритет и статус обработки.', 'reports', 'Открыть', 'action-report-monitor')}
+        ${dashboardCard('Промокоды', 'Коды на Premium и AniCoin с лимитами и сроком действия.', 'promos', 'Открыть', 'action-promos')}
+        ${dashboardCard('Журнал безопасности', 'Подозрительные действия, входы и изменения настроек.', 'security-log', 'Открыть', 'action-security-log')}
+        ${dashboardCard('Модерация стилей', 'Проверка пользовательских наборов ответов перед публикацией по коду.', 'style-moderation', 'Открыть', 'action-style-moderation', 'secondary', true, fmt(stylesPending))}
+      </div>
+
+      <div class="section-head"><h2>Магазин и поддержка</h2><span>Платежи и обращения</span></div>
+      <div class="dashboard-grid">
+        ${dashboardCard('Модерация рекламы', 'Проверка текста, ссылки, аудитории и стоимости до оплаты.', 'store-ads', 'Открыть', 'action-ad-moderation', 'primary', false, fmt(advertising))}
+        ${dashboardCard('Чат поддержки', 'Обращения пользователей из Mini App и ответы администратора.', 'support-inbox', 'Открыть', 'action-support-chat', 'secondary', false, fmt(support))}
+        ${dashboardCard('История кейсов', 'Открытия Premium-кейса, награды и списания AniCoin.', 'case-history', 'Открыть', 'action-case-history')}
+        ${dashboardCard('Операции AniCoin', 'Покупки, списания за кейсы и ручные изменения баланса.', 'wallet-history', 'Открыть', 'action-wallet-history')}
+        ${dashboardCard('Настройки рекламы', 'Аудитория и параметры расчёта рекламной стоимости.', 'advertising-settings', 'Настроить', 'action-ad-settings', 'secondary', true)}
+      </div>
+
+      <div class="section-head"><h2>Последние события</h2><span>${data.logs.length} записей</span></div>
+      <div class="list event-list">
+        ${data.logs.length ? data.logs.slice(0, 10).map(item => {
+          const username = item.username || 'без username';
+          const userId = item.user_id || item.entity_id || '—';
+          const event = item.event || item.text || 'Событие системы';
+          return `
+          <div class="row">
+            <div class="event-avatar">${avatarMarkup(item.display_name || username, item.avatar_url || '')}</div>
+            <div class="row-copy">
+              <span class="row-title">${escapeHtml(event)}</span>
+              <span class="row-sub">${escapeHtml(username)} · ID ${escapeHtml(userId)} · ${escapeHtml(item.time || '—')}</span>
+            </div>
+            <div class="row-extra">${badge(item.tag)}</div>
+          </div>`;
+        }).join('') : '<div class="card"><p>Событий пока нет.</p></div>'}
+      </div>
+    `;
+  }
+
+  function renderUsers(){
+    const q = ($('#searchInput').value || '').toLowerCase().replace('@','').trim();
+    const list = data.users.filter(u => (`${u.name} ${u.username} ${u.id}`).toLowerCase().includes(q));
+    $('#usersRoot').innerHTML = `
+      <div class="metrics">
+        ${metric('Все пользователи', fmt(stats().users), 'Суммарно')}
+        ${metric('Активны 24 ч.', fmt(stats().active24), 'За сутки')}
+        ${metric('Premium', fmt(stats().premiumUsers), 'С подпиской')}
+      </div>
+
+      <div class="section-head"><h2>Пользователи</h2><span>${list.length} в демо-базе</span></div>
+      <div class="user-table">
+        ${list.map(u => `
+          <div class="user-card">
+            <div class="user-head">
+              ${avatarMarkup(u.name, u.avatar_url || '')}
+              <div style="min-width:0">
+                <div class="user-name">${u.name}</div>
+                <span class="user-id">ID аккаунта: ${u.id}</span>
+                <span class="user-username">@${u.username} · ${u.last}</span>
+              </div>
+            </div>
+            <div class="user-actions">
+              <button class="tool-btn info" data-user-action="info" data-id="${u.id}">${icon('info')}<span>Инфо</span></button>
+              <button class="tool-btn premium" data-user-action="premium" data-id="${u.id}">${icon('diamond')}<span>Premium</span></button>
+              <button class="tool-btn coin" data-user-action="coins" data-id="${u.id}">${icon('coin')}<span>AniCoin</span></button>
+              <button class="tool-btn ref" data-user-action="refs" data-id="${u.id}">${icon('link')}<span>Рефы</span></button>
+              <button class="tool-btn block" data-user-action="block" data-id="${u.id}">${icon('ban')}<span>${u.blocked ? 'Снять' : 'Блок'}</span></button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderChats(){
+    const q = ($('#searchInput').value || '').toLowerCase().replace('@','').trim();
+    const list = data.chats.filter(c => (`${c.name} ${c.username} ${c.id}`).toLowerCase().includes(q));
+    $('#chatsRoot').innerHTML = `
+      <div class="metrics">
+        ${metric('Подключённых бесед', fmt(stats().chats), 'Всего')}
+        ${metric('Premium бесед', fmt(stats().premiumChats), 'Активные')}
+        ${metric('Участников', fmt(data.chats.reduce((acc, c) => acc + c.members, 0)), 'В демо-базе')}
+      </div>
+
+      <div class="section-head"><h2>Беседы</h2><span>${list.length} в демо-базе</span></div>
+      <div class="chat-list">
+        ${list.map(c => `
+          <div class="chat-card">
+            <div class="chat-top">
+              ${avatarMarkup(c.name, c.avatar_url || '')}
+              <div class="chat-meta">
+                <div class="chat-name">${c.name}</div>
+                <span class="chat-id">ID беседы: ${c.id}</span>
+                <span class="chat-link">@${c.username} · ${fmt(c.members)} участников</span>
+              </div>
+            </div>
+            <div class="chat-actions">
+              <button class="action-btn info" data-chat-action="info" data-id="${c.id}">
+                ${icon('info')}
+                <span>Инфо</span>
+              </button>
+              <button class="action-btn premium" data-chat-action="premium" data-id="${c.id}">
+                ${icon('diamond')}
+                <span>Premium</span>
+              </button>
+              <button class="action-btn control" data-chat-action="toggle" data-id="${c.id}">
+                ${icon(c.botStatus === 'Активен' ? 'pause' : 'play')}
+                <span>${c.botStatus === 'Активен' ? 'Пауза' : 'Запуск'}</span>
+              </button>
+              <button class="action-btn settings" data-chat-action="settings" data-id="${c.id}">
+                ${icon('sliders')}
+                <span>Настройки</span>
+              </button>
+              <button class="action-btn log" data-chat-action="journal" data-id="${c.id}">
+                ${icon('file')}
+                <span>Журнал</span>
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderPremium(){
+    $('#premiumRoot').innerHTML = `
+      <div class="metrics">
+        ${metric('Premium юзеров', fmt(stats().premiumUsers), 'Текущие')}
+        ${metric('Premium бесед', fmt(stats().premiumChats), 'С доступом')}
+        ${metric('Истекают за 7 дней', fmt(stats().expiringPremium || 0), 'Требуют внимания')}
+      </div>
+
+      <div class="section-head"><h2>Управление Premium</h2><span>Подписки и выдача</span></div>
+      <div class="cards">
+        <div class="card">
+          <h3>Выдача Premium</h3>
+          <p>Ручная выдача или продление подписки для пользователей и бесед.</p>
+          <div class="card-actions"><button class="primary" data-action="grant-premium">Открыть</button></div>
+        </div>
+        <div class="card">
+          <h3>Массовое продление</h3>
+          <p>Выберите категорию Premium и добавьте дни сразу нескольким аккаунтам.</p>
+          <div class="card-actions"><button class="secondary" data-action="bulk-premium">Настроить</button></div>
+        </div>
+      </div>
+
+      <div class="section-head"><h2>Промокоды</h2><span>${data.promos.length} активных</span></div>
+      <div class="list">
+        ${data.promos.map((p, i) => `
+          <label class="row">
+            <div class="row-icon">${icon('gift')}</div>
+            <div class="row-copy">
+              <span class="row-title">${p.code}</span>
+              <span class="row-sub">${p.reward} · ${p.uses}/${p.limit} активаций</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" data-promo-toggle="${i}" ${p.active ? 'checked' : ''}>
+              <span></span>
+            </label>
+          </label>
+        `).join('')}
+      </div>
+
+      <div class="section-head"><h2>Полезные функции</h2><span>Дополнительно</span></div>
+      <div class="cards">
+        <div class="card">
+          <h3>Платежи Stars</h3>
+          <p>Полная история покупок, возвратов и статусов оплаты.</p>
+          <div class="card-actions"><button class="secondary" data-action="payments">Открыть</button></div>
+        </div>
+        <div class="card">
+          <h3>Подарочные пакеты</h3>
+          <p>Создание пакетов для акций: Premium, AniCoin и специальные бонусы.</p>
+          <div class="card-actions"><button class="secondary" data-action="gift-pack">Открыть</button></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderSystem(){
+    const r = data.resources || {};
+    const operations = [
+      [1,'Дела нарушений','Каждое наказание, доказательства и статус расследования.','ops-cases'],
+      [2,'Апелляции','Независимое рассмотрение, принятие, отклонение и изменение срока.','ops-appeals'],
+      [3,'Лестница наказаний','Настраиваемые действия по количеству предупреждений.','ops-ladder'],
+      [4,'Испытательный срок','Экзамен персонала, статистика и решение по роли.','ops-probations'],
+      [5,'Рейтинг администрации','Действия, отмены, жалобы и оценка доверия.','ops-performance'],
+      [6,'Индивидуальные права','Отдельные разрешения и лимиты для сотрудников.','ops-permissions'],
+      [7,'Антирейд','Автоматическая защита входов, CAPTCHA и карантин.','ops-antiraid'],
+      [8,'Экстренный режим','Мгновенная блокировка чата с журналом причины.','ops-emergency'],
+      [9,'Доказательства','Снимки сообщений и медиа перед удалением.','ops-evidence'],
+      [10,'Умные жалобы','Объединение дублей, категории и приоритеты.','reports'],
+      [11,'Смены модераторов','Расписание дежурств и итоговая статистика.','ops-shifts'],
+      [12,'Еженедельные отчёты','Активность, наказания, апелляции и лучший сотрудник.','ops-weekly'],
+      [13,'Резервные копии','Снимки настроек, ролей, правил и команд с восстановлением.','ops-backups'],
+      [14,'Тестовый режим','Показывает результат без реального наказания.','ops-testmode'],
+      [15,'Конструктор правил','Условия и действия автоматической модерации без кода.','ops-rules'],
+      [16,'Контроль злоупотреблений','Массовые действия и временная приостановка полномочий.','ops-abuse'],
+      [17,'Карточка беседы','Состояние защиты, аудитория и подключённые функции.','ops-chatinfo'],
+      [18,'Стиль ответов','Обычный, Naruto, минимальный или строгий формат.','ops-style']
+    ];
+    $('#systemRoot').innerHTML = `
+      <div class="resource-live">
+        <div class="resource-status">
+          <div><strong>Мониторинг AniGuard</strong><small id="liveProvider">${escapeHtml(resourceProviderLabel(r))}</small></div>
+          <div style="display:flex;align-items:center;gap:10px"><span id="resourceDot" class="resource-dot ${r.status === 'online' ? '' : 'degraded'}"></span><small class="live-timestamp">Обновлено <span id="liveUpdated">—</span></small></div>
+        </div>
+        <div class="resource-grid">
+          <div class="resource-card"><div class="resource-card-head"><small>Процессор AniGuard</small><b id="liveCpu">${Number(r.cpu_percent||0).toFixed(1)}%</b></div><div id="cpuBar" class="resource-bar ${resourceClass(r.cpu_percent)}"><span style="width:${pct(r.cpu_percent)}%"></span></div><small id="liveCpuMeta">${Number(r.cpu_limit||4)} vCPU · ${resourceSourceLabel(r.cpu_source)} · обновление 1 сек.</small></div>
+          <div class="resource-card"><div class="resource-card-head"><small>Память AniGuard</small><b id="liveRam">${Number(r.memory_usage_mb||0).toFixed(0)} МБ из ${Number(r.memory_limit_mb||2048).toFixed(0)} МБ</b></div><div id="ramBar" class="resource-bar ${resourceClass(r.memory_percent)}"><span style="width:${pct(r.memory_percent)}%"></span></div><small id="liveRamMeta">${Number(r.memory_percent||0).toFixed(1)}% · ${resourceSourceLabel(r.memory_source)}</small></div>
+          <div class="resource-card"><div class="resource-card-head"><small>Файлы AniGuard</small><b id="liveDisk">${(Number(r.disk_usage_mb||0)/1024).toFixed(3)} ГБ из ${(Number(r.disk_limit_mb||15360)/1024).toFixed(0)} ГБ</b></div><div id="diskBar" class="resource-bar ${resourceClass(r.disk_percent)}"><span style="width:${pct(r.disk_percent)}%"></span></div><small id="liveDiskMeta">${Number(r.disk_percent||0).toFixed(2)}% лимита · только каталог бота</small></div>
+          <div class="resource-card"><div class="resource-card-head"><small>Время работы</small><b id="liveUptime">${escapeHtml(r.uptime || '—')}</b></div><div class="resource-bar"><span style="width:100%"></span></div><small id="liveResourceStatus">${r.error ? escapeHtml(r.error) : 'Состояние: работает'}</small></div>
+        </div>
+        <div class="card-actions"><button class="secondary" data-action="ops-resources-history">История CPU и RAM</button></div>
+      </div>
+
+      <div class="section-head"><h2>Глобальные настройки</h2><span>Системные</span></div>
+      <div class="list">
+        ${switchRow('maintenance','Технический режим','Временно закрыть пользовательские разделы')}
+        ${switchRow('registration','Регистрация новых пользователей','Разрешить новые аккаунты')}
+        ${switchRow('premiumInheritance','Наследование Premium','Premium владельца действует в его беседах')}
+        ${switchRow('paymentNotify','Уведомления о платежах','Сообщать о новых оплатах и возвратах')}
+        ${switchRow('autoReports','Автообработка жалоб','Выставлять приоритет новым обращениям')}
+        ${switchRow('backupAlerts','Напоминания о бэкапе','Уведомлять о пропуске резервной копии')}
+      </div>
+
+      <div class="section-head"><h2>18 систем AniGuard</h2><span>Все запрошенные функции</span></div>
+      <div class="cards">
+        ${operations.map(([number,title,description,action]) => `<div class="card operation-card"><span class="operation-number">${number}</span><span class="operation-state">АКТИВНО</span><h3>${title}</h3><p>${description}</p><div class="card-actions"><button class="secondary" data-action="${action}">Управление</button></div></div>`).join('')}
+      </div>
+
+      <div class="section-head"><h2>Сервис</h2><span>Безопасность и обслуживание</span></div>
+      <div class="cards">
+        <div class="card"><h3>Журнал безопасности</h3><p>Все входы, изменения настроек и опасные действия.</p><div class="card-actions"><button class="secondary" data-action="security-log">Открыть</button></div></div>
+        <div class="card"><h3>Опасная зона</h3><p>Перезапуск, очистка кэша и технический режим.</p><div class="card-actions"><button class="danger" data-action="danger-zone">Открыть</button></div></div>
+      </div>
+    `;
+  }
+
+  function switchRow(key, title, subtitle){
+    return `
+      <label class="row">
+        <div class="row-icon">${icon('gear')}</div>
+        <div class="row-copy">
+          <span class="row-title">${title}</span>
+          <span class="row-sub">${subtitle}</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" data-setting="${key}" ${data.settings[key] ? 'checked' : ''}>
+          <span></span>
+        </label>
+      </label>
+    `;
+  }
+
+  function renderAll(){
+    $('#headerSub').textContent = headerSubText();
+    renderOverview();
+    renderUsers();
+    renderChats();
+    renderPremium();
+    renderSystem();
+  }
+
+  function switchPage(page){
+    data.currentPage = page;
+    $$('.nav-btn').forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
+    $$('.page').forEach(pageNode => pageNode.classList.remove('active'));
+    $('#page-' + page).classList.add('active');
+    $('#searchInput').value = '';
+    renderAll();
+  }
+
+  function userById(id){ return data.users.find(u => String(u.id) === String(id)); }
+  function chatById(id){ return data.chats.find(c => String(c.id) === String(id)); }
+
+  function userProfileSheet(user){
+    openSheet('Аккаунт пользователя', 'Информация, известная AniGuard', `
+      <div class="profile-hero">
+        <div class="avatar">${initials(user.name)}</div>
+        <div style="min-width:0">
+          <div class="profile-name">${user.name}</div>
+          <span class="profile-id">ID аккаунта: ${user.id}</span>
+          <span class="profile-username">@${user.username}</span>
+        </div>
+      </div>
+
+      <div class="facts">
+        <div class="fact"><small>Регистрация</small><b>${user.joined}</b></div>
+        <div class="fact"><small>Последняя активность</small><b>${user.last}</b></div>
+        <div class="fact"><small>Premium</small><b>${user.premium ? 'До ' + user.premiumUntil : 'Не активен'}</b></div>
+        <div class="fact"><small>AniCoin</small><b>${fmt(user.aniCoin)}</b></div>
+        <div class="fact"><small>Рефералы</small><b>${user.referrals}</b></div>
+        <div class="fact"><small>Бесед</small><b>${user.chats}</b></div>
+        <div class="fact"><small>Потрачено</small><b>${fmt(user.spent)} Stars</b></div>
+        <div class="fact"><small>Статус</small><b>${user.blocked ? 'Заблокирован' : user.status}</b></div>
+      </div>
+
+      <div class="mini-list">
+        <button class="primary" data-user-sheet="premium" data-id="${user.id}">Выдать / продлить Premium</button>
+        <button class="secondary" data-user-sheet="coins" data-id="${user.id}">Изменить AniCoin</button>
+        <button class="secondary" data-user-sheet="refs" data-id="${user.id}">Открыть рефералов</button>
+        <button class="${user.blocked ? 'success' : 'danger'}" data-user-sheet="block" data-id="${user.id}">${user.blocked ? 'Разблокировать' : 'Заблокировать'} пользователя</button>
+      </div>
+    `);
+  }
+
+  function chatInfoSheet(chat){
+    const owner = ownerOf(chat);
+    openSheet('Информация о беседе', 'Подробная карточка беседы', `
+      <div class="profile-hero">
+        ${avatarMarkup(chat.name, chat.avatar_url || '')}
+        <div style="min-width:0">
+          <div class="profile-name">${chat.name}</div>
+          <span class="profile-id">ID беседы: ${chat.id}</span>
+          <span class="profile-username">@${chat.username}</span>
+        </div>
+      </div>
+
+      <div class="facts">
+        <div class="fact"><small>Участников</small><b>${fmt(chat.members)}</b></div>
+        <div class="fact"><small>Активных</small><b>${fmt(chat.activeMembers)}</b></div>
+        <div class="fact"><small>Автомодерация</small><b>${chat.automod} функций</b></div>
+        <div class="fact"><small>CAPTCHA</small><b>${chat.captcha ? 'Включена' : 'Выключена'}</b></div>
+        <div class="fact"><small>Срабатываний</small><b>${fmt(chat.actions)}</b></div>
+        <div class="fact"><small>Бот</small><b>${chat.botStatus}</b></div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <h3>Владелец</h3>
+        <p>${owner ? `${owner.name} · @${owner.username} · ID ${owner.id}` : 'Неизвестен'}</p>
+      </div>
+      <div class="card" style="margin-top:10px">
+        <h3>Premium</h3>
+        <p>${chat.premium ? `${chat.premiumType}, действует до ${chat.premiumUntil}` : 'Premium не активен'}</p>
+      </div>
+
+      <div class="mini-list">
+        <button class="primary" data-chat-sheet="premium" data-id="${chat.id}">${chat.premium ? 'Продлить Premium' : 'Выдать Premium'}</button>
+        <button class="secondary" data-chat-sheet="settings" data-id="${chat.id}">Открыть настройки беседы</button>
+        <button class="${chat.botStatus === 'Активен' ? 'danger' : 'success'}" data-chat-sheet="toggle" data-id="${chat.id}">${chat.botStatus === 'Активен' ? 'Приостановить бота' : 'Запустить бота'}</button>
+      </div>
+    `);
+  }
+
+  function chatSettingsSheet(chat){
+    openSheet('Настройки беседы', 'Быстрое управление параметрами бота', `
+      <div class="profile-hero">
+        ${avatarMarkup(chat.name, chat.avatar_url || '')}
+        <div style="min-width:0">
+          <div class="profile-name">${chat.name}</div>
+          <span class="profile-id">ID: ${chat.id}</span>
+          <span class="profile-username">@${chat.username}</span>
+        </div>
+      </div>
+      <div class="mini-list">
+        <label class="switch-row">
+          <div class="switch-copy"><b>CAPTCHA</b><span>Проверка новых участников</span></div>
+          <label class="switch"><input type="checkbox" data-chat-toggle-field="captcha" data-id="${chat.id}" ${chat.captcha ? 'checked' : ''}><span></span></label>
+        </label>
+        <label class="switch-row">
+          <div class="switch-copy"><b>Автомодерация</b><span>Активность защитных фильтров</span></div>
+          <label class="switch"><input type="checkbox" data-chat-toggle-field="automod" data-id="${chat.id}" ${chat.automod > 0 ? 'checked' : ''}><span></span></label>
+        </label>
+        <div class="card">
+          <h3>Полезные действия</h3>
+          <div class="card-actions">
+            <button class="secondary" data-chat-sheet="journal" data-id="${chat.id}">Журнал событий</button>
+            <button class="secondary" data-chat-sheet="premium" data-id="${chat.id}">Управление Premium</button>
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  function chatJournalSheet(chat){
+    const rows = data.logs.filter(item => Number(item.entity_id || item.details?.chat_id) === Number(chat.id)).slice(0, 30);
+    openSheet('Журнал беседы', 'Последние действия AniGuard в беседе', `
+      <div class="console">${rows.length ? rows.map(item => `[${item.time}] ${item.text}`).join('\n') : 'Записей для этой беседы пока нет.'}</div>
+    `);
+  }
+
+  function premiumForm(type='user', id=''){
+    openSheet('Выдать Premium', 'Пользователь или беседа', `
+      <div class="form">
+        <div class="inline">
+          <div class="field">
+            <label>Тип получателя</label>
+            <select id="premiumTargetType">
+              <option value="user" ${type === 'user' ? 'selected' : ''}>Аккаунт пользователя / администратора</option>
+              <option value="chat" ${type === 'chat' ? 'selected' : ''}>Группа / беседа</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Telegram ID</label>
+            <input id="premiumTargetId" value="${id}">
+          </div>
+        </div>
+        <div class="inline">
+          <div class="field">
+            <label>Срок</label>
+            <select id="premiumDays">
+              <option value="7">7 дней</option>
+              <option value="30" selected>30 дней</option>
+              <option value="90">90 дней</option>
+              <option value="180">180 дней</option>
+              <option value="365">365 дней</option>
+              <option value="permanent">Навсегда</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Источник</label>
+            <select id="premiumSource">
+              <option>Ручная выдача</option>
+              <option>Подарок</option>
+              <option>Компенсация</option>
+              <option>Промокод</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label>Комментарий</label>
+          <textarea id="premiumComment" placeholder="Причина выдачи или заметка"></textarea>
+        </div>
+        <button id="savePremiumBtn" class="primary">Выдать Premium</button>
+      </div>
+    `);
+  }
+
+  function coinsForm(id=''){
+    openSheet('Управление AniCoin', 'Изменение баланса пользователя', `
+      <div class="form">
+        <div class="field">
+          <label>ID пользователя</label>
+          <input id="coinUserId" value="${id}">
+        </div>
+        <div class="inline">
+          <div class="field">
+            <label>Операция</label>
+            <select id="coinOperation">
+              <option value="add">Начислить</option>
+              <option value="subtract">Списать</option>
+              <option value="set">Установить</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Сумма</label>
+            <input id="coinValue" type="number" min="0" value="500">
+          </div>
+        </div>
+        <div class="field">
+          <label>Причина</label>
+          <textarea id="coinReason" placeholder="Например, бонус или компенсация"></textarea>
+        </div>
+        <button id="saveCoinBtn" class="primary">Применить</button>
+      </div>
+    `);
+  }
+
+  function refsSheet(user){
+    openSheet('Рефералы пользователя', 'Информация о реферальной системе', `
+      <div class="profile-hero">
+        <div class="avatar">${initials(user.name)}</div>
+        <div style="min-width:0">
+          <div class="profile-name">${user.name}</div>
+          <span class="profile-id">ID аккаунта: ${user.id}</span>
+          <span class="profile-username">@${user.username || 'без_username'}</span>
+        </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <h3>Реферальная система</h3>
+        <p>В текущей базе AniGuard реферальные связи ещё не хранятся. Кнопка оставлена готовой для будущего модуля рефералов.</p>
+      </div>
+    `);
+  }
+
+  function broadcastSheet(){
+    openSheet('Создать рассылку', 'Массовое уведомление пользователям', `
+      <div class="form">
+        <div class="field">
+          <label>Аудитория</label>
+          <select id="broadcastAudience">
+            <option>Все пользователи</option>
+            <option>Активные за 7 дней</option>
+            <option>Premium-пользователи</option>
+            <option>Владельцы бесед</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Текст сообщения</label>
+          <textarea id="broadcastText" placeholder="Введите текст сообщения"></textarea>
+        </div>
+        <div class="inline">
+          <div class="field">
+            <label>Кнопка</label>
+            <input id="broadcastButton" placeholder="Открыть AniGuard">
+          </div>
+          <div class="field">
+            <label>Ссылка</label>
+            <input id="broadcastLink" placeholder="https://t.me/AniGuardBot">
+          </div>
+        </div>
+        <button id="previewBroadcastBtn" class="secondary">Предпросмотр</button>
+        <button id="saveBroadcastBtn" class="primary">Добавить в очередь</button>
+        <div id="broadcastPreviewBox" class="card hidden"></div>
+      </div>
+    `);
+  }
+
+  function reportsSheet(){
+    openSheet('Жалобы и обращения', 'Очередь обработки', `
+      <div class="list">
+        ${data.reports.map(item => `
+          <div class="row">
+            <div class="row-icon">${icon(item.type === 'Жалоба' ? 'ban' : item.type === 'Платёж' ? 'coin' : 'pulse')}</div>
+            <div class="row-copy">
+              <span class="row-title">${item.id} · ${item.type}</span>
+              <span class="row-sub">${item.text}</span>
+            </div>
+            <div class="row-extra">
+              <span class="badge ${item.status === 'Новая' ? 'danger' : item.status === 'В работе' ? 'warning' : 'success'}">${item.status}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `);
+  }
+
+  
+  function buildPaymentsRows(query=''){
+    const q = (query || '').trim().toUpperCase();
+    const items = data.payments.filter(item => !q || item.id.toUpperCase().includes(q));
+    if (!items.length) {
+      return `<div class="card"><h3>Ничего не найдено</h3><p>Платёж с таким PAY-XXXX не найден.</p></div>`;
+    }
+    return `<div class="list">
+      ${items.map(item => `
+        <div class="row">
+          <div class="row-icon">${icon('coin')}</div>
+          <div class="row-copy">
+            <span class="row-title">${item.item}</span>
+            <span class="row-sub">${item.id} · ${fmt(item.amount)} Stars · ${item.date}</span>
+          </div>
+          <div class="row-extra"><span class="badge ${item.status === 'Оплачено' ? 'success' : 'warning'}">${item.status}</span></div>
+        </div>
+      `).join('')}
+    </div>`;
+  }
+
+  function refreshPaymentsList(query=''){
+    const box = $('#paymentsList');
+    if (box) box.innerHTML = buildPaymentsRows(query);
+  }
+
+  function promosSheet(){
+    openSheet('Подарочный пакет / промокод', 'Код создаётся автоматически', `
+      <div class="form">
+        <div class="field">
+          <label>Что выдаёт пакет</label>
+          <select id="promoKind">
+            <option value="coin">AniCoin</option>
+            <option value="premium">Premium</option>
+          </select>
+        </div>
+        <div class="inline">
+          <div class="field" id="promoCoinField">
+            <label>Количество AniCoin</label>
+            <select id="promoCoinValue">
+              <option value="250">250 AniCoin</option>
+              <option value="500" selected>500 AniCoin</option>
+              <option value="1000">1 000 AniCoin</option>
+              <option value="2500">2 500 AniCoin</option>
+            </select>
+          </div>
+          <div class="field hidden-field" id="promoDaysField">
+            <label>Срок Premium</label>
+            <select id="promoDaysValue">
+              <option value="7">7 дней</option>
+              <option value="30" selected>30 дней</option>
+              <option value="90">90 дней</option>
+              <option value="180">180 дней</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Количество активаций</label>
+            <input id="promoLimit" type="number" min="1" value="100">
+          </div>
+        </div>
+        <div class="card">
+          <h3>Как это работает</h3>
+          <p>Код генерируется автоматически. Администратор выбирает только тип награды, срок Premium или количество AniCoin, а также лимит активаций.</p>
+        </div>
+        <button id="createPromoBtn" class="primary">Создать автоматически</button>
+      </div>
+    `);
+    togglePromoFields();
+  }
+
+  function paymentsSheet(initialQuery=''){
+    openSheet('Платежи Telegram Stars', 'История операций и поиск по PAY-XXXX', `
+      <div class="form">
+        <label class="search-inline">
+          ${icon('search')}
+          <input id="paymentSearch" value="${initialQuery}" placeholder="Поиск платежа по PAY-XXXX">
+        </label>
+        <div id="paymentsList">${buildPaymentsRows(initialQuery)}</div>
+      </div>
+    `);
+  }
+
+  function exportSheet(){
+    openSheet('Экспорт отчёта', 'Выгрузка статистики', `
+      <div class="card">
+        <h3>Доступные отчёты</h3>
+        <div class="kpi-row" style="margin-top:12px">
+          <span class="pill">${icon('download')} Пользователи</span>
+          <span class="pill">${icon('download')} Беседы</span>
+          <span class="pill">${icon('download')} Premium</span>
+          <span class="pill">${icon('download')} Платежи</span>
+        </div>
+        <div class="card-actions">
+          <button id="doExportBtn" class="primary">Сформировать отчёт</button>
+        </div>
+      </div>
+    `);
+  }
+
+  function securitySheet(){
+    openSheet('Журнал безопасности', 'Контроль входов и изменений', `
+      <div class="console">${data.logs.length ? data.logs.slice(0,100).map(item => `[${item.time}] ${item.text}`).join('\n') : 'Событий пока нет.'}</div>
+    `);
+  }
+
+  function ticketsSheet(){
+    openSheet('Тикеты поддержки', 'Обращения пользователей', `
+      <div class="list">
+        ${data.tickets.map(item => `
+          <button class="row" data-ticket="${item.id}">
+            <div class="row-icon">${icon('ticket')}</div>
+            <div class="row-copy">
+              <span class="row-title">${item.id} · ${item.title}</span>
+              <span class="row-sub">${item.date} · ${item.status}</span>
+            </div>
+            <div class="row-extra"><span class="badge ${item.status === 'Решён' ? 'success' : item.status === 'В работе' ? 'warning' : 'danger'}">${item.status}</span></div>
+          </button>
+        `).join('')}
+      </div>
+    `);
+  }
+
+  function ticketDetailSheet(ticket){
+    const user = userById(ticket.userId);
+    openSheet(`Тикет ${ticket.id}`, ticket.status, `
+      <div class="card">
+        <h3>${ticket.title}</h3>
+        <p>${ticket.text}</p>
+      </div>
+      <div class="card" style="margin-top:10px">
+        <h3>Пользователь</h3>
+        <p>${user ? `${user.name} · @${user.username} · ID ${user.id}` : ticket.userId}</p>
+      </div>
+      <div class="form" style="margin-top:12px">
+        <div class="field">
+          <label>Ответ</label>
+          <textarea id="ticketReply"></textarea>
+        </div>
+        <button id="replyTicketBtn" data-ticket-id="${ticket.id}" class="primary">Ответить и закрыть</button>
+      </div>
+    `);
+  }
+
+
+  async function storeAdsSheet(){
+    data.storeAds = await api('/api/admin/store/ads');
+    openSheet('Модерация рекламы', 'Заказы пользователей до оплаты', `
+      <div class="form">
+        ${data.storeAds.length ? data.storeAds.map(order => `
+          <button class="admin-store-row" type="button" data-ad-order="${order.id}">
+            <div class="admin-store-row-head"><b>#${order.id} · ${escapeHtml(order.title)}</b><span class="order-status ${order.status}">${order.status === 'pending' ? 'На модерации' : order.status === 'approved' ? 'Одобрено' : order.status === 'paid' ? 'Оплачено' : 'Отклонено'}</span></div>
+            <p>${escapeHtml(order.placement_label)} · ${fmt(order.audience_count)} пользователей · ${fmt(order.total_stars)} ⭐</p>
+            <p>${escapeHtml(order.text.slice(0,180))}</p>
+          </button>`).join('') : '<div class="card"><p>Рекламных заказов пока нет.</p></div>'}
+      </div>`);
+  }
+
+  function adOrderDetailSheet(order){
+    openSheet(`Реклама #${order.id}`, `${order.placement_label} · ${fmt(order.total_stars)} Stars`, `
+      <div class="card"><h3>${escapeHtml(order.title)}</h3><p style="white-space:pre-wrap">${escapeHtml(order.text)}</p>${order.url ? `<p style="margin-top:10px">${escapeHtml(order.url)}</p>` : ''}</div>
+      <div class="facts" style="margin-top:10px"><div class="fact"><small>Аудитория</small><b>${fmt(order.audience_count)}</b></div><div class="fact"><small>Цена за пользователя</small><b>${order.stars_per_user} ⭐</b></div><div class="fact"><small>Итого</small><b>${fmt(order.total_stars)} ⭐</b></div></div>
+      <div class="form" style="margin-top:12px"><div class="field"><label>Комментарий модератора</label><textarea id="adModerationNote">${escapeHtml(order.moderation_note || '')}</textarea></div>
+      ${order.status === 'pending' ? `<div class="button-grid two"><button class="success" data-ad-decision="approve" data-order-id="${order.id}">Одобрить</button><button class="danger" data-ad-decision="reject" data-order-id="${order.id}">Отклонить</button></div>` : ''}</div>`);
+  }
+
+  async function supportInboxSheet(){
+    data.supportTickets = await api('/api/admin/support/tickets');
+    openSheet('Чат поддержки', 'Диалоги пользователей из Mini App', `
+      <div class="list">${data.supportTickets.length ? data.supportTickets.map(ticket => `
+        <button class="row" data-support-ticket="${ticket.id}">
+          <div class="row-icon">${icon('support-chat')}</div><div class="row-copy"><span class="row-title">${escapeHtml(ticket.user_name || String(ticket.user_id))}</span><span class="row-sub">ID ${ticket.user_id} · ${ticket.messages.length} сообщений</span></div><div class="row-extra"><span class="order-status ${ticket.status === 'closed' ? 'paid' : ticket.status === 'in_progress' ? 'approved' : 'pending'}">${ticket.status === 'closed' ? 'Закрыт' : ticket.status === 'in_progress' ? 'В работе' : 'Открыт'}</span></div>
+        </button>`).join('') : '<div class="card"><p>Обращений пока нет.</p></div>'}</div>`);
+  }
+
+  function supportTicketDetailSheet(ticket){
+    openSheet(`Поддержка · #${ticket.id}`, `${ticket.user_name || ticket.user_id} · ID ${ticket.user_id}`, `
+      <div class="admin-thread">${ticket.messages.map(message => `<div class="admin-message ${message.sender_type === 'support' ? 'support' : 'user'}">${escapeHtml(message.text)}<small>${message.sender_type === 'support' ? 'Поддержка' : 'Пользователь'} · ${formatDate(message.created_at)}</small></div>`).join('')}</div>
+      <div class="form" style="margin-top:12px"><div class="field"><label>Ответ пользователю</label><textarea id="supportAdminReply" placeholder="Введите ответ"></textarea></div><button class="primary" data-support-reply="${ticket.id}">Отправить ответ</button>${ticket.status !== 'closed' ? `<button class="secondary" data-support-close="${ticket.id}">Закрыть обращение</button>` : ''}</div>`);
+  }
+
+  async function caseHistorySheet(){
+    data.caseOpenings = await api('/api/admin/store/cases');
+    openSheet('История Premium кейса', 'Серверные результаты открытий', `
+      <div class="list">${data.caseOpenings.length ? data.caseOpenings.map(row => `<div class="row"><div class="row-icon">${icon('case-box')}</div><div class="row-copy"><span class="row-title">${escapeHtml(row.reward_label)}</span><span class="row-sub">Юзер ${row.user_id} · стоимость ${fmt(row.cost)} AniCoin · ${formatDate(row.created_at)}</span></div><div class="row-extra"><span class="badge info">#${row.id}</span></div></div>`).join('') : '<div class="card"><p>Кейсы ещё не открывали.</p></div>'}</div>`);
+  }
+
+  async function walletHistorySheet(){
+    data.walletTransactions = await api('/api/admin/store/wallet-transactions');
+    openSheet('Операции AniCoin', 'Покупки и списания по кошелькам', `
+      <div class="list">${data.walletTransactions.length ? data.walletTransactions.map(row => `<div class="row"><div class="row-icon">${icon('wallet-history')}</div><div class="row-copy"><span class="row-title">${row.amount > 0 ? '+' : ''}${fmt(row.amount)} AniCoin</span><span class="row-sub">Юзер ${row.user_id} · ${escapeHtml(row.kind)} · баланс ${fmt(row.balance_after)} · ${formatDate(row.created_at)}</span></div><div class="row-extra">${row.stars ? `<span class="badge success">${fmt(row.stars)} ⭐</span>` : ''}</div></div>`).join('') : '<div class="card"><p>Операций пока нет.</p></div>'}</div>`);
+  }
+
+  function advertisingSettingsSheet(){
+    const audience = data.storeOverview.audience || {};
+    openSheet('Настройки рекламы', 'Аудитория и формулы расчёта', `
+      <div class="store-kpi-grid"><div class="store-kpi"><small>Живые пользователи бота</small><b>${fmt(audience.bot || 0)}</b></div><div class="store-kpi"><small>Rewarded-аудитория</small><b>${fmt(audience.rewarded || 0)}</b></div></div>
+      <div class="form" style="margin-top:12px"><div class="field"><label>Живые пользователи Telegram-канала за неделю</label><input id="channelLiveUsers" type="number" min="0" value="${Number(audience.channel || 0)}"></div><div class="card"><p>Тарифы: канал — 2 ⭐ за пользователя, бот — 5 ⭐, реклама с вознаграждением — 15 ⭐.</p></div><button id="saveAdvertisingSettings" class="primary">Сохранить</button></div>`);
+  }
+
+  function backupSheet(){
+    openSheet('Резервная копия', 'Создание бэкапа', `
+      <div class="facts">
+        <div class="fact"><small>Последняя копия</small><b>Сегодня, 03:00</b></div>
+        <div class="fact"><small>Размер</small><b>18.4 МБ</b></div>
+      </div>
+      <button id="createBackupBtn" class="primary" style="margin-top:14px">Создать новую копию</button>
+    `);
+  }
+
+  function dangerSheet(){
+    openSheet('Опасная зона', 'Действия требуют подтверждения', `
+      <div class="mini-list">
+        <button id="restartBtn" class="danger">Перезапустить Telegram-бота</button>
+        <button id="clearCacheBtn" class="danger">Очистить кэш Mini App</button>
+        <button id="maintenanceBtn" class="danger">Включить технический режим</button>
+      </div>
+    `);
+  }
+
+  function giftPackSheet(){
+    promosSheet();
+  }
+
+  function globalBanSheet(){
+    openSheet('Глобальная блокировка', 'Применение ко всем беседам', `
+      <div class="form">
+        <div class="field">
+          <label>ID или @username</label>
+          <input id="globalBanTarget" placeholder="@username или 123456789">
+        </div>
+        <div class="field">
+          <label>Причина</label>
+          <textarea id="globalBanReason" placeholder="Причина глобальной блокировки"></textarea>
+        </div>
+        <button id="globalBanBtn" class="danger">Заблокировать во всех беседах</button>
+      </div>
+    `);
+  }
+
+  function togglePromoFields(){
+    const kind = $('#promoKind') ? $('#promoKind').value : 'coin';
+    const coinField = $('#promoCoinField');
+    const daysField = $('#promoDaysField');
+    if (coinField) coinField.classList.toggle('hidden-field', kind !== 'coin');
+    if (daysField) daysField.classList.toggle('hidden-field', kind !== 'premium');
+  }
+
+  function menuSheet(){
+    openSheet('Меню администратора', 'Быстрый доступ', `
+      <div class="list">
+        <button class="row" data-action="reports">
+          <div class="row-icon">${icon('mail')}</div>
+          <div class="row-copy"><span class="row-title">Жалобы</span><span class="row-sub">Очередь обращений и приоритетов</span></div>
+          <div class="row-extra"><span class="badge info">Открыть</span></div>
+        </button>
+        <button class="row" data-action="payments">
+          <div class="row-icon">${icon('coin')}</div>
+          <div class="row-copy"><span class="row-title">Платежи</span><span class="row-sub">Telegram Stars, возвраты и статусы</span></div>
+          <div class="row-extra"><span class="badge info">Открыть</span></div>
+        </button>
+        <button class="row" data-action="store-ads">
+          <div class="row-icon">${icon('megaphone')}</div>
+          <div class="row-copy"><span class="row-title">Модерация рекламы</span><span class="row-sub">Одобрение и отклонение заказов</span></div>
+          <div class="row-extra"><span class="badge info">${fmt(data.storeOverview.pending_ads)}</span></div>
+        </button>
+        <button class="row" data-action="support-inbox">
+          <div class="row-icon">${icon('support-chat')}</div>
+          <div class="row-copy"><span class="row-title">Чат поддержки</span><span class="row-sub">Прямые обращения из Mini App</span></div>
+          <div class="row-extra"><span class="badge info">${fmt(data.storeOverview.open_tickets)}</span></div>
+        </button>
+        <button class="row" data-action="tickets">
+          <div class="row-icon">${icon('ticket')}</div>
+          <div class="row-copy"><span class="row-title">Тикеты</span><span class="row-sub">Поддержка пользователей</span></div>
+          <div class="row-extra"><span class="badge info">Открыть</span></div>
+        </button>
+        <button class="row" data-action="logout">
+          <div class="row-icon">${icon('logout')}</div>
+          <div class="row-copy"><span class="row-title">Выйти</span><span class="row-sub">Завершить сессию администратора</span></div>
+          <div class="row-extra"><span class="badge warning">Выход</span></div>
+        </button>
+      </div>
+    `);
+  }
+
+
+  function chatOptions(selected=''){
+    return data.chats.map(chat => `<option value="${chat.id}" ${String(chat.id)===String(selected)?'selected':''}>${escapeHtml(chat.name)} · ${chat.id}</option>`).join('');
+  }
+
+  function sparkline(samples, key, maxValue=100){
+    if (!samples.length) return '<div class="card"><p>История появится после запуска мониторинга.</p></div>';
+    const width=620, height=150, pad=10;
+    const values=samples.map(item=>Number(item[key]||0));
+    const max=Math.max(maxValue, ...values, 1);
+    const points=values.map((value,index)=>`${pad+(width-pad*2)*(index/Math.max(1,values.length-1))},${height-pad-(height-pad*2)*(value/max)}`).join(' ');
+    return `<svg viewBox="0 0 ${width} ${height}" style="width:100%;height:auto;border:1px solid var(--line);border-radius:18px;background:var(--card-2)"><polyline points="${points}" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+
+  async function operationsCasesSheet(){
+    const payload=await api('/api/admin/cases');
+    openSheet('Дела нарушений', 'Наказания, доказательства и апелляции', `<div class="list">${payload.items.length?payload.items.map(row=>`<button class="row" data-ops-case="${row.id}"><div class="row-icon">${icon('file')}</div><div class="row-copy"><span class="row-title">${escapeHtml(row.code)} · ${escapeHtml(row.action)}</span><span class="row-sub">Чат ${row.chat_id} · пользователь ${row.target_id||'—'} · ${formatDate(row.created_at)}</span></div><div class="row-extra"><span class="badge">${escapeHtml(row.status)}</span></div></button>`).join(''):'<div class="card"><p>Дел пока нет.</p></div>'}</div>`);
+  }
+
+  async function operationCaseDetails(id){
+    const payload=await api(`/api/admin/cases/${id}`); const row=payload.case;
+    openSheet(`Дело ${escapeHtml(row.code)}`, `${escapeHtml(row.action)} · ${escapeHtml(row.status)}`, `<div class="facts"><div class="fact"><small>Беседа</small><b>${row.chat_id}</b></div><div class="fact"><small>Нарушитель</small><b>${row.target_id||'—'}</b></div><div class="fact"><small>Модератор</small><b>${row.actor_id||'—'}</b></div><div class="fact"><small>Серьёзность</small><b>${escapeHtml(row.severity)}</b></div></div><div class="card" style="margin-top:10px"><h3>Причина</h3><p>${escapeHtml(row.reason)}</p></div><div class="section-head"><h2>Доказательства</h2><span>${payload.evidence.length}</span></div><div class="list">${payload.evidence.length?payload.evidence.map(e=>`<div class="row"><div class="row-icon">${icon('shield')}</div><div class="row-copy"><span class="row-title">Сообщение ${e.message_id||'—'} · автор ${e.author_id||'—'}</span><span class="row-sub">${escapeHtml((e.text||'Медиа без текста').slice(0,220))}</span></div></div>`).join(''):'<div class="row"><div class="row-copy"><span class="row-title">Нет сохранённых доказательств</span></div></div>'}</div>${['open','appealed','changed'].includes(row.status)?`<button class="primary" style="margin-top:12px" data-close-case="${row.id}">Закрыть дело</button>`:''}`);
+  }
+
+  async function operationsAppealsSheet(){
+    const payload=await api('/api/admin/appeals');
+    openSheet('Апелляции', 'Рассматривает другой сотрудник', `<div class="list">${payload.items.length?payload.items.map(row=>`<button class="row" data-ops-appeal="${row.id}"><div class="row-icon">${icon('mail')}</div><div class="row-copy"><span class="row-title">Апелляция #${row.id} · ${row.case_id?'AG-'+String(row.case_id).padStart(6,'0'):'без дела'}</span><span class="row-sub">${escapeHtml(row.text.slice(0,180))} · ${formatDate(row.created_at)}</span></div><div class="row-extra"><span class="badge">${escapeHtml(row.status)}</span></div></button>`).join(''):'<div class="card"><p>Апелляций нет.</p></div>'}</div>`);
+  }
+
+  async function operationAppealDetails(id){
+    const payload=await api('/api/admin/appeals'); const row=payload.items.find(item=>item.id===Number(id)); if(!row) throw new Error('Апелляция не найдена');
+    openSheet(`Апелляция #${row.id}`, row.case_id?`Дело AG-${String(row.case_id).padStart(6,'0')}`:'Без привязанного дела', `<div class="card"><h3>Обращение пользователя ${row.user_id}</h3><p>${escapeHtml(row.text)}</p></div>${row.status==='new'?`<div class="form" style="margin-top:12px"><div class="field"><label>Комментарий решения</label><textarea id="appealDecisionNote"></textarea></div><div class="button-grid two"><button class="success" data-appeal-decision="accept" data-appeal-id="${row.id}">Принять</button><button class="danger" data-appeal-decision="reject" data-appeal-id="${row.id}">Отклонить</button></div><button class="secondary" data-appeal-decision="change" data-appeal-id="${row.id}">Изменить наказание</button></div>`:`<div class="card" style="margin-top:10px"><p>Решение: ${escapeHtml(row.status)}${row.decision_note?' · '+escapeHtml(row.decision_note):''}</p></div>`}`);
+  }
+
+  async function resourcesHistorySheet(){
+    const payload=await api('/api/admin/system/resources/history?minutes=60');
+    openSheet('История ресурсов', 'Последний час · снимок каждые 10 секунд', `<div class="card"><h3>CPU, %</h3>${sparkline(payload.samples,'cpu',100)}</div><div class="card" style="margin-top:10px"><h3>RAM, %</h3>${sparkline(payload.samples,'memory_percent',100)}</div><div class="card" style="margin-top:10px"><h3>Последние значения</h3><p>${payload.samples.length?`CPU ${Number(payload.samples.at(-1).cpu).toFixed(1)}% · RAM ${Number(payload.samples.at(-1).memory_mb).toFixed(0)} МБ · диск ${(Number(payload.samples.at(-1).disk_mb)/1024).toFixed(2)} ГБ`:'Нет данных'}</p></div>`);
+  }
+
+  async function probationsSheet(){
+    const payload=await api('/api/admin/staff/probations');
+    openSheet('Испытательный срок', 'Экзамен на роль и статистика', `<div class="list">${payload.items.length?payload.items.map(row=>`<div class="row"><div class="row-icon">${icon('shield-star')}</div><div class="row-copy"><span class="row-title">Пользователь ${row.user_id} · ${escapeHtml(row.role)}</span><span class="row-sub">Чат ${row.chat_id} · действий ${row.actions_count} · до ${formatDate(row.ends_at)}</span></div><div class="row-extra"><span class="badge">${escapeHtml(row.status)}</span></div></div>${row.status==='active'?`<div class="button-grid two" style="padding:0 14px 14px"><button class="success" data-probation-decision="confirm" data-probation-id="${row.id}">Подтвердить</button><button class="danger" data-probation-decision="reject" data-probation-id="${row.id}">Снять роль</button></div>`:''}`).join(''):'<div class="card"><p>Активных испытаний нет.</p></div>'}</div>`);
+  }
+
+  async function performanceSheet(){
+    const payload=await api('/api/admin/staff/performance');
+    openSheet('Рейтинг администрации', 'Качество решений и контроль доверия', `<div class="list">${payload.items.length?payload.items.map(row=>`<div class="row"><div class="row-icon">${icon('overview')}</div><div class="row-copy"><span class="row-title">Пользователь ${row.user_id} · рейтинг ${row.rating}/100</span><span class="row-sub">Чат ${row.chat_id} · действий ${row.actions_count} · отменено ${row.reversed_actions} · принятых апелляций ${row.accepted_appeals}</span></div><div class="row-extra"><span class="badge">${row.suspended_until?'Права приостановлены':'Активен'}</span></div></div>`).join(''):'<div class="card"><p>Статистика появится после действий модераторов.</p></div>'}</div>`);
+  }
+
+  async function securityIncidentsSheet(filter=''){
+    const payload=await api('/api/admin/security/incidents'); const rows=filter?payload.items.filter(row=>row.kind===filter):payload.items;
+    openSheet(filter==='admin_abuse'?'Контроль злоупотреблений':'События безопасности', 'Рейды, экстренные режимы и подозрительные действия', `<div class="list">${rows.length?rows.map(row=>`<div class="row"><div class="row-icon">${icon('shield')}</div><div class="row-copy"><span class="row-title">${escapeHtml(row.kind)} · ${escapeHtml(row.severity)}</span><span class="row-sub">Чат ${row.chat_id||'система'} · сотрудник ${row.actor_id||'—'} · ${formatDate(row.created_at)}</span></div><div class="row-extra"><span class="badge">${escapeHtml(row.status)}</span></div></div>`).join(''):'<div class="card"><p>Событий нет.</p></div>'}</div>`);
+  }
+
+  async function shiftsSheet(){
+    const payload=await api('/api/admin/staff/shifts');
+    openSheet('Смены модераторов', 'Дежурства и итоговая статистика', `<div class="form"><div class="field"><label>Беседа</label><select id="shiftChat">${chatOptions()}</select></div><div class="field"><label>ID модератора</label><input id="shiftUser" type="number"></div><div class="field"><label>Начало</label><input id="shiftStart" type="datetime-local"></div><div class="field"><label>Окончание</label><input id="shiftEnd" type="datetime-local"></div><button class="primary" id="createShiftBtn">Назначить смену</button></div><div class="section-head"><h2>Последние смены</h2><span>${payload.items.length}</span></div><div class="list">${payload.items.slice(0,30).map(row=>`<div class="row"><div class="row-icon">${icon('clock')}</div><div class="row-copy"><span class="row-title">${row.user_id} · чат ${row.chat_id}</span><span class="row-sub">${formatDate(row.starts_at)} — ${formatDate(row.ends_at)} · варнов ${row.warnings_issued}, мутов ${row.mutes_issued}</span></div><div class="row-extra"><span class="badge">${escapeHtml(row.status)}</span></div></div>`).join('')}</div>`);
+  }
+
+  async function backupsOperationsSheet(){
+    const payload=await api('/api/admin/backups');
+    openSheet('Резервные копии', 'Настройки, роли, правила и команды', `<div class="form"><div class="field"><label>Беседа</label><select id="backupChat">${chatOptions()}</select></div><button class="primary" id="createChatBackupBtn">Создать резервную копию</button></div><div class="section-head"><h2>История</h2><span>${payload.items.length}</span></div><div class="list">${payload.items.length?payload.items.map(row=>`<div class="row"><div class="row-icon">${icon('download')}</div><div class="row-copy"><span class="row-title">Копия #${row.id} · чат ${row.chat_id}</span><span class="row-sub">${formatDate(row.created_at)} · ${escapeHtml(row.checksum.slice(0,16))}</span></div><div class="row-extra"><button class="secondary" data-restore-backup="${row.id}">Восстановить</button></div></div>`).join(''):'<div class="card"><p>Копий пока нет.</p></div>'}</div>`);
+  }
+
+  function chatFeatureSheet(kind){
+    const titleMap={ladder:'Лестница наказаний',permissions:'Индивидуальные права',antiraid:'Антирейд',emergency:'Экстренный режим',testmode:'Тестовый режим',rules:'Конструктор правил',chatinfo:'Карточка беседы',style:'Стиль ответов',weekly:'Еженедельный отчёт'};
+    const title=titleMap[kind]||'Настройка беседы';
+    let body=`<div class="field"><label>Беседа</label><select id="opsChatSelect">${chatOptions()}</select></div>`;
+    if(kind==='ladder') body+=`<label class="switch-line"><input id="opsLadderEnabled" type="checkbox" checked><span>Лестница включена</span></label><div class="field"><label>Шаги JSON</label><textarea id="opsLadderSteps" rows="10">${escapeHtml(JSON.stringify([{warnings:1,action:'warn',duration_seconds:0,label:'Предупреждение'},{warnings:2,action:'mute',duration_seconds:1800,label:'Мут 30 минут'},{warnings:3,action:'penalty_violator',duration_seconds:604800,label:'Нарушитель'},{warnings:4,action:'mute',duration_seconds:86400,label:'Мут 24 часа'},{warnings:5,action:'penalty_severe',duration_seconds:2592000,label:'Злостный нарушитель'},{warnings:6,action:'ban',duration_seconds:0,label:'Бан'}],null,2))}</textarea></div><button class="primary" id="saveLadderBtn">Сохранить</button>`;
+    if(kind==='permissions') body+=`<div class="field"><label>ID сотрудника</label><input id="opsPermissionUser" type="number"></div><div class="field"><label>Действие</label><select id="opsPermissionName"><option value="warn">Предупреждения</option><option value="mute">Мут</option><option value="ban">Бан</option><option value="unban">Разбан</option><option value="kick">Кик</option><option value="role_change">Роли</option></select></div><label class="switch-line"><input id="opsPermissionAllowed" type="checkbox" checked><span>Разрешено</span></label><div class="field"><label>Максимальный срок, секунд</label><input id="opsPermissionLimit" type="number" min="0"></div><button class="primary" id="savePermissionBtn">Сохранить право</button>`;
+    if(kind==='antiraid'||kind==='emergency'||kind==='testmode') body+=`<label class="switch-line"><input id="opsModeEnabled" type="checkbox" checked><span>Включить режим</span></label><div class="field"><label>Причина</label><textarea id="opsModeReason"></textarea></div>${kind==='emergency'?'<div class="field"><label>Срок, секунд</label><input id="opsModeDuration" type="number" value="3600"></div>':''}<button class="primary" data-save-mode="${kind}">Применить</button>`;
+    if(kind==='weekly') body+=`<button class="primary" id="generateWeeklyBtn">Сформировать отчёт</button><div id="weeklyResult"></div>`;
+    if(kind==='style') body+=`<div class="field"><label>Стиль</label><select id="opsResponseStyle"><option value="ordinary">Обычный</option><option value="naruto">Naruto</option><option value="minimal">Минималистичный</option><option value="strict">Строгий</option></select></div><div class="field"><label>Длина</label><select id="opsResponseLength"><option value="full">Полная</option><option value="short">Краткая</option></select></div><label class="switch-line"><input id="opsDeleteCommand" type="checkbox"><span>Удалять команду пользователя</span></label><label class="switch-line"><input id="opsReplyThread" type="checkbox"><span>Отвечать в теме</span></label><button class="primary" id="saveResponseStyleBtn">Сохранить</button>`;
+    if(kind==='rules') body+=`<div class="card"><h3>Конструктор доступен в панели группы</h3><p>Выберите беседу и откройте её Mini App. Правила сохраняются сервером в таблице moderation_rules.</p></div><button class="primary" id="openRulesPanelBtn">Открыть конструктор</button>`;
+    if(kind==='chatinfo') { const chat=data.chats[0]; body+=`<div id="opsChatInfo" class="facts" style="margin-top:10px"></div><button class="primary" id="refreshChatInfoBtn">Показать карточку</button>`; }
+    openSheet(title,'Настройка выбранной беседы',`<div class="form">${body}</div>`);
+  }
+
+  async function styleModerationSheet(){
+    const payload = await api('/api/admin/styles?status=pending');
+    const items = payload.items || [];
+    openSheet('Модерация стилей', `${items.length} наборов ожидают проверки`, `
+      <div class="form">
+        ${items.length ? items.map(item => {
+          const creator = item.creator || {};
+          const templates = Object.entries(item.templates || {});
+          return `<div class="admin-store-row">
+            <div class="user-head">
+              ${avatarMarkup(creator.name || 'Автор стиля', creator.avatar_url || '')}
+              <div style="min-width:0">
+                <div class="user-name">${escapeHtml(item.name)}</div>
+                <span class="user-id">Код будет выдан после одобрения · база: ${escapeHtml(item.base_style)}</span>
+                <span class="user-username">${creator.username ? '@' + escapeHtml(creator.username) : 'без username'} · ID ${escapeHtml(creator.id || item.creator_id)}</span>
+              </div>
+            </div>
+            <p>${escapeHtml(item.description || 'Описание отсутствует')}</p>
+            <div class="console">${templates.map(([key,value]) => `${escapeHtml(key)}\n${escapeHtml(value)}`).join('\n\n')}</div>
+            <div class="field"><label>Комментарий модератора</label><textarea id="styleNote-${item.id}" placeholder="Причина возврата или отклонения"></textarea></div>
+            <div class="card-actions">
+              <button class="success" data-style-decision="approve" data-style-id="${item.id}">Одобрить</button>
+              <button class="secondary" data-style-decision="return" data-style-id="${item.id}">Вернуть автору</button>
+              <button class="danger" data-style-decision="reject" data-style-id="${item.id}">Отклонить</button>
+            </div>
+          </div>`;
+        }).join('') : '<div class="card"><h3>Очередь пуста</h3><p>Новых пользовательских стилей на проверке нет.</p></div>'}
+      </div>
+    `);
+  }
+
+  async function handleAction(name){
+    if (name === 'grant-premium') premiumForm();
+    if (name === 'coin-manager') coinsForm();
+    if (name === 'broadcast') broadcastSheet();
+    if (name === 'reports') reportsSheet();
+    if (name === 'promos') promosSheet();
+    if (name === 'payments') paymentsSheet();
+    if (name === 'export-report') exportSheet();
+    if (name === 'security-log') securitySheet();
+    if (name === 'style-moderation') await styleModerationSheet();
+    if (name === 'tickets') ticketsSheet();
+    if (name === 'store-ads') await storeAdsSheet();
+    if (name === 'support-inbox') await supportInboxSheet();
+    if (name === 'case-history') await caseHistorySheet();
+    if (name === 'wallet-history') await walletHistorySheet();
+    if (name === 'advertising-settings') advertisingSettingsSheet();
+    if (name === 'backup') backupSheet();
+    if (name === 'danger-zone') dangerSheet();
+    if (name === 'gift-pack') giftPackSheet();
+    if (name === 'global-ban') globalBanSheet();
+    if (name === 'ops-cases') await operationsCasesSheet();
+    if (name === 'ops-appeals') await operationsAppealsSheet();
+    if (name === 'ops-resources-history') await resourcesHistorySheet();
+    if (name === 'ops-probations') await probationsSheet();
+    if (name === 'ops-performance') await performanceSheet();
+    if (name === 'ops-abuse') await securityIncidentsSheet('admin_abuse');
+    if (name === 'ops-evidence') await operationsCasesSheet();
+    if (name === 'ops-shifts') await shiftsSheet();
+    if (name === 'ops-backups') await backupsOperationsSheet();
+    if (name === 'ops-ladder') chatFeatureSheet('ladder');
+    if (name === 'ops-permissions') chatFeatureSheet('permissions');
+    if (name === 'ops-antiraid') chatFeatureSheet('antiraid');
+    if (name === 'ops-emergency') chatFeatureSheet('emergency');
+    if (name === 'ops-testmode') chatFeatureSheet('testmode');
+    if (name === 'ops-weekly') chatFeatureSheet('weekly');
+    if (name === 'ops-rules') chatFeatureSheet('rules');
+    if (name === 'ops-chatinfo') chatFeatureSheet('chatinfo');
+    if (name === 'ops-style') chatFeatureSheet('style');
+    if (name === 'bulk-premium') {
+      openSheet('Массовое продление', 'Для выбранной категории Premium', `
+        <div class="form">
+          <div class="field">
+            <label>Категория</label>
+            <select id="bulkCategory">
+              <option>Все Premium-пользователи</option>
+              <option>Истекают за 7 дней</option>
+              <option>Premium бесед</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Добавить дней</label>
+            <input id="bulkDays" type="number" value="7">
+          </div>
+          <button id="bulkPremiumBtn" class="primary">Продлить</button>
+        </div>
+      `);
+    }
+    if (name === 'logout') {
+      closeSheet();
+      $('#appScreen').classList.add('hidden');
+      $('#authScreen').classList.remove('hidden');
+      $('#passwordInput').value = '';
+      clearInterval(data.liveTimer);
+      showToast('Вы вышли из панели');
+    }
+  }
+
+  function initEvents(){
+    $('#loginBtn').addEventListener('click', login);
+    $('#themeAuthBtn').addEventListener('click', toggleTheme);
+    $('#themeBtn').addEventListener('click', toggleTheme);
+    $('#refreshBtn').addEventListener('click', async () => {
+      try { await reloadRemoteData(); } catch (e) { showToast(e.message); }
+    });
+    $('#menuBtn').addEventListener('click', menuSheet);
+    $('#adminChip').addEventListener('click', () => {
+      openSheet('AniGuard Admin', 'Профиль администратора', `
+        <div class="profile-hero">
+          ${avatarMarkup(data.admin.name || 'AniGuard Admin', data.admin.avatar_url || '', true)}
+          <div style="min-width:0">
+            <div class="profile-name">${data.admin.name || 'AniGuard Admin'}</div>
+            <span class="profile-id">Telegram ID: ${data.admin.id || '—'}</span>
+            <span class="profile-username">@${data.admin.username || 'без_username'} · маршрут /admin</span>
+          </div>
+        </div>
+        <div class="form" style="margin-top:14px">
+          <div class="field">
+            <label for="adminAvatarInput">Аватар администратора</label>
+            <input id="adminAvatarInput" type="file" accept="image/jpeg,image/png,image/webp">
+          </div>
+          <button class="primary" id="uploadAdminAvatarBtn">Сохранить аватар</button>
+          ${data.admin.avatar_url ? '<button class="danger" id="deleteAdminAvatarBtn">Удалить аватар</button>' : ''}
+        </div>
+        <button class="secondary" id="profileThemeBtn" style="margin-top:14px">Сменить тему</button>
+        <button class="danger" data-action="logout" style="margin-top:10px">Закрыть панель</button>
+      `);
+    });
+
+    $$('.nav-btn').forEach(btn => btn.addEventListener('click', () => switchPage(btn.dataset.page)));
+    $('#searchInput').addEventListener('input', () => {
+      if (data.currentPage === 'users') renderUsers();
+      if (data.currentPage === 'chats') renderChats();
+    });
+    $('#sheetClose').addEventListener('click', closeSheet);
+    $('#sheetBackdrop').addEventListener('click', e => { if (e.target === $('#sheetBackdrop')) closeSheet(); });
+
+    document.addEventListener('click', async (e) => {
+      try {
+        const actionNode = e.target.closest('[data-action]');
+        if (actionNode) await handleAction(actionNode.dataset.action);
+
+        const styleDecisionNode = e.target.closest('[data-style-decision]');
+        if (styleDecisionNode) {
+          const styleId = Number(styleDecisionNode.dataset.styleId);
+          const note = $(`#styleNote-${styleId}`)?.value.trim() || '';
+          await post(`/api/admin/styles/${styleId}/decision`, {decision:styleDecisionNode.dataset.styleDecision,note});
+          await styleModerationSheet();
+          await loadLiveData();
+          showToast('Решение по стилю сохранено');
+        }
+
+        const opsCaseNode = e.target.closest('[data-ops-case]');
+        if (opsCaseNode) await operationCaseDetails(Number(opsCaseNode.dataset.opsCase));
+
+        const closeCaseNode = e.target.closest('[data-close-case]');
+        if (closeCaseNode) {
+          await post(`/api/admin/cases/${Number(closeCaseNode.dataset.closeCase)}/close`, {status:'closed'});
+          await operationsCasesSheet();
+          showToast('Дело закрыто');
+        }
+
+        const opsAppealNode = e.target.closest('[data-ops-appeal]');
+        if (opsAppealNode) await operationAppealDetails(Number(opsAppealNode.dataset.opsAppeal));
+
+        const appealDecisionNode = e.target.closest('[data-appeal-decision]');
+        if (appealDecisionNode) {
+          await post(`/api/admin/appeals/${Number(appealDecisionNode.dataset.appealId)}/decision`, {
+            decision: appealDecisionNode.dataset.appealDecision,
+            note: $('#appealDecisionNote')?.value.trim() || ''
+          });
+          await operationsAppealsSheet();
+          showToast('Решение по апелляции сохранено');
+        }
+
+        const probationDecisionNode = e.target.closest('[data-probation-decision]');
+        if (probationDecisionNode) {
+          await post(`/api/admin/staff/probations/${Number(probationDecisionNode.dataset.probationId)}/decision`, {
+            decision: probationDecisionNode.dataset.probationDecision,
+            note: ''
+          });
+          await probationsSheet();
+          showToast('Решение по испытательному сроку сохранено');
+        }
+
+        if (e.target.id === 'createShiftBtn') {
+          const chatId = Number($('#shiftChat')?.value || 0);
+          const userId = Number($('#shiftUser')?.value || 0);
+          const startsAt = $('#shiftStart')?.value;
+          const endsAt = $('#shiftEnd')?.value;
+          if (!chatId || !userId || !startsAt || !endsAt) throw new Error('Заполните беседу, модератора и время смены');
+          await post(`/api/admin/chats/${chatId}/shifts`, {user_id:userId, starts_at:new Date(startsAt).toISOString(), ends_at:new Date(endsAt).toISOString(), temporary_role:'moderator'});
+          await shiftsSheet();
+          showToast('Смена назначена');
+        }
+
+        if (e.target.id === 'createChatBackupBtn') {
+          const chatId = Number($('#backupChat')?.value || 0);
+          if (!chatId) throw new Error('Выберите беседу');
+          await post(`/api/admin/chats/${chatId}/backups`, {});
+          await backupsOperationsSheet();
+          showToast('Резервная копия создана');
+        }
+
+        const restoreBackupNode = e.target.closest('[data-restore-backup]');
+        if (restoreBackupNode) {
+          await post(`/api/admin/backups/${Number(restoreBackupNode.dataset.restoreBackup)}/restore`, {confirm:true});
+          await backupsOperationsSheet();
+          showToast('Настройки восстановлены');
+        }
+
+        const saveModeNode = e.target.closest('[data-save-mode]');
+        if (saveModeNode) {
+          const chatId = Number($('#opsChatSelect')?.value || 0);
+          if (!chatId) throw new Error('Выберите беседу');
+          const kind = saveModeNode.dataset.saveMode;
+          const path = kind === 'antiraid' ? 'anti-raid' : kind === 'testmode' ? 'test-mode' : 'emergency';
+          const payload = {
+            enabled: Boolean($('#opsModeEnabled')?.checked),
+            reason: $('#opsModeReason')?.value.trim() || ''
+          };
+          if (kind === 'emergency') payload.duration_seconds = Math.max(0, Number($('#opsModeDuration')?.value || 3600));
+          await post(`/api/admin/chats/${chatId}/${path}`, payload);
+          showToast('Режим обновлён');
+        }
+
+        if (e.target.id === 'saveLadderBtn') {
+          const chatId = Number($('#opsChatSelect')?.value || 0);
+          if (!chatId) throw new Error('Выберите беседу');
+          let steps;
+          try { steps = JSON.parse($('#opsLadderSteps')?.value || '[]'); } catch { throw new Error('Некорректный JSON лестницы наказаний'); }
+          if (!Array.isArray(steps)) throw new Error('Шаги должны быть массивом');
+          await api(`/api/admin/chats/${chatId}/punishment-ladder`, {method:'PUT', body:JSON.stringify({enabled:Boolean($('#opsLadderEnabled')?.checked), steps})});
+          showToast('Лестница наказаний сохранена');
+        }
+
+        if (e.target.id === 'savePermissionBtn') {
+          const chatId = Number($('#opsChatSelect')?.value || 0);
+          const userId = Number($('#opsPermissionUser')?.value || 0);
+          if (!chatId || !userId) throw new Error('Выберите беседу и укажите ID сотрудника');
+          const limitRaw = $('#opsPermissionLimit')?.value;
+          await api(`/api/admin/chats/${chatId}/permission-overrides`, {method:'PUT', body:JSON.stringify({
+            user_id:userId,
+            permission:$('#opsPermissionName')?.value || 'warn',
+            allowed:Boolean($('#opsPermissionAllowed')?.checked),
+            limit_value:limitRaw === '' ? null : Math.max(0, Number(limitRaw)),
+            expires_seconds:null
+          })});
+          showToast('Индивидуальное право сохранено');
+        }
+
+        if (e.target.id === 'generateWeeklyBtn') {
+          const chatId = Number($('#opsChatSelect')?.value || 0);
+          if (!chatId) throw new Error('Выберите беседу');
+          const result = await post(`/api/admin/chats/${chatId}/weekly-report`, {});
+          const box = $('#weeklyResult');
+          if (box) box.innerHTML = `<div class="card" style="margin-top:12px"><h3>Отчёт сформирован</h3><pre style="white-space:pre-wrap">${escapeHtml(JSON.stringify(result.payload,null,2))}</pre></div>`;
+          showToast('Еженедельный отчёт готов');
+        }
+
+        if (e.target.id === 'saveResponseStyleBtn') {
+          const chatId = Number($('#opsChatSelect')?.value || 0);
+          if (!chatId) throw new Error('Выберите беседу');
+          await api(`/api/admin/chats/${chatId}/response-style`, {method:'PUT', body:JSON.stringify({
+            style:$('#opsResponseStyle')?.value || 'ordinary',
+            length:$('#opsResponseLength')?.value || 'full',
+            delete_command_message:Boolean($('#opsDeleteCommand')?.checked),
+            reply_in_thread:Boolean($('#opsReplyThread')?.checked)
+          })});
+          showToast('Стиль ответов сохранён');
+        }
+
+        if (e.target.id === 'openRulesPanelBtn') {
+          const chatId = Number($('#opsChatSelect')?.value || 0);
+          if (!chatId) throw new Error('Выберите беседу');
+          window.location.href = `/panel?chat_id=${encodeURIComponent(chatId)}`;
+        }
+
+        if (e.target.id === 'refreshChatInfoBtn') {
+          const chatId = Number($('#opsChatSelect')?.value || 0);
+          const chat = chatById(chatId);
+          if (!chat) throw new Error('Беседа не найдена');
+          const box = $('#opsChatInfo');
+          if (box) box.innerHTML = `
+            <div class="fact"><small>Название</small><b>${escapeHtml(chat.name)}</b></div>
+            <div class="fact"><small>ID</small><b>${chat.id}</b></div>
+            <div class="fact"><small>Участников</small><b>${fmt(chat.members)}</b></div>
+            <div class="fact"><small>Активных за неделю</small><b>${fmt(chat.active7)}</b></div>
+            <div class="fact"><small>Бот</small><b>${escapeHtml(chat.botStatus)}</b></div>
+            <div class="fact"><small>Защита</small><b>${chat.antiSpam ? 'Антиспам включён' : 'Базовая'}</b></div>`;
+        }
+
+        const userNode = e.target.closest('[data-user-action],[data-user-sheet]');
+        if (userNode) {
+          const user = userById(userNode.dataset.id);
+          const action = userNode.dataset.userAction || userNode.dataset.userSheet;
+          if (!user) return;
+          if (action === 'info') userProfileSheet(user);
+          if (action === 'premium') premiumForm('user', user.id);
+          if (action === 'coins') coinsForm(user.id);
+          if (action === 'refs') refsSheet(user);
+          if (action === 'block') {
+            await post('/api/admin/block', {entity_type:'user', entity_id:user.id, blocked:!user.blocked, reason:'Из админ-панели'});
+            if (userNode.dataset.userSheet) closeSheet();
+            await reloadRemoteData(user.blocked ? 'Пользователь разблокирован' : 'Пользователь заблокирован');
+          }
+        }
+
+        const chatNode = e.target.closest('[data-chat-action],[data-chat-sheet]');
+        if (chatNode) {
+          const chat = chatById(chatNode.dataset.id);
+          const action = chatNode.dataset.chatAction || chatNode.dataset.chatSheet;
+          if (!chat) return;
+          if (action === 'info') chatInfoSheet(chat);
+          if (action === 'premium') premiumForm('chat', chat.id);
+          if (action === 'settings') chatSettingsSheet(chat);
+          if (action === 'journal') chatJournalSheet(chat);
+          if (action === 'toggle') {
+            const active = chat.botStatus !== 'Активен';
+            await post(`/api/admin/chats/${chat.id}/state`, {active});
+            if (chatNode.dataset.chatSheet) closeSheet();
+            await reloadRemoteData(active ? 'Бот запущен в беседе' : 'Бот приостановлен в беседе');
+          }
+        }
+
+        const ticketNode = e.target.closest('[data-ticket]');
+        if (ticketNode) {
+          const ticket = data.tickets.find(t => t.id === ticketNode.dataset.ticket);
+          if (ticket) ticketDetailSheet(ticket);
+        }
+
+        const adOrderNode = e.target.closest('[data-ad-order]');
+        if (adOrderNode) {
+          const order = data.storeAds.find(item => item.id === Number(adOrderNode.dataset.adOrder));
+          if (order) adOrderDetailSheet(order);
+        }
+
+        const adDecision = e.target.closest('[data-ad-decision]');
+        if (adDecision) {
+          await post(`/api/admin/store/ads/${Number(adDecision.dataset.orderId)}/moderate`, {decision:adDecision.dataset.adDecision, note:$('#adModerationNote')?.value.trim() || ''});
+          closeSheet();
+          await reloadRemoteData(adDecision.dataset.adDecision === 'approve' ? 'Реклама одобрена' : 'Реклама отклонена');
+          await storeAdsSheet();
+        }
+
+        const supportTicketNode = e.target.closest('[data-support-ticket]');
+        if (supportTicketNode) {
+          const ticket = data.supportTickets.find(item => item.id === Number(supportTicketNode.dataset.supportTicket));
+          if (ticket) supportTicketDetailSheet(ticket);
+        }
+
+        const supportReply = e.target.closest('[data-support-reply]');
+        if (supportReply) {
+          const reply = $('#supportAdminReply')?.value.trim();
+          if (!reply) throw new Error('Введите ответ пользователю');
+          await post(`/api/admin/support/tickets/${Number(supportReply.dataset.supportReply)}/reply`, {text:reply});
+          await reloadRemoteData('Ответ отправлен пользователю');
+          await supportInboxSheet();
+        }
+
+        const supportClose = e.target.closest('[data-support-close]');
+        if (supportClose) {
+          await post(`/api/admin/support/tickets/${Number(supportClose.dataset.supportClose)}/status`, {status:'closed'});
+          await reloadRemoteData('Обращение закрыто');
+          await supportInboxSheet();
+        }
+
+        if (e.target.id === 'savePremiumBtn') {
+          const entityType = $('#premiumTargetType').value;
+          const entityId = Number($('#premiumTargetId').value.trim());
+          const premiumTerm = $('#premiumDays').value;
+          const permanent = premiumTerm === 'permanent';
+          if (!entityId) throw new Error('Укажите корректный Telegram ID');
+          await post('/api/admin/premium', {
+            entity_type:entityType,
+            entity_id:entityId,
+            days:permanent ? 3650 : Number(premiumTerm),
+            permanent,
+            plan:'admin',
+            note:$('#premiumComment').value.trim() || $('#premiumSource').value
+          });
+          closeSheet();
+          await reloadRemoteData(permanent ? 'Premium выдан навсегда' : 'Premium выдан');
+        }
+
+        if (e.target.id === 'saveCoinBtn') {
+          const userId = Number($('#coinUserId').value.trim());
+          if (!userId) throw new Error('Укажите корректный ID пользователя');
+          await post('/api/admin/coins', {
+            user_id:userId, operation:$('#coinOperation').value,
+            amount:Math.max(0, Number($('#coinValue').value || 0)), note:$('#coinReason').value.trim()
+          });
+          closeSheet(); await reloadRemoteData('Баланс AniCoin обновлён');
+        }
+
+        if (e.target.id === 'previewBroadcastBtn') {
+          const text = $('#broadcastText').value.trim() || 'Текст сообщения';
+          const btnText = $('#broadcastButton').value.trim();
+          const box = $('#broadcastPreviewBox'); box.classList.remove('hidden');
+          box.innerHTML = `<h3>Предпросмотр</h3><p style="margin-top:8px;white-space:pre-wrap">${text}</p>${btnText ? `<button class="primary" style="margin-top:12px">${btnText}</button>` : ''}`;
+        }
+
+        if (e.target.id === 'saveBroadcastBtn') {
+          const text = $('#broadcastText').value.trim();
+          if (!text) throw new Error('Введите текст рассылки');
+          const audienceMap = {'Все пользователи':'users','Активные за 7 дней':'active_users','Premium-пользователи':'premium_users','Владельцы бесед':'chat_owners'};
+          await post('/api/admin/broadcast', {
+            audience:audienceMap[$('#broadcastAudience').value] || 'users', text,
+            button_text:$('#broadcastButton').value.trim() || null,
+            button_url:$('#broadcastLink').value.trim() || null
+          });
+          closeSheet(); await reloadRemoteData('Рассылка добавлена в очередь');
+        }
+
+        if (e.target.id === 'createPromoBtn') {
+          const kind = $('#promoKind').value;
+          const value = Number(kind === 'premium' ? $('#promoDaysValue').value : $('#promoCoinValue').value);
+          const result = await post('/api/admin/promos', {reward_type:kind === 'premium' ? 'premium' : 'coins', reward_value:value, max_uses:Math.max(1, Number($('#promoLimit').value || 100))});
+          closeSheet(); await reloadRemoteData(`Создан промокод ${result.code}`);
+        }
+
+        if (e.target.id === 'doExportBtn') {
+          await downloadExport(); closeSheet(); showToast('Отчёт сформирован');
+        }
+
+        if (e.target.id === 'globalBanBtn') {
+          let target = $('#globalBanTarget').value.trim();
+          if (target.startsWith('@')) {
+            const found = data.users.find(u => u.username.toLowerCase() === target.slice(1).toLowerCase());
+            if (!found) throw new Error('Пользователь с таким username не найден в базе');
+            target = String(found.id);
+          }
+          const id = Number(target); if (!id) throw new Error('Укажите ID или известный @username');
+          await post('/api/admin/block', {entity_type:id < 0 ? 'chat' : 'user', entity_id:id, blocked:true, reason:$('#globalBanReason').value.trim() || 'Глобальная блокировка'});
+          closeSheet(); await reloadRemoteData('Глобальная блокировка применена');
+        }
+
+        if (e.target.id === 'replyTicketBtn') {
+          const ticket = data.tickets.find(t => t.id === e.target.dataset.ticketId);
+          const reply = $('#ticketReply').value.trim();
+          if (!reply) throw new Error('Введите ответ');
+          if (!ticket) throw new Error('Тикет не найден');
+          await post(`/api/admin/users/${ticket.userId}/message`, {text:reply});
+          await post(`/api/admin/reports/${ticket.rawId}/status`, {status:'closed'});
+          closeSheet(); await reloadRemoteData('Ответ отправлен, обращение закрыто');
+        }
+
+        if (e.target.id === 'createBackupBtn') {
+          await downloadExport('aniguard_backup.json'); closeSheet(); showToast('Резервная копия создана');
+        }
+        if (e.target.id === 'restartBtn') {
+          await post('/api/admin/system/action/restart', {}); closeSheet(); showToast('Команда перезапуска отправлена');
+        }
+        if (e.target.id === 'clearCacheBtn') {
+          await post('/api/admin/system/action/clear_cache', {}); localStorage.removeItem('aniguard_admin_theme'); closeSheet(); showToast('Локальный кэш очищен');
+        }
+        if (e.target.id === 'maintenanceBtn') {
+          await post('/api/admin/system/action/maintenance', {}); closeSheet(); await reloadRemoteData('Технический режим включён');
+        }
+        if (e.target.id === 'bulkPremiumBtn') {
+          const days = Math.max(1, Number($('#bulkDays').value || 7));
+          const category = $('#bulkCategory').value;
+          const categoryMap = {'Все Premium-пользователи':'premium_users','Истекают за 7 дней':'expiring_users','Premium бесед':'premium_chats'};
+          const result = await post('/api/admin/premium/bulk', {category:categoryMap[category] || 'premium_users', days});
+          closeSheet(); await reloadRemoteData(`Продлено подписок: ${result.count}`);
+        }
+        if (e.target.id === 'saveAdvertisingSettings') {
+          const channelLiveUsers = Math.max(0, Number($('#channelLiveUsers')?.value || 0));
+          await post('/api/admin/store/advertising-settings', {channel_live_users:channelLiveUsers});
+          closeSheet();
+          await reloadRemoteData('Настройки рекламы сохранены');
+        }
+
+        if (e.target.id === 'uploadAdminAvatarBtn') {
+          const file = $('#adminAvatarInput')?.files?.[0];
+          if (!file) throw new Error('Выберите JPG, PNG или WEBP');
+          const form = new FormData();
+          form.append('avatar', file);
+          await api('/api/admin/profile/avatar', {method:'POST', body:form});
+          closeSheet(); await reloadRemoteData('Аватар администратора сохранён');
+        }
+        if (e.target.id === 'deleteAdminAvatarBtn') {
+          await api('/api/admin/profile/avatar', {method:'DELETE'});
+          closeSheet(); await reloadRemoteData('Аватар администратора удалён');
+        }
+        if (e.target.id === 'profileThemeBtn') { toggleTheme(); closeSheet(); }
+      } catch (err) { showToast(err.message || 'Ошибка'); }
+    });
+
+    document.addEventListener('input', e => { if (e.target.id === 'paymentSearch') refreshPaymentsList(e.target.value); });
+    document.addEventListener('change', async (e) => {
+      try {
+        if (e.target.id === 'promoKind') togglePromoFields();
+        if (e.target.matches('[data-setting]')) {
+          data.settings[e.target.dataset.setting] = e.target.checked;
+          await post('/api/admin/system/settings', {settings:{[e.target.dataset.setting]:e.target.checked}});
+          showToast('Настройка сохранена');
+        }
+        if (e.target.matches('[data-promo-toggle]')) {
+          const promo = data.promos[Number(e.target.dataset.promoToggle)];
+          if (promo) await post(`/api/admin/promos/${promo.code}/toggle`, {active:e.target.checked});
+          await reloadRemoteData('Статус промокода обновлён');
+        }
+        if (e.target.matches('[data-chat-toggle-field]')) {
+          const chat = chatById(e.target.dataset.id); if (!chat) return;
+          const field = e.target.dataset.chatToggleField;
+          await post(`/api/admin/chats/${chat.id}/settings`, {[field]:e.target.checked});
+          await reloadRemoteData('Настройка беседы обновлена');
+          chatSettingsSheet(chatById(chat.id));
+        }
+      } catch (err) { showToast(err.message || 'Ошибка'); }
+    });
+  }
+
+  async function login(){
+    $('#authError').textContent = '';
+    $('#loginBtn').disabled = true;
+    try {
+      tg?.ready(); tg?.expand();
+      await loadRemoteData();
+      $('#authScreen').classList.add('hidden');
+      $('#appScreen').classList.remove('hidden');
+      startLiveUpdates();
+      showToast('Авторизация успешна');
+    } catch (err) {
+      $('#authError').textContent = err.message || 'Не удалось проверить доступ';
+    } finally {
+      $('#loginBtn').disabled = false;
+    }
+  }
+
+  async function init(){
+    applyTheme(data.theme);
+    initEvents();
+    tg?.ready(); tg?.expand();
+    await login();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

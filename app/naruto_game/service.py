@@ -1003,7 +1003,7 @@ async def join_clan(session: AsyncSession, user_id: int, name: str) -> str:
     count = int(await session.scalar(select(func.count()).select_from(NinjaClanMember).where(NinjaClanMember.clan_id == clan.id)) or 0)
     if count >= 50 + clan.level * 5:
         raise GameError("В клане нет свободных мест.")
-    session.add(NinjaClanMember(clan_id=clan.id, user_id=user_id))
+    session.add(NinjaClanMember(clan_id=clan.id, user_id=user_id, role="genin"))
     return f"👥 Вы вступили в клан <b>{clan.name}</b>."
 
 
@@ -1022,7 +1022,7 @@ async def clan_text(session: AsyncSession, user_id: int) -> str:
         f"Уровень: {clan.level} · рейтинг: {clan.rating}\n"
         f"Участников: {count}\n"
         f"💰 Казна: {clan.treasury}\n"
-        f"Ваш ранг: {member.role} · вклад: {member.contribution}"
+        f"Ваш ранг: { {"leader": "👑 Клан-лидер", "commander": "⚔️ Джонин-командир", "scout": "🕵 АНБУ-разведчик", "treasurer": "💰 Хранитель свитков и казны", "elite": "🥷 Элитный шиноби", "genin": "🎓 Генин", "shinobi": "🎓 Генин"}.get(member.role, "🎓 Генин") } · вклад: {member.contribution}"
     )
 
 

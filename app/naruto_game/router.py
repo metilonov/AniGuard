@@ -63,6 +63,9 @@ from .service import (
     world_text,
 )
 
+from .social import friends_text, mmo_top_text
+from .advanced import path_text, recommendations_text, territory_map_text, world_events_text
+
 router = Router(name="naruto-rpg")
 _pending_names: dict[int, str] = {}
 
@@ -103,6 +106,18 @@ def _menu_keyboard() -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(text="👥 Клан", callback_data="ng:menu:clan"),
                 InlineKeyboardButton(text="👹 Рейд", callback_data="ng:menu:raid"),
+            ],
+            [
+                InlineKeyboardButton(text="🤝 Друзья", callback_data="ng:menu:social"),
+                InlineKeyboardButton(text="🌍 MMO-рейтинг", callback_data="ng:menu:mmo"),
+            ],
+            [
+                InlineKeyboardButton(text="🥷 Мой путь", callback_data="ng:menu:path"),
+                InlineKeyboardButton(text="🌍 События", callback_data="ng:menu:events"),
+            ],
+            [
+                InlineKeyboardButton(text="🗺 Территории", callback_data="ng:menu:territory"),
+                InlineKeyboardButton(text="🧭 Что делать?", callback_data="ng:menu:recommend"),
             ],
         ]
     )
@@ -719,6 +734,24 @@ async def menu_callback(callback: CallbackQuery) -> None:
             markup = _menu_keyboard()
         elif section == "raid":
             text = await _with_session(user_id, lambda s: raid_attack(s, user_id))
+            markup = _menu_keyboard()
+        elif section == "social":
+            text = await _with_session(user_id, lambda s: friends_text(s, user_id))
+            markup = _menu_keyboard()
+        elif section == "mmo":
+            text = await _with_session(user_id, lambda s: mmo_top_text(s))
+            markup = _menu_keyboard()
+        elif section == "path":
+            text = await _with_session(user_id, lambda s: path_text(s, user_id))
+            markup = _menu_keyboard()
+        elif section == "events":
+            text = await _with_session(user_id, lambda s: world_events_text(s))
+            markup = _menu_keyboard()
+        elif section == "territory":
+            text = await _with_session(user_id, lambda s: territory_map_text(s))
+            markup = _menu_keyboard()
+        elif section == "recommend":
+            text = await _with_session(user_id, lambda s: recommendations_text(s, user_id))
             markup = _menu_keyboard()
         else:
             text = "🥷 Naruto RPG"

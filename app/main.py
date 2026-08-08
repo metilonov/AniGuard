@@ -8,6 +8,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+
 # Этот импорт должен быть раньше app.api/app.bot: он подключает покупку
 # Premium аккаунта к существующему обработчику Telegram Stars.
 from app.premium_account import router as premium_account_router
@@ -19,10 +20,9 @@ from app.config import get_settings
 from app.db import init_db
 from app.monitoring import resource_monitor
 
-# Подключаем Naruto RPG до init_db/start_polling. Импорт игрового пакета
-# регистрирует его SQLAlchemy-модели в общем Base, а install_naruto_game()
-# ставит RPG-роутер перед широким group pipeline AniGuard.
+# Подключаем Naruto RPG/MMO V2 до init_db/start_polling.
 install_naruto_game()
+
 
 settings = get_settings()
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -36,6 +36,7 @@ PREMIUM_SCRIPT = '<script src="/static/premium-purchase.js?v=2402"></script>'
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO)
 )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -55,6 +56,7 @@ async def lifespan(app: FastAPI):
         except Exception:
             pass
 
+
 app = FastAPI(title="AniGuard", version="2.0.0", lifespan=lifespan)
 app.include_router(premium_account_router)
 app.include_router(api_router)
@@ -66,11 +68,13 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 async def root() -> RedirectResponse:
     return RedirectResponse(url="/panel", status_code=307)
 
+
 def _panel_html() -> str:
     html = (STATIC_DIR / "index.html").read_text(encoding="utf-8")
     if PREMIUM_SCRIPT not in html:
         html = html.replace("</body>", f"  {PREMIUM_SCRIPT}\n</body>", 1)
     return html
+
 
 @app.get("/panel", include_in_schema=False)
 @app.get("/panel/", include_in_schema=False)
@@ -85,6 +89,7 @@ async def mini_app() -> HTMLResponse:
         content=_panel_html(),
         headers=NO_CACHE_HEADERS,
     )
+
 
 @app.get("/admin", include_in_schema=False)
 @app.get("/admin/", include_in_schema=False)

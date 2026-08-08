@@ -1,0 +1,3017 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#ffffff">
+  <title>AniGuard</title>
+  <style>
+:root {
+  --bg: var(--tg-theme-bg-color, #f2f3f5);
+  --secondary-bg: var(--tg-theme-secondary-bg-color, #ffffff);
+  --section-bg: var(--tg-theme-section-bg-color, var(--secondary-bg));
+  --text: var(--tg-theme-text-color, #111318);
+  --hint: var(--tg-theme-hint-color, #7d8490);
+  --link: var(--tg-theme-link-color, #168acd);
+  --button: var(--tg-theme-button-color, #168acd);
+  --button-text: var(--tg-theme-button-text-color, #ffffff);
+  --destructive: var(--tg-theme-destructive-text-color, #e64b55);
+  --separator: color-mix(in srgb, var(--hint) 24%, transparent);
+  --pressed: color-mix(in srgb, var(--hint) 12%, transparent);
+  --premium-bg: color-mix(in srgb, var(--button) 13%, transparent);
+  --premium-text: var(--button);
+  --safe-top: max(0px, var(--tg-content-safe-area-inset-top, 0px));
+  --safe-bottom: max(0px, var(--tg-content-safe-area-inset-bottom, 0px));
+  color-scheme: light dark;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  color: var(--text);
+  background: var(--bg);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { -webkit-tap-highlight-color: transparent; }
+button, select, input, textarea { outline-color: var(--button); }
+svg { display: block; width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.svg-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+.hidden { display: none !important; }
+.muted { color: var(--hint); }
+
+.app-shell {
+  width: min(100%, 1180px);
+  margin: 0 auto;
+  padding: calc(12px + var(--safe-top)) 14px calc(100px + var(--safe-bottom));
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 58px;
+  margin: 0 -14px 12px;
+  padding: 6px 14px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+.group-switch-button {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.chat-avatar, .profile-avatar {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--button-text);
+  position: relative;
+  overflow: hidden;
+  background: var(--button);
+  font-weight: 700;
+  user-select: none;
+}
+.chat-avatar > span, .profile-avatar > span { position: relative; z-index: 0; }
+.chat-avatar img, .profile-avatar img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+.chat-avatar { width: 48px; height: 48px; flex: 0 0 48px; }
+.group-copy { min-width: 0; display: block; }
+.group-name { display: block; overflow: hidden; font-size: 18px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+.group-meta { display: flex; align-items: center; gap: 3px; margin-top: 3px; color: var(--hint); font-size: 13px; }
+.group-meta svg { width: 15px; height: 15px; }
+.top-actions { display: flex; align-items: center; flex: 0 0 auto; }
+.icon-button {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--text);
+  background: transparent;
+}
+.icon-button:active { background: var(--pressed); }
+
+.global-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  margin-bottom: 16px;
+  padding: 0 15px;
+  border: 1px solid var(--separator);
+  border-radius: 22px;
+  color: var(--hint);
+  background: color-mix(in srgb, var(--secondary-bg) 80%, var(--bg));
+}
+.global-search svg { width: 22px; height: 22px; flex: 0 0 22px; }
+.global-search input { width: 100%; min-width: 0; padding: 0; border: 0; outline: 0; color: var(--text); background: transparent; }
+.global-search input::placeholder { color: var(--hint); }
+
+.notice {
+  position: fixed;
+  left: 50%;
+  bottom: calc(92px + var(--safe-bottom));
+  z-index: 80;
+  width: max-content;
+  max-width: calc(100% - 34px);
+  padding: 11px 14px;
+  overflow: hidden;
+  border: 1px solid var(--separator);
+  border-radius: 15px;
+  color: var(--text);
+  background: var(--secondary-bg);
+  box-shadow: 0 10px 35px rgba(0,0,0,.16);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.empty-state { padding: 68px 24px; text-align: center; }
+.empty-state .section-icon { margin: 0 auto; }
+.empty-state h1 { margin: 18px 0 8px; }
+.empty-state p { max-width: 520px; margin: 0 auto; color: var(--hint); }
+
+.workspace { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 18px; }
+.sidebar {
+  position: sticky;
+  top: 76px;
+  align-self: start;
+  display: grid;
+  gap: 4px;
+  padding: 7px;
+  border: 1px solid var(--separator);
+  border-radius: 22px;
+  background: var(--secondary-bg);
+}
+.sidebar .nav {
+  display: grid;
+  grid-template-columns: 30px minmax(0,1fr);
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 8px 11px;
+  border: 0;
+  border-radius: 15px;
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+.sidebar .nav svg { width: 22px; height: 22px; }
+.sidebar .nav.active { color: var(--button); background: var(--premium-bg); }
+.content { min-width: 0; }
+.view { min-width: 0; animation: view-in .16s ease; }
+@keyframes view-in { from { opacity: .5; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.hero-card, .hero-card > div { min-width: 0; }
+.hero-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 19px;
+  border: 1px solid var(--separator);
+  border-radius: 23px;
+  background: var(--secondary-bg);
+}
+.hero-card h1 { margin: 5px 0 0; font-size: 23px; line-height: 1.2; }
+.hero-card p { margin: 7px 0 0; color: var(--hint); }
+.eyebrow { color: var(--button); font-size: 12px; font-weight: 800; letter-spacing: .06em; }
+.status-pill, .premium-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  color: var(--premium-text);
+  background: var(--premium-bg);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.status-pill { min-height: 34px; padding: 7px 11px; font-size: 13px; }
+.premium-chip { padding: 4px 7px; font-size: 10px; letter-spacing: .04em; }
+
+.metrics { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 9px; margin-top: 10px; }
+.metric {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 38px minmax(0,1fr);
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--separator);
+  border-radius: 18px;
+  background: var(--secondary-bg);
+}
+.metric .icon-box { grid-row: 1 / 3; align-self: center; }
+.metric span:not(.icon-box) { overflow: hidden; color: var(--hint); font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
+.metric strong { overflow: hidden; font-size: 18px; white-space: nowrap; text-overflow: ellipsis; }
+
+.section-heading, .view-header, .dialog-head, .section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.section-heading { margin: 22px 3px 10px; }
+.section-heading h2, .view-header h1, .dialog-head h2, .section-title h2, .section-title h1 { margin: 0; }
+.section-heading h2 { font-size: 17px; }
+.section-heading p, .view-header p, .dialog-head p, .section-title p { margin: 3px 0 0; color: var(--hint); font-size: 13px; }
+.view-header { align-items: flex-start; margin-bottom: 14px; }
+.view-header h1 { font-size: 24px; }
+.link-button { padding: 7px 0; border: 0; color: var(--button); background: transparent; font-weight: 650; }
+
+.action-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 9px; }
+.action-grid.wide { grid-template-columns: repeat(4, minmax(0,1fr)); }
+.action {
+  min-width: 0;
+  min-height: 126px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 14px;
+  border: 1px solid var(--separator);
+  border-radius: 20px;
+  color: var(--text);
+  background: var(--secondary-bg);
+  text-align: left;
+}
+.action b { display: block; width: 100%; margin-top: 11px; line-height: 1.2; }
+.action small { display: block; width: 100%; margin-top: 5px; color: var(--hint); line-height: 1.35; }
+.action.premium::after { content: "PREMIUM"; margin-top: 9px; padding: 3px 6px; border-radius: 7px; color: var(--premium-text); background: var(--premium-bg); font-size: 9px; font-weight: 800; letter-spacing: .04em; }
+.action:active, .telegram-row:active, .profile-action:active, .list-card button:active, .pressable:active { transform: scale(.98); background-color: var(--pressed); }
+
+.icon-box, .section-icon, .row-icon, .premium-hero-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  color: var(--button-text);
+  background: var(--button);
+}
+.icon-box { width: 38px; height: 38px; }
+.icon-box.small { width: 36px; height: 36px; }
+.icon-box.small svg { width: 21px; height: 21px; }
+.section-icon { width: 44px; height: 44px; }
+.row-icon { width: 44px; height: 44px; }
+.row-icon svg { width: 23px; height: 23px; }
+.premium-hero-icon { width: 60px; height: 60px; border-radius: 20px; }
+.premium-hero-icon svg { width: 32px; height: 32px; }
+.premium-hero-icon.small { width: 48px; height: 48px; margin: 0 auto 12px; }
+
+.telegram-list, .card, .list-card, .setting-group {
+  border: 1px solid var(--separator);
+  border-radius: 22px;
+  background: var(--secondary-bg);
+}
+.telegram-list { overflow: hidden; }
+.telegram-row {
+  width: 100%;
+  min-height: 74px;
+  display: grid;
+  grid-template-columns: 44px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--separator);
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+.telegram-row:last-child { border-bottom: 0; }
+.row-copy { min-width: 0; overflow: hidden; }
+.row-copy b, .row-copy small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.row-copy small { margin-top: 4px; color: var(--hint); font-size: 13px; }
+.chevron { width: 20px; height: 20px; color: var(--hint); }
+.card { padding: 15px; }
+.card h2 { margin: 0 0 12px; font-size: 18px; }
+
+.control {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--separator);
+  border-radius: 14px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--secondary-bg) 85%, var(--bg));
+}
+.control.compact { width: min(320px, 100%); }
+textarea.control { min-height: 88px; resize: vertical; }
+.form-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px; }
+.form-grid label { display: grid; gap: 6px; font-weight: 600; }
+.form-grid .full { grid-column: 1 / -1; }
+.compact-form { margin-bottom: 14px; }
+.switch-line { display: flex !important; grid-auto-flow: column; align-items: center; justify-content: flex-start; gap: 9px !important; min-height: 46px; font-weight: 500 !important; }
+.switch-line input { width: 20px; height: 20px; accent-color: var(--button); }
+.primary, .secondary, .danger {
+  min-height: 46px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-weight: 700;
+}
+.primary { border: 1px solid var(--button); color: var(--button-text); background: var(--button); }
+.secondary { border: 1px solid var(--separator); color: var(--text); background: var(--secondary-bg); }
+.danger { border: 1px solid color-mix(in srgb, var(--destructive) 50%, transparent); color: var(--destructive); background: color-mix(in srgb, var(--destructive) 9%, transparent); }
+.button-row { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.button-row svg { width: 21px; height: 21px; }
+
+.list.spaced { display: grid; gap: 10px; margin-top: 14px; }
+.list-row { padding: 11px 0; border-bottom: 1px solid var(--separator); }
+.list-row:last-child { border-bottom: 0; }
+.list-row b { display: block; }
+.list-row p { margin: 4px 0 0; color: var(--hint); font-size: 13px; }
+.list-card {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+}
+.list-card > div:first-child { min-width: 0; }
+.list-card h3 { margin: 7px 0 0; font-size: 16px; }
+.list-card p { margin: 5px 0 0; color: var(--hint); font-size: 13px; overflow-wrap: anywhere; }
+.list-card .actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.list-card .actions button { min-height: 38px; padding: 7px 10px; }
+.admin-controls { display: grid !important; grid-template-columns: repeat(2,minmax(120px,1fr)); gap: 8px; min-width: 320px; }
+.status-good { color: #22a45d; }
+.status-bad { color: var(--destructive); }
+
+.automod-sections { display: grid; gap: 16px; }
+.automod-group h2 { margin: 0; font-size: 17px; }
+.automod-group > p { margin: 3px 0 9px; color: var(--hint); font-size: 13px; }
+.automod-row {
+  min-height: 78px;
+  display: grid;
+  grid-template-columns: 44px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--separator);
+}
+.automod-row:last-child { border-bottom: 0; }
+.automod-title-line { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.automod-title { overflow: hidden; font-weight: 650; white-space: nowrap; text-overflow: ellipsis; }
+.automod-description { margin-top: 4px; overflow: hidden; color: var(--hint); font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }
+.toggle { position: relative; width: 48px; height: 28px; flex: 0 0 48px; }
+.toggle input { position: absolute; opacity: 0; }
+.toggle span { position: absolute; inset: 0; border-radius: 999px; background: var(--separator); transition: .15s ease; }
+.toggle span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: .15s ease; }
+.toggle input:checked + span { background: var(--button); }
+.toggle input:checked + span::after { transform: translateX(20px); }
+.toggle input:disabled + span { opacity: .55; }
+.automod-number { width: 82px; min-height: 40px; padding: 7px 8px; text-align: right; }
+
+.accordion-list { display: grid; gap: 10px; }
+.setting-group { overflow: hidden; }
+.setting-group summary { padding: 13px 14px; cursor: pointer; list-style: none; }
+.setting-group summary::-webkit-details-marker { display: none; }
+.setting-group .section-title { justify-content: flex-start; }
+.setting-group .section-title h2 { font-size: 16px; }
+.setting-group .accordion-body { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; padding: 0 14px 14px; }
+.setting-group .accordion-body label { display: grid; gap: 6px; }
+.sticky-save { position: sticky; bottom: calc(92px + var(--safe-bottom)); z-index: 8; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 14px; box-shadow: 0 8px 28px rgba(0,0,0,.12); }
+
+.group-profile-card {
+  padding: 21px 17px;
+  border: 1px solid var(--separator);
+  border-radius: 24px;
+  background: var(--secondary-bg);
+  text-align: center;
+}
+.profile-avatar { width: 94px; height: 94px; margin: 0 auto; font-size: 28px; }
+.group-profile-card h1 { margin: 13px 0 0; font-size: 22px; }
+.profile-description { max-width: 600px; margin: 12px auto 0; color: var(--hint); }
+.profile-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: 16px; }
+.profile-action { min-height: 68px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; padding: 8px 4px; border: 0; border-radius: 16px; color: var(--button); background: var(--premium-bg); font-size: 12px; font-weight: 650; }
+.profile-action svg { width: 24px; height: 24px; }
+
+.premium-hero { display: flex; align-items: center; gap: 15px; padding: 19px; border: 1px solid var(--separator); border-radius: 23px; background: var(--secondary-bg); }
+.premium-hero h1 { margin: 8px 0 0; font-size: 23px; }
+.premium-hero p { margin: 5px 0 0; color: var(--hint); }
+.plans { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin: 14px 0; }
+.plan { padding: 15px; border: 1px solid var(--separator); border-radius: 20px; background: var(--secondary-bg); }
+.plan h3 { margin: 0; }
+.plan p { min-height: 38px; color: var(--hint); }
+.plan strong { display: block; margin: 8px 0 12px; font-size: 22px; }
+.plan button { width: 100%; }
+.feature-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.feature-grid span { padding: 11px; border-radius: 13px; background: color-mix(in srgb, var(--secondary-bg) 80%, var(--bg)); }
+
+.bottom-nav {
+  position: fixed;
+  left: 50%;
+  bottom: calc(9px + var(--safe-bottom));
+  z-index: 50;
+  width: min(520px, calc(100% - 22px));
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 3px;
+  padding: 6px;
+  border: 1px solid var(--separator);
+  border-radius: 29px;
+  background: color-mix(in srgb, var(--secondary-bg) 88%, transparent);
+  box-shadow: 0 8px 30px rgba(0,0,0,.18);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  transform: translateX(-50%);
+}
+.bottom-nav .nav {
+  min-width: 0;
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 7px 3px;
+  border: 0;
+  border-radius: 23px;
+  color: var(--hint);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 650;
+}
+.bottom-nav .nav svg { width: 27px; height: 27px; }
+.bottom-nav .nav.active { color: var(--button); background: var(--premium-bg); }
+
+.sheet-dialog {
+  width: min(620px, calc(100% - 20px));
+  max-height: calc(100vh - 24px);
+  margin: auto auto 8px;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+}
+.sheet-dialog::backdrop { background: rgba(0,0,0,.35); backdrop-filter: blur(3px); }
+.sheet {
+  max-height: calc(100vh - 24px);
+  padding: 16px;
+  overflow-y: auto;
+  border: 1px solid var(--separator);
+  border-radius: 25px;
+  color: var(--text);
+  background: var(--bg);
+  box-shadow: 0 18px 50px rgba(0,0,0,.22);
+}
+.compact-sheet { text-align: center; }
+.sheet-handle { width: 42px; height: 4px; margin: 0 auto 14px; border-radius: 999px; background: var(--separator); }
+.dialog-head { margin-bottom: 13px; }
+.dialog-head h2 { font-size: 20px; }
+.sheet > label { display: grid; gap: 6px; margin-top: 12px; font-weight: 600; }
+.sheet > .primary, .sheet > .secondary { width: 100%; margin-top: 12px; }
+.group-options { display: grid; }
+.group-option {
+  width: 100%;
+  min-height: 70px;
+  display: grid;
+  grid-template-columns: 46px minmax(0,1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--separator);
+  color: var(--text);
+  background: transparent;
+  text-align: left;
+}
+.group-option:last-child { border-bottom: 0; }
+.group-option .chat-avatar { width: 46px; height: 46px; }
+.group-option b, .group-option small { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.group-option small { margin-top: 3px; color: var(--hint); }
+.group-option .check { color: var(--button); font-size: 22px; font-weight: 800; }
+
+@media (max-width: 900px) {
+  .app-shell { max-width: 736px; }
+  .workspace { display: block; }
+  .sidebar { display: none; }
+  .action-grid, .action-grid.wide { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .plans { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 520px) {
+  .app-shell { padding-left: 12px; padding-right: 12px; }
+  .topbar { margin-left: -12px; margin-right: -12px; padding-left: 12px; padding-right: 8px; }
+  .hero-card { flex-direction: column; }
+  .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .metric:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .action { min-height: 136px; }
+  .view-header { flex-direction: column; align-items: stretch; }
+  .control.compact { width: 100%; }
+  .form-grid { grid-template-columns: 1fr; }
+  .form-grid .full { grid-column: auto; }
+  .setting-group .accordion-body { grid-template-columns: 1fr; }
+  .list-card { grid-template-columns: 1fr; }
+  .list-card .actions { justify-content: flex-start; }
+  .admin-controls { min-width: 0; grid-template-columns: 1fr; }
+  .feature-grid { grid-template-columns: 1fr; }
+  .section-heading { align-items: flex-end; }
+  .section-heading p { max-width: 230px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
+}
+
+/* Extended connected Mini App screens. */
+.command-editor-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; margin:4px 2px 10px; }
+.command-editor-heading h2 { margin:0; font-size:18px; }
+.moderation-toolbar { display:flex; justify-content:flex-end; margin:0 2px 12px; }
+.members-table-wrap { overflow:hidden; border:1px solid var(--separator); border-radius:20px; background:var(--secondary-bg); }
+.members-table-head { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; padding:11px 14px; color:var(--hint); font-size:13px; border-bottom:1px solid var(--separator); }
+.members-table { display:grid; }
+.member-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; min-height:86px; padding:12px 14px; border-bottom:1px solid var(--separator); }
+.member-row:last-child { border-bottom:0; }
+.member-identity { min-width:0; display:grid; grid-template-columns:48px minmax(0,1fr); align-items:center; gap:11px; }
+.user-avatar { width:48px; height:48px; border-radius:50%; object-fit:cover; background:var(--button); color:var(--button-text); display:grid; place-items:center; font-weight:700; overflow:hidden; }
+.user-avatar img { width:100%; height:100%; object-fit:cover; }
+.user-copy { min-width:0; }
+.user-copy b, .user-copy small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.user-copy small { margin-top:3px; color:var(--hint); }
+.member-buttons { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:6px; }
+.member-buttons button { min-height:36px; padding:7px 10px; border-radius:11px; }
+.member-details-card { text-align:center; }
+.member-details-card .user-avatar { width:88px; height:88px; margin:0 auto 12px; font-size:26px; }
+.member-details-card h2 { margin:0; }
+.detail-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:14px; text-align:left; }
+.detail-item { padding:11px; border:1px solid var(--separator); border-radius:13px; background:var(--secondary-bg); }
+.detail-item small, .detail-item b { display:block; }
+.detail-item small { color:var(--hint); margin-bottom:3px; }
+.profile-click-row { cursor:pointer; }
+.rules-preview { display:grid; gap:7px; margin-top:12px; }
+.rule-preview-item { display:grid; grid-template-columns:28px minmax(0,1fr); gap:8px; padding:8px; border-radius:12px; background:var(--secondary-bg); }
+.rule-preview-item span:first-child { width:28px; height:28px; display:grid; place-items:center; border-radius:9px; color:var(--button); background:var(--premium-bg); font-weight:700; }
+.welcome-photo { display:block; width:100%; max-height:260px; margin-top:12px; border-radius:16px; object-fit:cover; border:1px solid var(--separator); }
+.dialog-buttons { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+.captcha-preview { margin-top:12px; padding:12px; border:1px solid var(--separator); border-radius:17px; background:var(--secondary-bg); text-align:center; }
+.captcha-preview img { width:100%; aspect-ratio:16/9; object-fit:cover; border-radius:13px; }
+.captcha-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px; }
+.captcha-options button { min-height:55px; border:1px solid var(--separator); border-radius:13px; background:var(--bg); font-size:25px; }
+.captcha-options button.correct { border-color:var(--button); background:var(--premium-bg); }
+.premium-details { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; margin:14px 0; }
+.premium-detail { padding:13px; border:1px solid var(--separator); border-radius:16px; background:var(--secondary-bg); }
+.premium-detail small, .premium-detail b { display:block; }
+.premium-detail small { color:var(--hint); margin-bottom:5px; }
+.basic-command-row .row-subtitle { white-space:normal; }
+.basic-command-actions { display:flex; gap:5px; }
+.basic-command-actions button { width:38px; height:38px; display:grid; place-items:center; padding:0; border-radius:12px; }
+.owner-source-note { margin-top:10px; padding:11px; border-radius:13px; color:var(--button); background:var(--premium-bg); }
+
+@media (max-width:620px) {
+  .member-row { grid-template-columns:1fr; }
+  .member-buttons { justify-content:flex-start; padding-left:59px; }
+  .premium-details { grid-template-columns:1fr; }
+  .detail-grid { grid-template-columns:1fr; }
+}
+.user-avatar { position:relative; }
+.user-avatar > span { position:absolute; inset:0; display:grid; place-items:center; }
+.user-avatar > img { position:absolute; inset:0; z-index:1; }
+
+
+/* Manual light/dark mode. These values intentionally override Telegram CSS variables
+   after the user presses the theme button. */
+html[data-theme="light"] {
+  --bg: #f2f3f5;
+  --secondary-bg: #ffffff;
+  --section-bg: #ffffff;
+  --text: #111318;
+  --hint: #748093;
+  --link: #168acd;
+  --button: #168acd;
+  --button-text: #ffffff;
+  --destructive: #e64b55;
+  color-scheme: light;
+}
+html[data-theme="dark"] {
+  --bg: #1b2634;
+  --secondary-bg: #121b26;
+  --section-bg: #121b26;
+  --text: #f4f7fb;
+  --hint: #8794a7;
+  --link: #2ca3ed;
+  --button: #2ca3ed;
+  --button-text: #ffffff;
+  --destructive: #ff7181;
+  color-scheme: dark;
+}
+.theme-toggle-button {
+  margin-left: 1px;
+  border: 1px solid var(--separator);
+  background: color-mix(in srgb, var(--secondary-bg) 86%, transparent);
+}
+
+
+/* User profile */
+.user-account-card {
+  padding: 18px;
+  border: 1px solid var(--separator);
+  border-radius: 25px;
+  background:
+    radial-gradient(circle at 100% 0%, color-mix(in srgb, #f3c34f 12%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--secondary-bg) 96%, transparent), var(--secondary-bg));
+}
+.user-account-head {
+  display: grid;
+  grid-template-columns: 102px minmax(0,1fr);
+  gap: 16px;
+  align-items: center;
+}
+.user-account-avatar-wrap {
+  position: relative;
+  width: 102px;
+  height: 102px;
+}
+.user-account-avatar {
+  width: 102px;
+  height: 102px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  border: 3px solid color-mix(in srgb, var(--button) 44%, transparent);
+  border-radius: 50%;
+  color: var(--button-text);
+  background: linear-gradient(145deg, var(--button), #5fd3ff);
+  font-size: 30px;
+  font-weight: 850;
+  box-shadow: inset 0 -8px 18px rgba(0,0,0,.08);
+}
+.user-account-avatar > span { position: relative; z-index: 0; }
+.user-account-avatar img {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.account-premium-mark { display: none !important; }
+.user-account-identity {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.account-user-name {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 23px;
+  line-height: 1.12;
+}
+.account-user-name.regular, .regular-user-name {
+  color: color-mix(in srgb, var(--button) 60%, var(--hint));
+}
+.account-user-name.premium, .premium-user-name {
+  color: #f3c34f;
+}
+.user-account-identity p { margin: 7px 0 0; color: var(--hint); font-size: 13px; }
+.account-status-chip {
+  min-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  margin-top: 12px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  color: var(--button);
+  background: var(--premium-bg);
+  font-size: 11px;
+  font-weight: 800;
+}
+.account-status-chip.premium { color: #f3c34f; background: color-mix(in srgb, #f3c34f 14%, transparent); }
+
+.anicoin-wallet-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  grid-template-areas:
+    "brand chip"
+    "balance chip";
+  gap: 8px 14px;
+  min-height: 98px;
+  margin-top: 18px;
+  padding: 14px 15px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, #f3c34f 28%, var(--separator));
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 94% 6%, color-mix(in srgb, #f3c34f 14%, transparent), transparent 36%),
+    linear-gradient(135deg, color-mix(in srgb, var(--section-bg) 96%, #15100a), var(--section-bg));
+}
+.anicoin-wallet-card::after {
+  content: "";
+  position: absolute;
+  right: 56px;
+  bottom: -42px;
+  width: 104px;
+  height: 104px;
+  border: 1px solid color-mix(in srgb, #f3c34f 15%, transparent);
+  border-radius: 50%;
+}
+.anicoin-wallet-brand {
+  grid-area: brand;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.anicoin-wallet-icon {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, #f3c34f 32%, var(--separator));
+  border-radius: 13px;
+  color: #f3c34f;
+  background: color-mix(in srgb, #f3c34f 12%, transparent);
+}
+.anicoin-wallet-icon svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.anicoin-wallet-name { min-width: 0; }
+.anicoin-wallet-name b, .anicoin-wallet-name small { display: block; }
+.anicoin-wallet-name b { font-size: 14px; }
+.anicoin-wallet-name small { margin-top: 3px; color: var(--hint); font-size: 10px; }
+.anicoin-wallet-balance { grid-area: balance; min-width: 0; }
+.anicoin-wallet-balance small { display: block; color: var(--hint); font-size: 10px; }
+.anicoin-wallet-balance strong { display: block; margin-top: 4px; font-size: 18px; line-height: 1.1; }
+.anicoin-wallet-balance em { color: #f3c34f; font-size: 11px; font-style: normal; }
+.anicoin-wallet-chip {
+  grid-area: chip;
+  align-self: center;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  z-index: 1;
+  border-radius: 15px;
+  color: #f3c34f;
+  background: color-mix(in srgb, #f3c34f 11%, var(--secondary-bg));
+}
+.anicoin-wallet-chip svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.account-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 10px;
+}
+.account-stat-card {
+  min-width: 0;
+  min-height: 146px;
+  padding: 15px;
+  border: 1px solid var(--separator);
+  border-radius: 21px;
+  background: var(--secondary-bg);
+}
+.account-stat-icon {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  color: var(--button);
+  background: var(--premium-bg);
+}
+.account-stat-icon svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.account-stat-card > span, .account-stat-card > strong, .account-stat-card > small { display: block; }
+.account-stat-card > span { margin-top: 11px; color: var(--hint); font-size: 12px; font-weight: 700; }
+.account-stat-card > strong { margin-top: 5px; font-size: 23px; }
+.account-stat-card > small { margin-top: 5px; overflow: hidden; color: var(--hint); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+
+.account-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  gap: 10px;
+}
+.account-info-card {
+  min-width: 0;
+  min-height: 114px;
+  padding: 14px;
+  border: 1px solid var(--separator);
+  border-radius: 20px;
+  color: var(--text);
+  background: var(--secondary-bg);
+  display: grid;
+  grid-template-columns: 44px minmax(0,1fr);
+  gap: 10px;
+  align-items: start;
+  text-align: left;
+}
+.account-info-card.premium {
+  border-color: color-mix(in srgb, #f3c34f 28%, var(--separator));
+  background: linear-gradient(145deg, color-mix(in srgb, #f3c34f 10%, transparent), transparent 64%), var(--secondary-bg);
+}
+.account-info-icon {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: var(--button);
+  background: var(--premium-bg);
+}
+.account-info-card.premium .account-info-icon {
+  color: #f3c34f;
+  background: color-mix(in srgb, #f3c34f 13%, transparent);
+}
+.account-info-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.account-info-copy { min-width: 0; display: block; }
+.account-info-copy small, .account-info-copy strong, .account-info-copy em { display: block; }
+.account-info-copy small { overflow: hidden; color: var(--hint); font-size: 10px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+.account-info-copy strong { margin-top: 6px; overflow-wrap: anywhere; font-size: 18px; }
+.account-info-copy em {
+  margin-top: 6px;
+  overflow: hidden;
+  color: var(--hint);
+  font-size: 10px;
+  font-style: normal;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.menu-account-summary {
+  display: grid;
+  grid-template-columns: 56px minmax(0,1fr);
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 11px;
+  padding: 14px;
+  border: 1px solid var(--separator);
+  border-radius: 18px;
+  background: var(--section-bg);
+}
+.menu-account-summary > span:last-child { min-width: 0; }
+.menu-account-summary b,
+.menu-account-summary small {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.menu-account-summary b { font-size: 16px; }
+.menu-account-summary small { margin-top: 4px; color: var(--hint); font-size: 12px; }
+.menu-user-avatar {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
+  color: var(--button-text);
+  background: linear-gradient(145deg, var(--button), #5fd3ff);
+  font-size: 20px;
+  font-weight: 800;
+}
+.menu-user-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+@media (max-width: 520px) {
+  .user-account-card { padding: 16px; }
+  .user-account-head { grid-template-columns: 88px minmax(0,1fr); gap: 13px; }
+  .user-account-avatar-wrap, .user-account-avatar { width: 88px; height: 88px; }
+  .user-account-avatar { font-size: 25px; }
+  .account-user-name { font-size: 21px; }
+  .user-account-identity p { font-size: 12px; }
+  .account-stat-card { min-height: 136px; padding: 13px; }
+  .account-stat-card > strong { font-size: 20px; }
+  .account-info-card {
+    min-height: 108px;
+    padding: 12px;
+    grid-template-columns: 40px minmax(0,1fr);
+    gap: 9px;
+  }
+  .account-info-icon { width: 40px; height: 40px; }
+  .account-info-icon svg { width: 21px; height: 21px; }
+  .account-info-copy strong { font-size: 16px; }
+  .anicoin-wallet-card { min-height: 94px; padding: 13px; }
+  .anicoin-wallet-balance strong { font-size: 17px; }
+  .menu-account-summary { grid-template-columns: 52px minmax(0,1fr); padding: 13px; }
+  .menu-user-avatar { width: 52px; height: 52px; }
+}
+
+
+/* Profile visual fixes v2 */
+.account-menu-icon{width:52px;height:52px;border-radius:17px;display:grid;place-items:center;color:var(--button);background:color-mix(in srgb,var(--button) 14%,transparent)}
+.account-menu-icon svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.account-menu-icon.settings{color:#8a69fa;background:color-mix(in srgb,#8a69fa 14%,transparent)}
+.account-menu-icon.advertising{color:#f3c34f;background:color-mix(in srgb,#f3c34f 14%,transparent)}
+.account-menu-icon.faq{color:#43c98e;background:color-mix(in srgb,#43c98e 14%,transparent)}
+.account-menu-link .row-icon{flex-basis:52px}
+
+</style>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <svg class="svg-sprite" aria-hidden="true">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7"/><path d="M6 10v10h12V10"/><path d="M10 20v-6h4v6"/></symbol>
+    <symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M12 3 20 7v5c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V7z"/><path d="m9 12 2 2 4-5"/></symbol>
+    <symbol id="i-command-panel" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M8 9h8M8 13h5"/></symbol>
+    <symbol id="i-profile" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-menu-profile" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2.5"/><path d="M5.5 17a4 4 0 0 1 7 0"/><path d="M14 9h5M14 13h5M14 17h3"/></symbol>
+    <symbol id="i-menu-settings" viewBox="0 0 24 24"><path d="M4 6h8M15 6h5M4 12h5M12 12h8M4 18h11M18 18h2"/><circle cx="12" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="16" cy="18" r="2"/></symbol>
+    <symbol id="i-menu-advertising" viewBox="0 0 24 24"><path d="M4 12v3h3l9 4V5l-9 4H4z"/><path d="M7 15l1.5 4h3L10 15"/><path d="M18 8c1.7 1 2.5 2.3 2.5 4S19.7 15 18 16"/></symbol>
+    <symbol id="i-menu-faq" viewBox="0 0 24 24"><path d="M12 21c4.4 0 8-3.1 8-7s-3.6-7-8-7-8 3.1-8 7c0 1.7.7 3.2 1.8 4.4L5 21l3.3-1.1c1.1.7 2.4 1.1 3.7 1.1Z"/><path d="M9.5 11a2.5 2.5 0 1 1 3.7 2.2c-.8.4-1.2.9-1.2 1.8"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-profile-rating" viewBox="0 0 24 24"><path d="M5 18V9M12 18V5M19 18v-6"/><path d="m4 8 4-3 4 2 4-3 4 2"/><path d="M4 20h16"/></symbol>
+    <symbol id="i-profile-level" viewBox="0 0 24 24"><path d="M5 18h4v-4h4v-4h6"/><path d="m16 6 3 4-3 4"/></symbol>
+    <symbol id="i-profile-game" viewBox="0 0 24 24"><path d="M7 8h10a4 4 0 0 1 4 4v3a3 3 0 0 1-5 2l-2-2h-4l-2 2a3 3 0 0 1-5-2v-3a4 4 0 0 1 4-4Z"/><path d="M8 12h4M10 10v4M16 11h.01M18 13h.01"/></symbol>
+    <symbol id="i-profile-reputation" viewBox="0 0 24 24"><path d="M12 3 6 6v6c0 4 2.5 7 6 9 3.5-2 6-5 6-9V6z"/><path d="m9.5 12 2 2 3.5-4"/></symbol>
+    <symbol id="i-anicoin-profile" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9 15.5 12 8l3 7.5"/><path d="M10 13h4"/><path d="M5.5 8.5A9.5 9.5 0 0 1 12 4.5a9.5 9.5 0 0 1 6.5 4"/><path d="M5.5 15.5A9.5 9.5 0 0 0 12 19.5a9.5 9.5 0 0 0 6.5-4"/></symbol>
+    <symbol id="i-wallet-profile" viewBox="0 0 24 24"><path d="M4 7h13a2 2 0 0 1 2 2v8H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2Z"/><path d="M4 7 15 4v3"/><rect x="14" y="10" width="8" height="4.5" rx="2.25"/><path d="M17.5 12.25h.01"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m7 10 5 5 5-5"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="8" r="3"/><path d="M2 20a6 6 0 0 1 12 0M10 20a6 6 0 0 1 12 0"/></symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4h11l-1 4 4 2-2 5H5"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></symbol>
+    <symbol id="i-gamepad" viewBox="0 0 24 24"><path d="M8 8h8a5 5 0 0 1 5 5v4a3 3 0 0 1-5 2l-2-2h-4l-2 2a3 3 0 0 1-5-2v-4a5 5 0 0 1 5-5Z"/><path d="M8 12v4M6 14h4M16 13h.01M18 15h.01"/></symbol>
+    <symbol id="i-rule" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="m8 9 2 2 3-4M8 16h8"/></symbol>
+    <symbol id="i-crown" viewBox="0 0 24 24"><path d="m4 17 2-9 4 4 2-7 2 7 4-4 2 9z"/><path d="M6 21h12"/></symbol>
+    <symbol id="i-diamond" viewBox="0 0 24 24"><path d="m5 8 3-4h8l3 4-7 11z"/><path d="M5 8h14M8 4l4 15 4-15"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="m19 13.5 2-1.5-2-1.5-.5-1.2.4-2.4-2.4-.4-1.2-.5L14 4h-4L8.6 7l-1.2.5-2.4-.4-.4 2.4-.5 1.2L2 12l2.1 1.3.5 1.2.4 2.4 2.4-.4 1.2.5L10 20h4l1.4-3 1.2-.5 2.4.4.4-2.4z"/></symbol>
+    <symbol id="i-document" viewBox="0 0 24 24"><path d="M7 3h8l4 4v14H7z"/><path d="M15 3v5h4M10 11h6M10 15h6M10 19h4"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 5h13a3 3 0 0 1 3 3v7a3 3 0 0 1-3 3H8l-4 3z"/><path d="M8 10h8M8 14h5"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></symbol>
+    <symbol id="i-save" viewBox="0 0 24 24"><path d="M4 4h13l3 3v13H4z"/><path d="M8 4v6h8V4M8 20v-6h8v6"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M7 7l1 14h8l1-14M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-edit" viewBox="0 0 24 24"><path d="m4 16-1 5 5-1L19 9l-4-4z"/><path d="m13 7 4 4"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7z"/></symbol>
+    <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 4 3.5 19h17z"/><path d="M12 9v5"/><path d="M12 17h.01"/></symbol>
+    <symbol id="i-warning-off" viewBox="0 0 24 24"><path d="m3 3 18 18"/><path d="M10.5 6 2.8 20h17.7M12 9v2M12 17h.01"/></symbol>
+    <symbol id="i-mute" viewBox="0 0 24 24"><path d="M5 10v4h4l5 4V6L9 10z"/><path d="m18 9 4 4m0-4-4 4"/></symbol>
+    <symbol id="i-volume" viewBox="0 0 24 24"><path d="M5 10v4h4l5 4V6L9 10z"/><path d="M17 9a4 4 0 0 1 0 6M19 6a8 8 0 0 1 0 12"/></symbol>
+    <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m6 6 12 12"/></symbol>
+    <symbol id="i-unban" viewBox="0 0 24 24"><path d="M7 7a9 9 0 0 1 12 12"/><path d="M17 17A9 9 0 0 1 5 5"/><path d="m4 4 16 16"/></symbol>
+    <symbol id="i-kick" viewBox="0 0 24 24"><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/><path d="M14 4h6v16h-6"/></symbol>
+    <symbol id="i-image-lock" viewBox="0 0 24 24"><rect x="3" y="5" width="13" height="14" rx="2"/><circle cx="8" cy="10" r="2"/><path d="m5 17 4-4 3 3"/><rect x="14" y="13" width="7" height="7" rx="1"/><path d="M16 13v-1a2 2 0 0 1 4 0v1"/></symbol>
+    <symbol id="i-image-check" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="10" r="2"/><path d="m5 17 4-4 3 3 2-2 3 3"/><path d="m16 8 1 1 2-2"/></symbol>
+    <symbol id="i-link-lock" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M8 15H6a5 5 0 0 1-3-9l2-2"/><rect x="9" y="12" width="7" height="7" rx="1"/><path d="M11 12v-1a2 2 0 0 1 4 0v1"/></symbol>
+    <symbol id="i-link-check" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/><path d="m8 12 1 1 2-2"/></symbol>
+    <symbol id="i-terminal-lock" viewBox="0 0 24 24"><rect x="3" y="4" width="14" height="16" rx="2"/><path d="m7 9 3 3-3 3M11 15h2"/><rect x="14" y="13" width="7" height="7" rx="1"/><path d="M16 13v-1a2 2 0 0 1 4 0v1"/></symbol>
+    <symbol id="i-terminal-check" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M12 15h3"/><path d="m16 9 1 1 2-2"/></symbol>
+    <symbol id="i-quarantine" viewBox="0 0 24 24"><path d="M7 3h10v5a5 5 0 0 1-10 0z"/><path d="M6 21v-4a6 6 0 0 1 12 0v4"/><path d="M9 6h6"/></symbol>
+    <symbol id="i-quarantine-off" viewBox="0 0 24 24"><path d="M7 3h10v5a5 5 0 0 1-7 4.6M6 21v-4a6 6 0 0 1 9-5.2"/><path d="m3 3 18 18"/></symbol>
+    <symbol id="i-broom" viewBox="0 0 24 24"><path d="m5 15 8-10 4 3-8 10z"/><path d="M4 19h16M7 16l3 3"/></symbol>
+    <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13V9M9 2h6M16 5l2-2"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 7-2"/></symbol>
+    <symbol id="i-susanoo" viewBox="0 0 24 24"><path d="M12 2 5 6v5c0 5 2.8 8.6 7 11 4.2-2.4 7-6 7-11V6z"/><path d="M8 13c1-3 2-5 4-7 2 2 3 4 4 7"/><path d="M9 16h6"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 7v5l-4 2v-7z"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 16H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+    <symbol id="i-caps" viewBox="0 0 24 24"><path d="M4 19 10 5l6 14M6.5 14h7"/><path d="M18 8h3M19.5 6.5v3"/></symbol>
+    <symbol id="i-emoji" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 10h.01M16 10h.01M8 15c1 1 2.3 1.5 4 1.5s3-.5 4-1.5"/></symbol>
+    <symbol id="i-forward" viewBox="0 0 24 24"><path d="m14 5 7 7-7 7v-4H8a5 5 0 0 0-5 5 10 10 0 0 1 10-10h1z"/></symbol>
+    <symbol id="i-media" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="10" r="2"/><path d="m5 17 4-4 3 3 2-2 3 3"/></symbol>
+    <symbol id="i-at" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M16 12v-1a4 4 0 1 0-1 2.7c1.5 1 4 .3 4-2.7"/></symbol>
+    <symbol id="i-brain" viewBox="0 0 24 24"><path d="M9 4a3 3 0 0 0-3 3v1a3 3 0 0 0-2 3 3 3 0 0 0 2 3v1a3 3 0 0 0 3 3"/><path d="M15 4a3 3 0 0 1 3 3v1a3 3 0 0 1 2 3 3 3 0 0 1-2 3v1a3 3 0 0 1-3 3M9 4v16M15 4v16M9 9h3M12 15h3"/></symbol>
+    <symbol id="i-hidden-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/><path d="m3 3 18 18"/></symbol>
+    <symbol id="i-captcha" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="m8 12 2 2 5-5M17 15h.01"/></symbol>
+    <symbol id="i-raid" viewBox="0 0 24 24"><path d="M12 3 4 7v5c0 4.5 3.1 7.6 8 9 4.9-1.4 8-4.5 8-9V7z"/><path d="M8 12h8M12 8v8"/></symbol>
+    <symbol id="i-suspicious" viewBox="0 0 24 24"><circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><circle cx="18" cy="7" r="3"/><path d="m16 15 5 5M21 15l-5 5"/></symbol>
+    <symbol id="i-stairs" viewBox="0 0 24 24"><path d="M4 20h5v-5h5v-5h6V4"/></symbol>
+    <symbol id="i-auto-warn" viewBox="0 0 24 24"><path d="M12 3 3 20h18z"/><path d="M12 9v4"/><path d="m8 16 2 2 5-5"/></symbol>
+    <symbol id="i-adaptive" viewBox="0 0 24 24"><path d="M4 17h4l3-10 3 12 2-7 2 5h2"/></symbol>
+    <symbol id="i-raid-lock" viewBox="0 0 24 24"><path d="M12 3 4 7v5c0 4.5 3.1 7.6 8 9 4.9-1.4 8-4.5 8-9V7z"/><rect x="9" y="11" width="6" height="5" rx="1"/><path d="M10.5 11V9.5a1.5 1.5 0 0 1 3 0V11"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></symbol>
+    <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4M17 3v4M3 10h18"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="4"/><path d="m11 12 9-9M16 7l2 2M14 9l2 2"/></symbol>
+    <symbol id="i-message-star" viewBox="0 0 24 24"><path d="M4 5h16v12H7l-3 3z"/><path d="m12 8 1 2 2 .3-1.5 1.5.4 2.2-1.9-1-1.9 1 .4-2.2L9 10.3l2-.3z"/></symbol>
+    <symbol id="i-id" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="11" r="2"/><path d="M5 16a3 3 0 0 1 6 0M13 10h5M13 14h5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="m8 6 2-3h4l2 3"/><circle cx="12" cy="13" r="4"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M7 8a7 7 0 0 1 11-1l2 5M17 16a7 7 0 0 1-11 1l-2-5"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></symbol>
+    <symbol id="i-admin" viewBox="0 0 24 24"><path d="M12 3 4 7v5c0 5 3.2 8 8 9 4.8-1 8-4 8-9V7z"/><path d="M9 12h6M12 9v6"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="10" cy="8" r="4"/><path d="M3 21a7 7 0 0 1 14 0"/><path d="M18 7v6M15 10h6"/></symbol>
+    <symbol id="i-log" viewBox="0 0 24 24"><path d="M6 4h12v16H6z"/><path d="M9 8h6M9 12h6M9 16h3"/><circle cx="18" cy="17" r="3"/></symbol>
+    <symbol id="i-report" viewBox="0 0 24 24"><path d="M5 21V4h11l-1 4 4 2-2 5H5"/><path d="M10 8v3M10 13h.01"/></symbol>
+    <symbol id="i-premium" viewBox="0 0 24 24"><path d="m4 8 4-4h8l4 4-8 12z"/><path d="m12 7 1 2 2 .3-1.5 1.5.4 2.2-1.9-1-1.9 1 .4-2.2L9 9.3l2-.3z"/></symbol>
+    <symbol id="i-game" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="9" r="1"/><circle cx="9" cy="15" r="1"/><circle cx="15" cy="15" r="1"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4 2.5 7 7 9 4.5-2 7-5 7-9V6z"/><path d="M8 12h8"/></symbol>
+    <symbol id="i-command" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></symbol>
+    <symbol id="i-rp" viewBox="0 0 24 24"><path d="M4 6c3-2 5-2 8 0v6c-3 2-5 2-8 0zM12 12c3-2 5-2 8 0v6c-3 2-5 2-8 0z"/><path d="M7 9h.01M9 9h.01M15 15h.01M17 15h.01"/></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 12h2M10 12h10M4 17h7M15 17h5"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="12" r="2"/><circle cx="13" cy="17" r="2"/></symbol>
+    <symbol id="i-top" viewBox="0 0 24 24"><path d="M8 4h8v4a4 4 0 0 1-8 0z"/><path d="M8 6H4v1a4 4 0 0 0 4 4M16 6h4v1a4 4 0 0 1-4 4M12 12v5M8 21h8M9 17h6"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M4.9 4.9 7 7M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a9 9 0 1 0 10.5 10.5z"/></symbol>
+
+    <symbol id="i-account-chats" viewBox="0 0 24 24"><path d="M4 7h10a3 3 0 0 1 3 3v5a3 3 0 0 1-3 3H9l-4 3V10a3 3 0 0 1 3-3Z"/><path d="M17 9h1a3 3 0 0 1 3 3v5l-3-2h-1"/></symbol>
+    <symbol id="i-account-messages" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="3"/><path d="M7 9h10M7 12.5h10M7 16h6"/></symbol>
+    <symbol id="i-account-warnings" viewBox="0 0 24 24"><path d="M12 3 3.5 19h17z"/><path d="M12 8v5"/><path d="M12 16.5h.01"/><path d="M9 21h6"/></symbol>
+    <symbol id="i-account-premium" viewBox="0 0 24 24"><path d="M7 5h10l3 4-8 10L4 9z"/><path d="M7 5 5 9m12-4 2 4M9.5 12l1.3 1.3 2.7-3.3"/></symbol>
+  </svg>
+
+  <div class="app-shell">
+    <header class="topbar">
+      <button id="group-switch-button" class="group-switch-button pressable" type="button" aria-haspopup="dialog">
+        <span id="current-chat-avatar" class="chat-avatar">AG</span>
+        <span class="group-copy">
+          <span id="current-chat-name" class="group-name">AniGuard</span>
+          <span class="group-meta"><span id="current-chat-meta">Подключение…</span><span id="user-line" class="hidden"></span><svg><use href="#i-chevron-down"></use></svg></span>
+        </span>
+      </button>
+      <div class="top-actions">
+        <button id="header-search-button" class="icon-button pressable" type="button" aria-label="Поиск"><svg><use href="#i-search"></use></svg></button>
+        <button id="theme-toggle-button" class="icon-button theme-toggle-button pressable" type="button" aria-label="Переключить светлую или тёмную тему"><svg><use id="theme-toggle-icon" href="#i-moon"></use></svg></button>
+        <button id="header-menu-button" class="icon-button pressable" type="button" aria-label="Меню аккаунта"><svg><use href="#i-more"></use></svg></button>
+      </div>
+      <select id="chat-select" class="hidden" aria-label="Выбранная группа"></select>
+    </header>
+
+    <label class="global-search">
+      <svg><use href="#i-search"></use></svg>
+      <input id="global-search" type="search" placeholder="Поиск настроек и функций">
+    </label>
+
+    <div id="notice" class="notice hidden" role="status"></div>
+
+    <div id="empty-state" class="empty-state hidden">
+      <span class="section-icon"><svg><use href="#i-shield-check"></use></svg></span>
+      <h1>Нет доступных групп</h1>
+      <p>Добавьте AniGuard администратором в группу, отправьте <code>/panel</code> и откройте Mini App повторно.</p>
+    </div>
+
+    <div id="workspace" class="workspace hidden">
+      <aside class="sidebar" id="sidebar">
+        <button class="nav active" data-view="overview"><svg><use href="#i-home"></use></svg><span>Обзор</span></button>
+        <button class="nav" data-view="commands"><svg><use href="#i-command-panel"></use></svg><span>Команды модерации</span></button>
+        <button class="nav" data-view="moderation"><svg><use href="#i-shield-check"></use></svg><span>Автомодерация</span></button>
+        <button class="nav" data-view="members"><svg><use href="#i-users"></use></svg><span>Участники и роли</span></button>
+        <button class="nav" data-view="custom"><svg><use href="#i-spark"></use></svg><span>Кастомные команды</span></button>
+        <button class="nav" data-view="game"><svg><use href="#i-gamepad"></use></svg><span>Игровые команды</span></button>
+        <button class="nav" data-view="reports"><svg><use href="#i-flag"></use></svg><span>Жалобы</span></button>
+        <button class="nav" data-view="rp"><svg><use href="#i-chat"></use></svg><span>RP-команды</span></button>
+        <button class="nav" data-view="settings"><svg><use href="#i-gear"></use></svg><span>Настройки</span></button>
+        <button class="nav" data-view="premium"><svg><use href="#i-diamond"></use></svg><span>Premium</span></button>
+        <button class="nav bot-admin-only hidden" data-view="admin"><svg><use href="#i-admin"></use></svg><span>Админ-панель</span></button>
+      </aside>
+
+      <main class="content">
+        <section class="view" data-panel="overview">
+          <article class="hero-card">
+            <div>
+              <span class="eyebrow">ANIGUARD PROTECTION</span>
+              <h1 id="overview-chat-title">Защита работает</h1>
+              <p id="overview-chat-subtitle" class="hidden"></p>
+            </div>
+            <span id="overview-status" class="status-pill">Активна</span>
+          </article>
+
+          <div id="metrics" class="metrics"></div>
+
+          <div class="section-heading"><div><h2>Быстрые действия</h2><p>Выполняются в выбранной группе</p></div><button class="link-button nav" data-view="commands" type="button">Все команды</button></div>
+          <div id="quick-actions" class="action-grid"></div>
+
+          <div class="section-heading"><div><h2>Управление группой</h2><p>Основные разделы Mini App</p></div></div>
+          <div class="telegram-list">
+            <button class="telegram-row nav pressable" data-view="moderation" type="button"><span class="row-icon"><svg><use href="#i-filter"></use></svg></span><span class="row-copy"><b>Автомодерация</b><small>Фильтры, защита и автоматические наказания</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
+            <button class="telegram-row nav pressable" data-view="members" type="button"><span class="row-icon"><svg><use href="#i-users"></use></svg></span><span class="row-copy"><b>Участники и роли</b><small>Поиск, история и права модераторов</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
+            <button class="telegram-row nav pressable" data-view="custom" type="button"><span class="row-icon"><svg><use href="#i-spark"></use></svg></span><span class="row-copy"><b>Кастомные команды</b><small>Premium-конструктор команд модерации</small></span><span class="premium-chip">PREMIUM</span></button>
+            <button class="telegram-row nav pressable" data-view="group-profile" type="button"><span class="row-icon"><svg><use href="#i-id"></use></svg></span><span class="row-copy"><b>Профиль группы</b><small>Информация и быстрые настройки</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
+          </div>
+
+          <div class="section-heading"><div><h2>Последние действия</h2><p>Журнал модерации</p></div><button class="link-button nav" data-view="logs" type="button">Открыть журнал</button></div>
+          <article class="card"><div id="overview-logs" class="list"></div></article>
+        </section>
+
+        <section class="view hidden" data-panel="commands">
+          <div class="view-header"><div><h1>Команды модерации</h1></div><input id="command-search" class="control compact" type="search" placeholder="Найти команду"></div>
+          <div class="command-editor-heading"><h2>Основные команды</h2><span id="basic-editor-status" class="premium-chip">РЕДАКТОР PREMIUM</span></div>
+          <div id="basic-commands-list" class="telegram-list"></div>
+          <div class="section-heading"><div><h2>Дополнительные действия</h2><p>Запускаются через форму Mini App</p></div></div>
+          <div id="regular-actions" class="action-grid wide"></div>
+        </section>
+
+        <section class="view hidden" data-panel="moderation">
+          <div class="moderation-toolbar"><span id="moderation-premium-state" class="status-pill">Проверка Premium…</span></div>
+          <div id="automod-sections" class="automod-sections"></div>
+          <div class="section-heading"><div><h2>Пользовательские правила</h2><p>Дополнительные условия и действия</p></div></div>
+          <article class="card form-grid">
+            <label>Название<input id="rule-name" class="control" value="Защита новичков"></label>
+            <label>Условие<select id="rule-condition" class="control"><option value="newbie_link">Новичок отправил ссылку</option><option value="flood">Флуд</option><option value="blocked_word">Запрещённое слово</option><option value="mass_mentions">Массовые упоминания</option></select></label>
+            <label>Действие<select id="rule-action" class="control"><option value="delete_warn">Удалить и предупредить</option><option value="mute">Удалить и выдать мут</option><option value="quarantine">Карантин</option><option value="notify">Уведомить</option></select></label>
+            <label class="switch-line"><input id="rule-premium" type="checkbox"><span>Premium-правило</span></label>
+            <button id="create-rule" class="primary button-row full" type="button"><svg><use href="#i-plus"></use></svg>Создать правило</button>
+          </article>
+          <div id="rules-list" class="list spaced"></div>
+        </section>
+
+        <section class="view hidden" data-panel="profile">
+          <article class="user-account-card">
+            <div class="user-account-head">
+              <div class="user-account-avatar-wrap">
+                <div id="account-user-avatar" class="user-account-avatar"><span>AG</span></div>
+              </div>
+              <div class="user-account-identity">
+                <h1 id="account-user-name" class="account-user-name regular">Пользователь</h1>
+                <p id="account-user-id">ID аккаунта: —</p>
+                <p id="account-user-age">Вы с нами уже сегодня</p>
+                <span id="account-user-status" class="account-status-chip">Обычный аккаунт</span>
+              </div>
+            </div>
+
+            <div class="anicoin-wallet-card">
+              <div class="anicoin-wallet-brand">
+                <span class="anicoin-wallet-icon">
+                  <svg viewBox="0 0 64 64"><use href="#i-anicoin-profile"></use></svg>
+                </span>
+                <span class="anicoin-wallet-name">
+                  <b>AniCoin Wallet</b>
+                  <small>Основной кошелёк · AGC</small>
+                </span>
+              </div>
+              <div class="anicoin-wallet-balance">
+                <small>Доступный баланс</small>
+                <strong><span id="account-anicoin">0</span> <em>AC</em></strong>
+              </div>
+              <span class="anicoin-wallet-chip">
+                <svg viewBox="0 0 24 24"><use href="#i-wallet-profile"></use></svg>
+              </span>
+            </div>
+          </article>
+
+          <div class="section-heading"><div><h2>Статистика аккаунта</h2><p>Рейтинг, уровни и репутация пользователя</p></div></div>
+          <div class="account-stat-grid">
+            <article class="account-stat-card">
+              <span class="account-stat-icon"><svg viewBox="0 0 24 24"><use href="#i-profile-rating"></use></svg></span>
+              <span>Рейтинг</span>
+              <strong id="account-rating">0</strong>
+              <small id="account-rating-meta">Общий рейтинг аккаунта</small>
+            </article>
+            <article class="account-stat-card">
+              <span class="account-stat-icon"><svg viewBox="0 0 24 24"><use href="#i-profile-level"></use></svg></span>
+              <span>Уровень аккаунта</span>
+              <strong id="account-level">1</strong>
+              <small id="account-level-meta">Прогресс AniGuard</small>
+            </article>
+            <article class="account-stat-card">
+              <span class="account-stat-icon"><svg viewBox="0 0 24 24"><use href="#i-profile-game"></use></svg></span>
+              <span>Игровой уровень</span>
+              <strong id="account-game-level">1</strong>
+              <small id="account-game-meta">Игровой прогресс</small>
+            </article>
+            <article class="account-stat-card">
+              <span class="account-stat-icon"><svg viewBox="0 0 24 24"><use href="#i-profile-reputation"></use></svg></span>
+              <span>Репутация</span>
+              <strong id="account-reputation">100 / 100</strong>
+              <small id="account-reputation-meta">Надёжный пользователь</small>
+            </article>
+          </div>
+
+          <div class="section-heading"><div><h2>Аккаунт</h2><p>Дополнительные сведения</p></div></div>
+          <div id="account-info-list" class="account-info-grid"></div>
+        </section>
+
+        <section class="view hidden" data-panel="group-profile">
+          <article class="group-profile-card">
+            <div id="profile-avatar" class="profile-avatar">AG</div>
+            <h1 id="profile-title">Группа</h1>
+            <p id="profile-username" class="muted">Загрузка…</p>
+            <div class="profile-actions">
+              <button id="profile-open-link" class="profile-action pressable" type="button"><svg><use href="#i-link"></use></svg><span>Открыть</span></button>
+              <button class="profile-action nav pressable" data-view="members" type="button"><svg><use href="#i-users"></use></svg><span>Участники</span></button>
+              <button class="profile-action nav pressable" data-view="settings" type="button"><svg><use href="#i-gear"></use></svg><span>Настройки</span></button>
+            </div>
+          </article>
+
+          <div class="section-heading"><div><h2>Информация</h2><p>Данные выбранной группы</p></div></div>
+          <div id="profile-info-list" class="telegram-list"></div>
+
+          <div class="section-heading"><div><h2>Быстрые настройки</h2><p>Изменения применяются сразу</p></div></div>
+          <div id="profile-quick-settings" class="telegram-list"></div>
+
+          <div class="section-heading"><div><h2>Все разделы</h2><p>Переход к расширенным возможностям</p></div></div>
+          <div class="telegram-list">
+            <button class="telegram-row nav pressable" data-view="reports" type="button"><span class="row-icon"><svg><use href="#i-flag"></use></svg></span><span class="row-copy"><b>Жалобы</b><small>Рассмотрение обращений пользователей</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
+            <button class="telegram-row nav pressable" data-view="game" type="button"><span class="row-icon"><svg><use href="#i-gamepad"></use></svg></span><span class="row-copy"><b>Игровые команды</b><small>XP, AniCoin и награды</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
+            <button class="telegram-row nav pressable" data-view="rp" type="button"><span class="row-icon"><svg><use href="#i-chat"></use></svg></span><span class="row-copy"><b>RP-команды</b><small>Ролевые действия участников</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
+            <button class="telegram-row nav pressable" data-view="premium" type="button"><span class="row-icon"><svg><use href="#i-diamond"></use></svg></span><span class="row-copy"><b>AniGuard Premium</b><small>Расширенная защита и конструкторы</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
+            <button class="telegram-row nav bot-admin-only hidden pressable" data-view="admin" type="button"><span class="row-icon"><svg><use href="#i-admin"></use></svg></span><span class="row-copy"><b>Глобальная админ-панель</b><small>Premium, блокировки и управление ботом</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
+          </div>
+        </section>
+
+        <section class="view hidden" data-panel="members">
+          <div class="view-header"><div><h1>Участники</h1><p id="members-count">Загрузка списка…</p></div><input id="members-search" class="control compact" type="search" placeholder="Имя, ID или @username"></div>
+          <div class="members-table-wrap"><div class="members-table-head"><span>Участник</span><span>Действия</span></div><div id="members-list" class="members-table"></div></div>
+        </section>
+
+        <section class="view hidden" data-panel="custom">
+          <div class="view-header"><div><h1>Кастомные команды</h1><p>Premium-конструктор команд модерации</p></div><span class="premium-chip">PREMIUM</span></div>
+          <article class="card form-grid">
+            <label>Название<input id="custom-name" class="control" value="Цукиёми"></label>
+            <label>Триггер<input id="custom-trigger" class="control" value="цукиёми"></label>
+            <label>Действие<select id="custom-action" class="control"><option value="mute">Мут</option><option value="ban">Бан</option><option value="kick">Исключить</option><option value="warn">Предупреждение</option><option value="quarantine">Карантин</option><option value="restrict_media">Запрет медиа</option><option value="restrict_links">Запрет ссылок</option><option value="restrict_commands">Блокировка команд</option></select></label>
+            <label>Срок по умолчанию<input id="custom-duration" class="control" value="10 минут" placeholder="10 минут или навсегда"></label>
+            <label>Кто использует<select id="custom-role" class="control"><option value="admins">Администраторы</option><option value="moderators">Администраторы и модераторы</option></select></label>
+            <label>Выбор цели<select id="custom-target" class="control"><option value="reply_or_username">Ответ или @username</option><option value="reply">Только ответом</option></select></label>
+            <label class="full">Ответ бота<textarea id="custom-template" class="control" rows="4">{admin} использовал {command} на {user}.
+
+Срок: {duration}
+Причина: {reason}</textarea></label>
+            <label>Кулдаун, секунд<input id="custom-cooldown" class="control" type="number" min="0" value="0"></label>
+            <label class="switch-line"><input id="custom-reason-required" type="checkbox"><span>Причина обязательна</span></label>
+            <label class="switch-line"><input id="custom-delete" type="checkbox"><span>Удалять сообщение команды</span></label>
+            <button id="create-custom" class="primary button-row full" type="button"><svg><use href="#i-plus"></use></svg>Создать команду</button>
+          </article>
+          <div id="custom-list" class="list spaced"></div>
+        </section>
+
+        <section class="view hidden" data-panel="game">
+          <div class="view-header"><div><h1>Игровые команды</h1><p>Команды, награды XP и AniCoin</p></div></div>
+          <article class="card form-grid">
+            <label>Название<input id="game-name" class="control" value="Ежедневная награда"></label>
+            <label>Триггер<input id="game-trigger" class="control" value="награда"></label>
+            <label>Тип<select id="game-type" class="control"><option value="text">Текстовая</option><option value="random">Случайный ответ</option><option value="reward">Награда</option></select></label>
+            <label>Доступ<select id="game-access" class="control"><option value="all">Все</option><option value="verified">Проверенные</option><option value="moderators">Модераторы</option><option value="admins">Администраторы</option></select></label>
+            <label class="full">Ответ<textarea id="game-template" class="control" rows="3">{user} получил {coins} AniCoin и {xp} XP.</textarea></label>
+            <label class="full">Дополнительные ответы<textarea id="game-variants" class="control" rows="3" placeholder="Каждый вариант с новой строки"></textarea></label>
+            <label>Награда XP<input id="game-xp" class="control" type="number" min="0" value="10"></label>
+            <label>Награда AniCoin<input id="game-coins" class="control" type="number" min="0" value="5"></label>
+            <label>Кулдаун, секунд<input id="game-cooldown" class="control" type="number" min="0" value="86400"></label>
+            <button id="create-game" class="primary button-row full" type="button"><svg><use href="#i-plus"></use></svg>Добавить игровую команду</button>
+          </article>
+          <div id="game-list" class="list spaced"></div>
+        </section>
+
+        <section class="view hidden" data-panel="reports"><div class="view-header"><div><h1>Жалобы</h1><p>Решения выполняются сразу</p></div></div><div id="reports-list" class="list spaced"></div></section>
+        <section class="view hidden" data-panel="logs"><div class="view-header"><div><h1>Журнал действий</h1><p>История модерации выбранной группы</p></div></div><div id="full-logs" class="list spaced"></div></section>
+
+        <section class="view hidden" data-panel="rp">
+          <div class="view-header"><div><h1>RP-команды</h1><p>Ролевые действия без наказаний</p></div></div>
+          <article class="card form-grid">
+            <label>Команда<input id="rp-name" class="control" value="ударить"></label><label>Псевдонимы<input id="rp-aliases" class="control" placeholder="ударил, врезать"></label>
+            <label class="full">Основной ответ<textarea id="rp-template" class="control" rows="3">{actor} ударил {target}</textarea></label><label class="full">Дополнительные ответы<textarea id="rp-variants" class="control" rows="3"></textarea></label>
+            <label>Кулдаун<input id="rp-cooldown" class="control" type="number" value="5"></label><label>Доступ<select id="rp-access" class="control"><option value="all">Все</option><option value="verified">Проверенные</option><option value="moderators">Модераторы</option><option value="admins">Администраторы</option></select></label>
+            <label>XP<input id="rp-xp" class="control" type="number" value="0"></label><label>AniCoin<input id="rp-coins" class="control" type="number" value="0"></label><label class="switch-line"><input id="rp-premium" type="checkbox"><span>Premium-команда</span></label>
+            <button id="create-rp" class="primary button-row full" type="button"><svg><use href="#i-plus"></use></svg>Добавить RP-команду</button>
+          </article><div id="rp-list" class="list spaced"></div>
+        </section>
+
+        <section class="view hidden" data-panel="settings">
+          <div class="view-header"><div><h1>Настройки группы</h1><p>Сроки наказаний, игры и расширенные параметры</p></div><input id="settings-search" class="control compact" type="search" placeholder="Найти настройку"></div>
+          <div id="settings-list" class="accordion-list"></div><button id="save-settings" class="primary sticky-save" type="button"><svg><use href="#i-save"></use></svg>Сохранить настройки</button>
+        </section>
+
+        <section class="view hidden" data-panel="premium">
+          <div class="premium-hero"><span class="premium-hero-icon"><svg><use href="#i-diamond"></use></svg></span><div><span class="premium-chip">ANIGUARD PREMIUM</span><h1>Расширенная защита</h1><p id="premium-status">Выберите период</p></div></div>
+          <div id="premium-details" class="premium-details"></div>
+          <div id="plans-list" class="plans"></div>
+          <article class="card"><h2>Возможности Premium</h2><div id="premium-features" class="feature-grid"></div></article>
+        </section>
+
+        <section class="view hidden" data-panel="admin">
+          <div class="view-header"><div><h1>Глобальная админ-панель</h1><p>Доступна только ID из ADMIN_IDS</p></div></div>
+          <div id="admin-metrics" class="metrics"></div>
+          <article class="card form-grid compact-form">
+            <label>Тип<select id="admin-entity-type" class="control"><option value="user">Пользователи</option><option value="chat">Группы</option></select></label>
+            <label>Поиск<input id="admin-search" class="control" placeholder="ID, имя или username"></label>
+            <button id="admin-search-button" class="primary button-row full" type="button">Найти</button>
+          </article>
+          <div id="admin-entities" class="list spaced"></div>
+          <article class="card"><h2>Действия владельца</h2><div id="admin-logs" class="list"></div></article>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <nav id="bottom-nav" class="bottom-nav hidden" aria-label="Основная навигация">
+    <button class="nav pressable active" data-view="overview" type="button"><svg><use href="#i-home"></use></svg><span>Главная</span></button>
+    <button class="nav pressable" data-view="moderation" type="button"><svg><use href="#i-shield-check"></use></svg><span>Модерация</span></button>
+    <button class="nav pressable" data-view="commands" type="button"><svg><use href="#i-command-panel"></use></svg><span>Команды</span></button>
+    <button class="nav pressable" data-view="profile" type="button"><svg><use href="#i-profile"></use></svg><span>Профиль</span></button>
+  </nav>
+
+  <dialog id="group-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Выберите группу</h2><p>Настройки каждой группы хранятся отдельно</p></div><button id="close-group-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="group-options" class="group-options"></div></div></dialog>
+
+  <dialog id="menu-dialog" class="sheet-dialog account-menu-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Меню аккаунта</h2><p>Профиль, настройки и помощь AniGuard</p></div><button id="close-menu-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="menu-account-summary" class="menu-account-summary"></div><div id="menu-links" class="telegram-list"></div></div></dialog>
+
+  <dialog id="user-action-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2 id="user-action-title">Раздел аккаунта</h2><p id="user-action-subtitle">AniGuard</p></div><button id="close-user-action-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="user-action-content"></div></div></dialog>
+
+  <dialog id="premium-dialog" class="sheet-dialog"><div class="sheet compact-sheet"><div class="sheet-handle"></div><span class="premium-hero-icon small"><svg><use href="#i-diamond"></use></svg></span><h2>Нужен AniGuard Premium</h2><p id="premium-dialog-text">Эта функция доступна только с Premium.</p><button id="premium-dialog-open" class="primary" type="button">Посмотреть Premium</button><button id="premium-dialog-close" class="secondary" type="button">Закрыть</button></div></dialog>
+
+  <dialog id="action-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div class="section-title"><span id="action-icon" class="section-icon"><svg><use href="#i-command-panel"></use></svg></span><div><h2 id="action-title">Команда</h2><p id="action-description"></p></div></div><button id="close-action" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><label id="action-target-row">Пользователь<select id="action-target" class="control"></select></label><label id="action-duration-row">Срок<input id="action-duration" class="control" placeholder="Пусто — срок из настроек; например: 30 минут или навсегда"></label><label id="action-amount-row" class="hidden">Количество<input id="action-amount" class="control" type="number" min="1" max="1000" value="25"></label><label>Причина<textarea id="action-reason" class="control" rows="3"></textarea></label><button id="execute-action" class="primary" type="button">Выполнить</button></div></dialog>
+
+  <dialog id="member-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Информация об участнике</h2><p>Данные, известные Telegram-боту</p></div><button id="close-member-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><div id="member-details"></div></div></dialog>
+
+  <dialog id="owner-dialog" class="sheet-dialog"><div class="sheet compact-sheet"><div class="sheet-handle"></div><div id="owner-details"></div><button id="close-owner-dialog" class="secondary" type="button">Закрыть</button></div></dialog>
+
+  <dialog id="basic-command-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2 id="basic-command-title">Редактор команды</h2><p>Изменения сразу применяются в Telegram-беседе</p></div><button id="close-basic-command" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><label>Вызов команды<input id="basic-command-trigger" class="control"></label><label>Ответ бота<textarea id="basic-command-response" class="control" rows="5"></textarea></label><p class="muted">Переменные: {admin}, {user}, {duration}, {reason}, {group}.</p><button id="save-basic-command" class="primary" type="button">Сохранить команду</button></div></dialog>
+
+  <dialog id="rules-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Правила группы</h2><p>Каждое правило вводится с новой строки</p></div><button id="close-rules-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><label>Правила<textarea id="group-rules-text" class="control" rows="10"></textarea></label><div id="group-rules-preview" class="rules-preview"></div><button id="save-group-rules" class="primary" type="button">Сохранить правила</button></div></dialog>
+
+  <dialog id="welcome-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>Приветственное сообщение</h2><p>Отправляется новому участнику после CAPTCHA</p></div><button id="close-welcome-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><label class="switch-line"><input id="welcome-enabled" type="checkbox"><span>Отправлять приветствие</span></label><label class="switch-line"><input id="welcome-after-captcha" type="checkbox"><span>Отправлять после успешной CAPTCHA</span></label><label>Текст<textarea id="welcome-text" class="control" rows="6"></textarea></label><p class="muted">Переменные: {user}, {group}, {rules}, {members}.</p><label>Фотография<input id="welcome-photo" class="control" type="file" accept="image/png,image/jpeg,image/webp"></label><img id="welcome-photo-preview" class="welcome-photo hidden" alt="Фотография приветствия"><div class="dialog-buttons"><button id="upload-welcome-photo" class="secondary" type="button">Загрузить фото</button><button id="delete-welcome-photo" class="danger" type="button">Удалить фото</button></div><button id="save-welcome" class="primary" type="button">Сохранить приветствие</button></div></dialog>
+
+  <dialog id="captcha-dialog" class="sheet-dialog"><div class="sheet"><div class="sheet-handle"></div><div class="dialog-head"><div><h2>CAPTCHA новых участников</h2><p>Смысловая картинка и клавиатура 3×3</p></div><button id="close-captcha-dialog" class="icon-button" type="button"><svg><use href="#i-close"></use></svg></button></div><label class="switch-line"><input id="captcha-enabled" type="checkbox"><span>Проверять новых участников</span></label><div class="form-grid"><label>Время на ответ<select id="captcha-timeout" class="control"><option value="30">30 секунд</option><option value="60">60 секунд</option><option value="120">2 минуты</option><option value="300">5 минут</option></select></label><label>Попытки<select id="captcha-attempts" class="control"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="5">5</option></select></label><label>При провале<select id="captcha-failure" class="control"><option value="kick">Удалить</option><option value="ban">Заблокировать</option><option value="quarantine">Оставить в карантине</option><option value="notify">Уведомить модераторов</option></select></label><label>Набор картинок<select id="captcha-image-set" class="control"><option value="random">Случайный</option><option value="nature">Природа</option><option value="food">Еда</option><option value="objects">Предметы</option></select></label><label class="full">Сообщение<textarea id="captcha-message" class="control" rows="4"></textarea></label></div><button id="preview-captcha" class="secondary" type="button">Проверить CAPTCHA</button><div id="captcha-preview" class="captcha-preview hidden"><img id="captcha-preview-image" alt="Изображение CAPTCHA"><p>Выберите смайл, который соответствует изображению</p><div id="captcha-options" class="captcha-options"></div><p id="captcha-result" class="muted"></p></div><button id="save-captcha" class="primary" type="button">Сохранить CAPTCHA</button></div></dialog>
+
+  <script>
+
+(() => {
+  const now = new Date();
+  const iso = (days=0, hours=0) => new Date(now.getTime()+days*86400000+hours*3600000).toISOString();
+  const chatId = -1004438078492;
+  const demo = {
+    user: {
+      id: 741852963,
+      first_name: 'Дмитрий',
+      last_name: 'Морозов',
+      username: 'metilonov',
+      avatar_url: '',
+      created_at: '2025-03-12T10:00:00Z',
+      premium: true,
+      premium_until: iso(53),
+      premium_lifetime: false,
+      ani_coin: 3240,
+      blocked: false,
+      is_bot_admin: false,
+      statistics: {rating:1842, account_level:12, game_level:27, reputation:93, chats:3, messages:6840, total_xp:27640, warnings:1}
+    },
+    chats: [
+      {id:chatId,title:'AniCode | Support',username:'anicode_support',premium:true,premium_until:iso(53),avatar_url:''},
+      {id:-1001854203311,title:'AniCode Community',username:'anicode_chat',premium:true,premium_until:iso(53),avatar_url:''},
+      {id:-1001974102220,title:'Deidara и .',username:'',premium:false,premium_until:null,avatar_url:''}
+    ],
+    settings: {
+      chat_locked:false,
+      anti_flood_enabled:false,
+      duplicate_filter_enabled:true,
+      line_flood_enabled:false,
+      long_message_filter_enabled:false,
+      emoji_flood_enabled:false,
+      hashtag_flood_enabled:false,
+      mass_mentions_enabled:true,
+      command_flood_enabled:true,
+      caps_filter_enabled:false,
+      word_filter_enabled:true,
+      invisible_symbols_filter_enabled:true,
+      edited_message_filter_enabled:true,
+      obfuscation_filter_enabled:true,
+      smart_spam_enabled:true,
+      mixed_alphabet_filter_enabled:false,
+      financial_spam_filter_enabled:true,
+      fake_giveaway_filter_enabled:true,
+      link_filter_enabled:true,
+      invite_link_filter_enabled:true,
+      short_link_filter_enabled:true,
+      hidden_link_filter_enabled:true,
+      phishing_filter_enabled:true,
+      domain_whitelist_enabled:false,
+      media_filter_enabled:false,
+      sticker_flood_enabled:false,
+      voice_flood_enabled:false,
+      dangerous_file_filter_enabled:true,
+      contact_location_filter_enabled:false,
+      image_text_filter_enabled:true,
+      media_duplicate_filter_enabled:true,
+      poll_filter_enabled:false,
+      game_filter_enabled:false,
+      captcha_enabled:true,
+      anti_raid_enabled:true,
+      suspicious_account_filter_enabled:true,
+      raid_lock_enabled:true,
+      newcomer_restrictions_enabled:true,
+      adaptive_protection_enabled:true,
+      auto_warn_enabled:true,
+      default_mute_seconds:3600,
+      default_ban_seconds:0,
+      default_quarantine_seconds:3600,
+      default_restrict_media_seconds:3600,
+      default_restrict_links_seconds:3600,
+      default_restrict_commands_seconds:3600,
+      default_reason:'Нарушение правил беседы',
+      warn_threshold:3,
+      flood_limit:6,
+      flood_window_seconds:10,
+      duplicate_limit:3,
+      line_limit:12,
+      max_message_length:1200,
+      emoji_limit:18,
+      hashtag_limit:8,
+      mass_mentions_limit:5,
+      allowed_domains:['t.me','telegram.org','aniguard.bothost.tech'],
+      blocked_words:['спам','скам'],
+      dangerous_extensions:['exe','bat','cmd','scr'],
+      symbol_replacement_check:true,
+      rp_enabled:true,
+      ranks_enabled:true,
+      economy_enabled:true,
+      xp_per_message:2,
+      coins_per_message:1
+    },
+    members: [
+      {id:741852963,first_name:'Дмитрий',last_name:'Морозов',full_name:'Дмитрий Морозов',username:'metilonov',role:'owner',warnings:0,messages:6840,xp:27640,coins:3240,joined_at:'2025-03-12T10:00:00Z',last_seen_at:iso(0,-1),muted_until:null,quarantined_until:null,active_restrictions:[],telegram:{status:'creator'},avatar_url:''},
+      {id:502314789,first_name:'Алексей',last_name:'Ветров',full_name:'Алексей Ветров',username:'alex_guard',role:'admin',warnings:0,messages:1203,xp:4880,coins:760,joined_at:'2025-05-20T12:00:00Z',last_seen_at:iso(0,-2),muted_until:null,quarantined_until:null,active_restrictions:[],telegram:{status:'administrator'},avatar_url:''},
+      {id:983214567,first_name:'Максим',last_name:'Рэй',full_name:'Максим Рэй',username:'maxray',role:'member',warnings:1,messages:386,xp:910,coins:125,joined_at:'2026-06-11T08:30:00Z',last_seen_at:iso(0,-4),muted_until:null,quarantined_until:null,active_restrictions:[],telegram:{status:'member'},avatar_url:''}
+    ],
+    logs: [
+      {id:1,action:'Фильтр ссылок',reason:'Удалено приглашение в сторонний чат',target_id:983214567,created_at:iso(0,-2)},
+      {id:2,action:'Предупреждение',reason:'Повторное сообщение',target_id:983214567,created_at:iso(0,-5)},
+      {id:3,action:'CAPTCHA',reason:'Новый участник успешно прошёл проверку',target_id:983214567,created_at:iso(-1,0)}
+    ],
+    reports: [
+      {id:27,target_id:983214567,reason:'Навязчивая реклама в сообщениях',created_at:iso(0,-3)}
+    ],
+    rp: [
+      {id:1,name:'обнять',response_template:'{actor} обнял {target}',cooldown_seconds:5,enabled:true,is_premium:false},
+      {id:2,name:'техника клонирования',response_template:'{actor} создал теневого клона',cooldown_seconds:30,enabled:true,is_premium:true}
+    ],
+    rules: [
+      {id:1,name:'Автомут после 3 предупреждений',condition:{warnings_gte:3},actions:[{type:'mute',duration_seconds:3600}],enabled:true,is_premium:false}
+    ],
+    custom: [
+      {id:1,name:'Проверка правил',trigger:'правила',action_type:'send_message',duration_seconds:null,frozen:false,response_template:'Правила группы доступны в разделе профиля.',enabled:true}
+    ],
+    game: [
+      {id:1,name:'Ежедневная награда',trigger:'награда',command_type:'daily',reward_xp:50,reward_coins:25,cooldown_seconds:86400,enabled:true}
+    ],
+    basic: {commands:[
+      {key:'warn',name:'Предупреждение',trigger:'варн',response:'{admin} выдал предупреждение пользователю {user}. Причина: {reason}',action:'warn'},
+      {key:'unwarn',name:'Снять предупреждение',trigger:'снять варн',response:'{admin} снял предупреждение с {user}.',action:'unwarn'},
+      {key:'mute',name:'Мут',trigger:'мут',response:'{user} ограничен на {duration}. Причина: {reason}',action:'mute'},
+      {key:'unmute',name:'Снять мут',trigger:'размут',response:'Ограничение пользователя {user} снято.',action:'unmute'},
+      {key:'ban',name:'Бан',trigger:'бан',response:'{user} заблокирован. Причина: {reason}',action:'ban'},
+      {key:'unban',name:'Разбан',trigger:'разбан',response:'Пользователь {user} разблокирован.',action:'unban'}
+    ]},
+    groupRules:{rules:['Уважайте участников беседы','Запрещены спам и навязчивая реклама','Не публикуйте опасные ссылки','Соблюдайте тематику группы','Решения модераторов обсуждаются в личных сообщениях','Не распространяйте персональные данные']},
+    welcome:{enabled:true,after_captcha:true,text:'Добро пожаловать, {user}, в группу {group}! Ознакомьтесь с правилами: {rules}',photo_name:null,photo_url:null},
+    captcha:{enabled:true,timeout_seconds:60,attempts:3,failure_action:'kick',image_set:'random',message:'Подтвердите, что вы человек.'},
+    plans:[
+      {code:'month',title:'Premium 30 дней',badge:'Популярно',stars:399,days:30,description:'Полный доступ к Premium-функциям на месяц.'},
+      {code:'season',title:'Premium 90 дней',badge:'Выгодно',stars:999,days:90,description:'Три месяца расширенной защиты.'}
+    ],
+    premium:{active:true,source:'owner',until:iso(53),lifetime:false,remaining_seconds:53*86400,owner:{id:741852963,first_name:'Дмитрий',last_name:'Морозов',full_name:'Дмитрий Морозов',username:'metilonov'},features:['Умный антиспам','Антифишинг','Редактор основных команд','Карантин Pro','Расширенная CAPTCHA','Premium для групп владельца']}
+  };
+
+  function json(data,status=200){return new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json'}})}
+  function pathOf(input){try{return new URL(typeof input==='string'?input:input.url,location.href).pathname + new URL(typeof input==='string'?input:input.url,location.href).search}catch{return String(input)}}
+  const nativeFetch=window.fetch.bind(window);
+  window.fetch=async (input,init={})=>{
+    const path=pathOf(input);
+    if(!path.startsWith('/api/')) return nativeFetch(input,init);
+    const method=String(init.method||'GET').toUpperCase();
+    if(path==='/api/me') return json(demo.user);
+    if(path==='/api/chats') return json(demo.chats);
+    if(path==='/api/premium/plans') return json(demo.plans);
+    if(/\/dashboard(?:\?|$)/.test(path)) return json({chat:{id:chatId,title:'AniCode | Support',premium:true,premium_until:demo.premium.until},settings:demo.settings,metrics:{members:3,actions_today:3,open_reports:1,custom_commands:demo.custom.length,game_commands:demo.game.length,rules:demo.groupRules.rules.length}});
+    if(/\/profile(?:\?|$)/.test(path)) return json({id:chatId,title:'AniCode | Support',username:'anicode_support',members:3,premium:true,invite_link:'https://t.me/anicode_support',avatar_url:'',owner:demo.members[0]});
+    if(/\/members\?/.test(path)) return json(demo.members);
+    const memberMatch=path.match(/\/members\/(\d+)(?:\?|$)/); if(memberMatch) return json(demo.members.find(x=>x.id===Number(memberMatch[1]))||demo.members[2]);
+    if(/\/logs\?/.test(path)) return json(demo.logs);
+    if(/\/reports(?:\?|$)/.test(path) && method==='GET') return json(demo.reports);
+    if(/\/rp(?:\?|$)/.test(path) && method==='GET') return json(demo.rp);
+    if(/\/rules(?:\?|$)/.test(path) && method==='GET') return json(demo.rules);
+    if(/\/custom-commands(?:\?|$)/.test(path) && method==='GET') return json(demo.custom);
+    if(/\/game-commands(?:\?|$)/.test(path) && method==='GET') return json(demo.game);
+    if(/\/basic-commands(?:\?|$)/.test(path) && method==='GET') return json(demo.basic);
+    if(/\/group-rules(?:\?|$)/.test(path) && method==='GET') return json(demo.groupRules);
+    if(/\/welcome(?:\?|$)/.test(path) && method==='GET') return json(demo.welcome);
+    if(/\/captcha\/preview/.test(path)) {
+      const svg='<svg xmlns="http://www.w3.org/2000/svg" width="420" height="220"><rect width="100%" height="100%" rx="28" fill="#1e88d8"/><circle cx="210" cy="105" r="48" fill="#ffd45b"/><path d="M210 42v-22M210 190v-22M147 105h-22M295 105h-22M166 61l-16-16M270 149l-16-16M254 61l16-16M150 165l16-16" stroke="#ffd45b" stroke-width="10" stroke-linecap="round"/></svg>';
+      return json({answer:'☀️',options:['🌙','☀️','🌳','☕','🐈','🍎','🚗','❄️','🌧️'],image_url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(svg)});
+    }
+    if(/\/captcha(?:\?|$)/.test(path) && method==='GET') return json(demo.captcha);
+    if(/\/premium\/status/.test(path)) return json(demo.premium);
+    if(/\/settings/.test(path)) {
+      if(method!=='GET' && init.body){try{const body=JSON.parse(init.body);Object.assign(demo.settings,body.settings||body)}catch{}}
+      return json({settings:demo.settings,...demo.settings});
+    }
+    if(/\/group-rules/.test(path) && method!=='GET') {try{demo.groupRules=JSON.parse(init.body)}catch{} return json(demo.groupRules)}
+    if(/\/welcome/.test(path) && method!=='GET') {try{Object.assign(demo.welcome,JSON.parse(init.body))}catch{} return json(demo.welcome)}
+    if(/\/captcha/.test(path) && method!=='GET') {try{Object.assign(demo.captcha,JSON.parse(init.body))}catch{} return json(demo.captcha)}
+    if(/\/actions/.test(path)) {demo.logs.unshift({id:Date.now(),action:'Команда выполнена',reason:'Демонстрационное действие в эмуляции',created_at:new Date().toISOString()});return json({ok:true})}
+    if(/\/premium\/invoice/.test(path)) return json({invoice_link:'#demo-payment'});
+    if(method==='DELETE') return new Response(null,{status:204});
+    return json({ok:true});
+  };
+})();
+
+</script>
+<script>
+(() => {
+  'use strict';
+
+  const tg = window.Telegram?.WebApp;
+  const state = {
+    user: null,
+    chats: [],
+    chatId: null,
+    dashboard: null,
+    members: [],
+    settings: {},
+    plans: [],
+    currentAction: null,
+    customCommands: [],
+    gameCommands: [],
+    editingCustomId: null,
+    editingGameId: null,
+    profile: null,
+    logs: [],
+    currentView: 'overview',
+    basicCommands: [],
+    rulesConfig: {rules:[]},
+    welcome: null,
+    captcha: null,
+    premiumStatus: null,
+    editingBasicKey: null,
+    captchaPreviewAnswer: null,
+  };
+
+  const $ = (selector, root = document) => root.querySelector(selector);
+  const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+  const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+  const icon = id => `<span class="icon-box"><svg><use href="#${id}"></use></svg></span>`;
+  const iconSmall = id => `<span class="icon-box small"><svg><use href="#${id}"></use></svg></span>`;
+
+  const actionDefinitions = [
+    {action:'warn', title:'Предупреждение', description:'Выдать предупреждение', icon:'i-warning', target:true},
+    {action:'unwarn', title:'Снять предупреждение', description:'Уменьшить число предупреждений', icon:'i-warning-off', target:true},
+    {action:'mute', title:'Мут', description:'Запретить отправку сообщений', icon:'i-mute', target:true, duration:true},
+    {action:'unmute', title:'Снять мут', description:'Вернуть возможность писать', icon:'i-volume', target:true},
+    {action:'ban', title:'Бан', description:'Заблокировать пользователя', icon:'i-ban', target:true, duration:true},
+    {action:'unban', title:'Разбан', description:'Снять блокировку', icon:'i-unban', target:true},
+    {action:'kick', title:'Исключить', description:'Удалить с возможностью вернуться', icon:'i-kick', target:true},
+    {action:'restrict_media', title:'Запрет медиа', description:'Запретить фото, видео и файлы', icon:'i-image-lock', target:true, duration:true},
+    {action:'unrestrict_media', title:'Разрешить медиа', description:'Снять ограничение медиа', icon:'i-image-check', target:true},
+    {action:'restrict_links', title:'Запрет ссылок', description:'Удалять ссылки пользователя', icon:'i-link-lock', target:true, duration:true},
+    {action:'unrestrict_links', title:'Разрешить ссылки', description:'Снять запрет ссылок', icon:'i-link-check', target:true},
+    {action:'restrict_commands', title:'Блокировка команд', description:'Запретить игровые и кастомные команды', icon:'i-terminal-lock', target:true, duration:true},
+    {action:'unrestrict_commands', title:'Разрешить команды', description:'Снять блокировку команд', icon:'i-terminal-check', target:true},
+    {action:'quarantine', title:'Карантин Pro', description:'Оставить только безопасные действия', icon:'i-quarantine', target:true, duration:true, premium:true},
+    {action:'unquarantine', title:'Снять карантин', description:'Вернуть обычные разрешения', icon:'i-quarantine-off', target:true},
+    {action:'purge', title:'Очистка', description:'Удалить последние сообщения', icon:'i-broom', amount:true},
+    {action:'slow', title:'Медленный режим', description:'Установить задержку между сообщениями', icon:'i-timer', amount:true},
+    {action:'lock', title:'Закрыть чат', description:'Запретить сообщения участникам', icon:'i-lock'},
+    {action:'unlock', title:'Открыть чат', description:'Вернуть отправку сообщений', icon:'i-unlock'},
+    {action:'susanoo', title:'Экстренная защита', description:'Мгновенно закрыть чат при атаке', icon:'i-susanoo', premium:true},
+  ];
+
+  const settingGroups = [
+    {id:'frequency',title:'Частота сообщений',icon:'i-filter',keywords:'флуд повторы строки длина эмодзи хэштеги упоминания команды',automod:true,fields:[
+      {key:'anti_flood_enabled',type:'switch',label:'Антифлуд',description:'Ограничивает слишком частые сообщения',icon:'i-filter'},
+      {key:'duplicate_filter_enabled',type:'switch',label:'Повторные сообщения',description:'Удаляет одинаковый текст и копипаст',icon:'i-copy'},
+      {key:'line_flood_enabled',type:'switch',label:'Флуд строками',description:'Ограничивает большое количество строк',icon:'i-document'},
+      {key:'long_message_filter_enabled',type:'switch',label:'Длинные сообщения',description:'Удаляет текст длиннее заданного лимита',icon:'i-message-star'},
+      {key:'emoji_flood_enabled',type:'switch',label:'Эмодзи-флуд',description:'Контролирует количество обычных эмодзи',icon:'i-emoji'},
+      {key:'hashtag_flood_enabled',type:'switch',label:'Хэштег-флуд',description:'Ограничивает массовые хэштеги',icon:'i-at'},
+      {key:'mass_mentions_enabled',type:'switch',label:'Массовые упоминания',description:'Блокирует спам через @username',icon:'i-users'},
+      {key:'command_flood_enabled',type:'switch',label:'Флуд командами',description:'Контролирует частые вызовы команд бота',icon:'i-command-panel'},
+    ]},
+    {id:'text-content',title:'Текст и содержимое',icon:'i-document',keywords:'капс слова символы правки обход спам алфавит финансы розыгрыш',automod:true,fields:[
+      {key:'caps_filter_enabled',type:'switch',label:'Капс-фильтр',description:'Контролирует сообщения заглавными буквами',icon:'i-caps'},
+      {key:'word_filter_enabled',type:'switch',label:'Запрещённые слова',description:'Использует словарь выбранной группы',icon:'i-warning'},
+      {key:'invisible_symbols_filter_enabled',type:'switch',label:'Невидимые символы',description:'Обнаруживает скрытые управляющие символы',icon:'i-hidden-link'},
+      {key:'edited_message_filter_enabled',type:'switch',label:'Проверка редактирования',description:'Повторно анализирует изменённые сообщения',icon:'i-edit',premium:true},
+      {key:'obfuscation_filter_enabled',type:'switch',label:'Обход запрещённых слов',description:'Распознаёт замену букв и символов',icon:'i-spark',premium:true},
+      {key:'smart_spam_enabled',type:'switch',label:'Умный антиспам',description:'Определяет замаскированную рекламу',icon:'i-brain',premium:true},
+      {key:'mixed_alphabet_filter_enabled',type:'switch',label:'Смешение алфавитов',description:'Ищет подмену кириллицы латиницей',icon:'i-id',premium:true},
+      {key:'financial_spam_filter_enabled',type:'switch',label:'Финансовый спам',description:'Фильтрует подозрительные предложения',icon:'i-diamond',premium:true},
+      {key:'fake_giveaway_filter_enabled',type:'switch',label:'Поддельные розыгрыши',description:'Определяет мошеннические конкурсы',icon:'i-crown',premium:true},
+    ]},
+    {id:'links',title:'Ссылки',icon:'i-link-lock',keywords:'ссылки приглашения сокращенные скрытые фишинг домены',automod:true,fields:[
+      {key:'link_filter_enabled',type:'switch',label:'Фильтр ссылок новичков',description:'Удаляет неизвестные домены у новых участников',icon:'i-link-lock'},
+      {key:'invite_link_filter_enabled',type:'switch',label:'Приглашения в другие чаты',description:'Блокирует сторонние Telegram-приглашения',icon:'i-link'},
+      {key:'short_link_filter_enabled',type:'switch',label:'Сокращённые ссылки',description:'Проверяет скрытые переадресации',icon:'i-hidden-link',premium:true},
+      {key:'hidden_link_filter_enabled',type:'switch',label:'Скрытые ссылки',description:'Проверяет URL внутри текста',icon:'i-link-check',premium:true},
+      {key:'phishing_filter_enabled',type:'switch',label:'Антифишинг',description:'Определяет опасные и поддельные сайты',icon:'i-suspicious',premium:true},
+      {key:'domain_whitelist_enabled',type:'switch',label:'Белый список доменов',description:'Разрешает только доверенные сайты',icon:'i-document',premium:true},
+    ]},
+    {id:'media',title:'Медиа и типы сообщений',icon:'i-media',keywords:'медиа стикеры голосовые файлы контакты фото опрос игры эмодзи',automod:true,fields:[
+      {key:'media_filter_enabled',type:'switch',label:'Ограничение медиа',description:'Контролирует фото, видео, файлы и GIF',icon:'i-media'},
+      {key:'sticker_flood_enabled',type:'switch',label:'Стикер-флуд',description:'Ограничивает частые стикеры',icon:'i-message-star'},
+      {key:'voice_flood_enabled',type:'switch',label:'Голосовые и видеокружки',description:'Контролирует частые голосовые сообщения',icon:'i-volume'},
+      {key:'dangerous_file_filter_enabled',type:'switch',label:'Опасные файлы',description:'Блокирует запрещённые расширения',icon:'i-document'},
+      {key:'contact_location_filter_enabled',type:'switch',label:'Контакты и геолокация',description:'Запрещает отправку личных данных',icon:'i-id'},
+      {key:'image_text_filter_enabled',type:'switch',label:'Текст медиа',description:'Проверяет подписи и имена файлов',icon:'i-image-lock',premium:true},
+      {key:'media_duplicate_filter_enabled',type:'switch',label:'Повтор одинакового медиа',description:'Находит повторную отправку одного файла',icon:'i-copy',premium:true},
+      {key:'poll_filter_enabled',type:'switch',label:'Опросы',description:'Ограничивает создание опросов',icon:'i-activity'},
+      {key:'game_filter_enabled',type:'switch',label:'Встроенные игры',description:'Контролирует игровые сообщения Telegram',icon:'i-gamepad'},
+      {key:'custom_emoji_flood_enabled',type:'switch',label:'Кастомные эмодзи',description:'Ограничивает Premium-эмодзи в сообщении',icon:'i-emoji',premium:true},
+    ]},
+    {id:'sources',title:'Источники сообщений',icon:'i-forward',keywords:'пересылки каналы координированный спам',automod:true,fields:[
+      {key:'forward_filter_enabled',type:'switch',label:'Пересланные сообщения',description:'Контролирует пересылки из других чатов',icon:'i-forward'},
+      {key:'channel_sender_filter_enabled',type:'switch',label:'Сообщения от каналов',description:'Блокирует отправку от имени сторонних каналов',icon:'i-chat'},
+      {key:'coordinated_spam_enabled',type:'switch',label:'Координированный спам',description:'Находит одинаковые действия нескольких аккаунтов',icon:'i-users',premium:true},
+    ]},
+    {id:'newcomers',title:'Новые участники',icon:'i-captcha',keywords:'капча рейд аккаунт профиль карантин медиа новичков',automod:true,fields:[
+      {key:'captcha_enabled',type:'switch',label:'Автоматическая CAPTCHA',description:'Смысловая картинка и 3×3 кнопки',icon:'i-captcha'},
+      {key:'account_risk_filter_enabled',type:'switch',label:'Риск аккаунта',description:'Проверяет базовые признаки нового профиля',icon:'i-id',premium:true},
+      {key:'suspicious_profile_filter_enabled',type:'switch',label:'Подозрительные профили',description:'Анализирует поведение новичка',icon:'i-suspicious',premium:true},
+      {key:'auto_quarantine_enabled',type:'switch',label:'Автокарантин',description:'Ограничивает подозрительных новичков',icon:'i-quarantine',premium:true},
+      {key:'newcomer_media_filter_enabled',type:'switch',label:'Медиа новичков',description:'Запрещает медиа в первые часы после вступления',icon:'i-image-lock',premium:true},
+      {key:'raid_lockdown_enabled',type:'switch',label:'Защита от рейда',description:'Закрывает чат при массовом вступлении',icon:'i-raid-lock',premium:true},
+    ]},
+    {id:'automatic-punishment',title:'Автоматические наказания',icon:'i-stairs',keywords:'предупреждение очистка лестница адаптивная закрытие ночь',automod:true,fields:[
+      {key:'auto_warn_enabled',type:'switch',label:'Автопредупреждения',description:'Добавляет предупреждение после нарушения',icon:'i-auto-warn'},
+      {key:'auto_cleanup_enabled',type:'switch',label:'Очистка истории',description:'Пытается удалить недавние сообщения при нарушении',icon:'i-broom'},
+      {key:'punishment_ladder_enabled',type:'switch',label:'Лестница наказаний',description:'Предупреждение → мут → бан',icon:'i-stairs',premium:true},
+      {key:'adaptive_protection_enabled',type:'switch',label:'Адаптивная защита',description:'Усиливает фильтры при серии нарушений',icon:'i-adaptive',premium:true},
+      {key:'auto_chat_close_enabled',type:'switch',label:'Автозакрытие чата',description:'Закрывает отправку сообщений во время атаки',icon:'i-lock',premium:true},
+      {key:'night_protection_enabled',type:'switch',label:'Ночная защита',description:'Использует усиленные лимиты ночью',icon:'i-clock',premium:true},
+    ]},
+    {id:'punishments',title:'Сроки наказаний',icon:'i-timer',keywords:'срок мут бан карантин медиа ссылки команды причина',fields:[
+      {key:'default_mute_seconds',type:'duration',label:'Мут по умолчанию'},
+      {key:'default_ban_seconds',type:'duration',label:'Бан по умолчанию'},
+      {key:'default_quarantine_seconds',type:'duration',label:'Карантин по умолчанию'},
+      {key:'default_restrict_media_seconds',type:'duration',label:'Запрет медиа по умолчанию'},
+      {key:'default_restrict_links_seconds',type:'duration',label:'Запрет ссылок по умолчанию'},
+      {key:'default_restrict_commands_seconds',type:'duration',label:'Блокировка команд по умолчанию'},
+      {key:'default_reason',type:'text',label:'Причина по умолчанию'},
+      {key:'warn_threshold',type:'number',label:'Порог предупреждений',min:1,max:20},
+    ]},
+    {id:'limits',title:'Лимиты фильтров',icon:'i-activity',keywords:'лимит окно сообщения капс эмодзи строки длина',fields:[
+      {key:'flood_limit',type:'number',label:'Лимит сообщений',min:3,max:50},
+      {key:'flood_window_seconds',type:'number',label:'Окно антифлуда, секунд',min:3,max:300},
+      {key:'duplicate_limit',type:'number',label:'Повторов до удаления',min:2,max:20},
+      {key:'line_limit',type:'number',label:'Максимум строк',min:2,max:200},
+      {key:'max_message_length',type:'number',label:'Максимальная длина сообщения',min:100,max:4096},
+      {key:'emoji_limit',type:'number',label:'Максимум эмодзи',min:3,max:200},
+      {key:'hashtag_limit',type:'number',label:'Максимум хэштегов',min:1,max:100},
+      {key:'mass_mentions_limit',type:'number',label:'Максимум упоминаний',min:1,max:100},
+    ]},
+    {id:'domains',title:'Домены и слова',icon:'i-document',keywords:'домены слова список запрещенные файлы',fields:[
+      {key:'allowed_domains',type:'textarea-list',label:'Разрешённые домены'},
+      {key:'blocked_words',type:'textarea-list',label:'Запрещённые слова'},
+      {key:'dangerous_extensions',type:'textarea-list',label:'Опасные расширения файлов'},
+      {key:'symbol_replacement_check',type:'switch',label:'Учитывать замену букв символами'},
+    ]},
+    {id:'game',title:'Игровые функции',icon:'i-gamepad',keywords:'игра опыт монеты ранги rp',fields:[
+      {key:'rp_enabled',type:'switch',label:'Включить RP-команды'},
+      {key:'ranks_enabled',type:'switch',label:'Включить XP и ранги'},
+      {key:'economy_enabled',type:'switch',label:'Включить AniCoin'},
+      {key:'xp_per_message',type:'number',label:'XP за сообщение',min:0,max:100},
+      {key:'coins_per_message',type:'number',label:'AniCoin за сообщение',min:0,max:100},
+    ]},
+  ];
+
+  const THEME_STORAGE_KEY = 'aniguard-manual-theme';
+
+  function preferredTheme() {
+    return localStorage.getItem(THEME_STORAGE_KEY) || tg?.colorScheme || 'light';
+  }
+
+  function applyAppTheme(theme) {
+    const normalized = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = normalized;
+    const icon = $('#theme-toggle-icon');
+    if (icon) icon.setAttribute('href', normalized === 'dark' ? '#i-sun' : '#i-moon');
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', normalized === 'dark' ? '#1b2634' : '#f2f3f5');
+    try { tg?.setHeaderColor(normalized === 'dark' ? '#1b2634' : '#f2f3f5'); } catch (_) {}
+    try { tg?.setBackgroundColor(normalized === 'dark' ? '#1b2634' : '#f2f3f5'); } catch (_) {}
+    try { tg?.setBottomBarColor(normalized === 'dark' ? '#121b26' : '#ffffff'); } catch (_) {}
+  }
+
+  function toggleAppTheme() {
+    const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem(THEME_STORAGE_KEY, next);
+    applyAppTheme(next);
+    haptic('light');
+  }
+
+  function applyTelegramChrome() {
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      try { tg.disableVerticalSwipes(); } catch (_) {}
+      tg.onEvent?.('themeChanged', () => {
+        if (!localStorage.getItem(THEME_STORAGE_KEY)) applyAppTheme(tg.colorScheme || 'light');
+      });
+      tg.BackButton?.onClick(() => setView('overview'));
+    }
+    applyAppTheme(preferredTheme());
+  }
+
+  function haptic(kind = 'light') {
+    try { tg?.HapticFeedback?.impactOccurred(kind); } catch (_) {}
+  }
+
+  async function api(path, options = {}) {
+    const headers = new Headers(options.headers || {});
+    if (!(options.body instanceof FormData)) headers.set('Content-Type', 'application/json');
+    if (tg?.initData) headers.set('X-Telegram-Init-Data', tg.initData);
+    else {
+      const devUserId = new URLSearchParams(location.search).get('dev_user_id');
+      if (devUserId) headers.set('X-Dev-User-Id', devUserId);
+    }
+    const response = await fetch(path, {...options, headers});
+    if (!response.ok) {
+      let detail = `Ошибка ${response.status}`;
+      try { detail = (await response.json()).detail || detail; } catch (_) {}
+      throw new Error(detail);
+    }
+    return response.status === 204 ? null : response.json();
+  }
+
+  function notify(message, error = false) {
+    const node = $('#notice');
+    node.textContent = message;
+    node.classList.remove('hidden');
+    node.style.borderColor = error ? '#b94d5e' : '';
+    clearTimeout(notify.timer);
+    notify.timer = setTimeout(() => node.classList.add('hidden'), 4000);
+    tg?.HapticFeedback?.notificationOccurred(error ? 'error' : 'success');
+  }
+
+  function currentChat() {
+    return state.chats.find(chat => chat.id === state.chatId);
+  }
+
+  function premiumAvailable() {
+    return Boolean(state.premiumStatus?.active || currentChat()?.premium || state.dashboard?.chat?.premium);
+  }
+
+  function setView(view) {
+    state.currentView = view;
+    $$('.view').forEach(panel => panel.classList.toggle('hidden', panel.dataset.panel !== view));
+    $$('.nav[data-view]').forEach(button => button.classList.toggle('active', button.dataset.view === view));
+    const bottomMap = {
+      overview:'overview', moderation:'moderation', commands:'commands', profile:'profile', 'group-profile':'profile',
+      members:'profile', reports:'profile', logs:'profile', settings:'profile', premium:'profile', admin:'profile',
+      custom:'commands', game:'commands', rp:'commands',
+    };
+    $$('#bottom-nav .nav').forEach(button => button.classList.toggle('active', button.dataset.view === (bottomMap[view] || 'overview')));
+    if (view === 'admin' && state.user?.is_bot_admin) loadAdmin();
+    if (tg?.BackButton) {
+      if (['overview','moderation','commands','profile'].includes(view)) tg.BackButton.hide();
+      else tg.BackButton.show();
+    }
+    haptic('light');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  async function init() {
+    try {
+      applyTelegramChrome();
+      bindEvents();
+      state.user = await api('/api/me');
+      $('#user-line').textContent = `${state.user.username ? '@' + state.user.username : state.user.first_name}${state.user.premium ? ' · Premium' : ''}`;
+      renderUserProfile();
+      if (state.user.blocked && !state.user.is_bot_admin) throw new Error(state.user.block_reason || 'Доступ к AniGuard заблокирован');
+      if (state.user.is_bot_admin) $$('.bot-admin-only').forEach(node => node.classList.remove('hidden'));
+      [state.chats, state.plans] = await Promise.all([api('/api/chats'), api('/api/premium/plans')]);
+      renderChatSelect();
+      renderActions();
+      renderSettingsStructure();
+      renderAutomodStructure();
+      renderMenuLinks();
+      renderPlans();
+      $('#workspace').classList.remove('hidden');
+      $('#bottom-nav').classList.remove('hidden');
+      if (state.chats.length) {
+        state.chatId = state.chats[0].id;
+        $('#chat-select').value = String(state.chatId);
+        await loadChat();
+      } else if (state.user.is_bot_admin) {
+        $('#chat-select').innerHTML = '<option>Нет бесед</option>';
+        setView('admin');
+      } else {
+        $('#workspace').classList.add('hidden');
+        $('#bottom-nav').classList.add('hidden');
+        $('#empty-state').classList.remove('hidden');
+      }
+    } catch (error) {
+      $('#empty-state').classList.remove('hidden');
+      $('#empty-state h1').textContent = 'Не удалось открыть Mini App';
+      $('#empty-state p').textContent = error.message;
+      notify(error.message, true);
+    }
+  }
+
+  function chatInitials(title) {
+    const parts = String(title || 'AniGuard').trim().split(/\s+/).filter(Boolean);
+    return parts.slice(0, 2).map(part => part[0]).join('').toUpperCase() || 'AG';
+  }
+
+  function chatAvatarHtml(chat, className = 'chat-avatar') {
+    const title = chat?.title || 'AniGuard';
+    const image = chat?.avatar_url
+      ? `<img src="${escapeHtml(chat.avatar_url)}" alt="Аватар ${escapeHtml(title)}" loading="lazy" onerror="this.remove()">`
+      : '';
+    return `<span class="${className}"><span>${escapeHtml(chatInitials(title))}</span>${image}</span>`;
+  }
+
+  function setChatAvatar(node, chat) {
+    if (!node || !chat) return;
+    node.innerHTML = `<span>${escapeHtml(chatInitials(chat.title))}</span>${chat.avatar_url ? `<img src="${escapeHtml(chat.avatar_url)}" alt="Аватар ${escapeHtml(chat.title || '')}" onerror="this.remove()">` : ''}`;
+  }
+
+  function renderChatSelect() {
+    $('#chat-select').innerHTML = state.chats.length
+      ? state.chats.map(chat => `<option value="${chat.id}">${escapeHtml(chat.title)}${chat.premium ? ' · Premium' : ''}</option>`).join('')
+      : '<option>Нет бесед</option>';
+    const options = $('#group-options');
+    if (options) {
+      options.innerHTML = state.chats.length ? state.chats.map(chat => `
+        <button class="group-option pressable" type="button" data-chat-id="${chat.id}">
+          ${chatAvatarHtml(chat)}
+          <span><b>${escapeHtml(chat.title)}</b><small>${chat.username ? '@' + escapeHtml(chat.username) + ' · ' : ''}${chat.premium ? 'Premium активен' : 'Обычный доступ'}</small></span>
+          <span class="check">${chat.id === state.chatId ? '✓' : ''}</span>
+        </button>`).join('') : '<p class="muted">Доступных групп нет.</p>';
+    }
+    const chat = currentChat();
+    if (chat) {
+      setChatAvatar($('#current-chat-avatar'), chat);
+      $('#current-chat-name').textContent = chat.title;
+      const members = state.profile?.members ?? state.dashboard?.metrics?.members;
+      $('#current-chat-meta').textContent = `${members ?? '—'} участников${premiumAvailable() ? ' · Premium' : ''}`;
+      $('#overview-chat-title').textContent = chat.title;
+      $('#overview-chat-subtitle').textContent = '';
+    }
+  }
+
+  async function loadChat() {
+    if (!state.chatId) return;
+    try {
+      const [dashboard, profile, members, logs, reports, rp, rules, custom, game, basicCommands, groupRules, welcome, captcha, premiumStatus] = await Promise.all([
+        api(`/api/chats/${state.chatId}/dashboard`),
+        api(`/api/chats/${state.chatId}/profile`),
+        api(`/api/chats/${state.chatId}/members?limit=500`),
+        api(`/api/chats/${state.chatId}/logs?limit=100`),
+        api(`/api/chats/${state.chatId}/reports`),
+        api(`/api/chats/${state.chatId}/rp`),
+        api(`/api/chats/${state.chatId}/rules`),
+        api(`/api/chats/${state.chatId}/custom-commands`),
+        api(`/api/chats/${state.chatId}/game-commands`),
+        api(`/api/chats/${state.chatId}/basic-commands`),
+        api(`/api/chats/${state.chatId}/group-rules`),
+        api(`/api/chats/${state.chatId}/welcome`),
+        api(`/api/chats/${state.chatId}/captcha`),
+        api(`/api/chats/${state.chatId}/premium/status`),
+      ]);
+      state.dashboard = dashboard;
+      state.profile = profile;
+      state.logs = logs;
+      state.members = members;
+      state.settings = structuredClone(dashboard.settings);
+      state.customCommands = custom;
+      state.gameCommands = game;
+      state.basicCommands = basicCommands.commands || [];
+      state.rulesConfig = groupRules;
+      state.welcome = welcome;
+      state.captcha = captcha;
+      state.premiumStatus = premiumStatus;
+      const chat = currentChat();
+      if (chat) {
+        chat.premium = dashboard.chat.premium;
+        chat.premium_until = dashboard.chat.premium_until;
+      }
+      renderMetrics();
+      renderBasicCommands();
+      renderMembers();
+      renderLogs(logs);
+      renderFullLogs(logs);
+      renderProfile();
+      renderReports(reports);
+      renderRp(rp);
+      renderRules(rules);
+      renderCustom(custom);
+      renderGame(game);
+      renderSettingsValues();
+      renderAutomodValues();
+      updatePremiumStatus();
+      renderPremiumDetails();
+      renderChatSelect();
+      $('#chat-select').value = String(state.chatId);
+    } catch (error) {
+      notify(error.message, true);
+    }
+  }
+
+  function renderMetrics() {
+    const m = state.dashboard.metrics;
+    const rows = [
+      ['i-users','Участники',state.profile?.members ?? m.members], ['i-activity','Действия сегодня',m.actions_today],
+      ['i-flag','Жалобы',m.open_reports], ['i-spark','Кастомные',m.custom_commands],
+      ['i-gamepad','Игровые',m.game_commands], ['i-rule','Правила',m.rules],
+    ];
+    $('#metrics').innerHTML = rows.map(([ic,label,value]) => `<div class="metric">${iconSmall(ic)}<span>${label}</span><strong>${value}</strong></div>`).join('');
+    $('#overview-status').textContent = state.settings.chat_locked ? 'Чат закрыт' : 'Защита активна';
+  }
+
+  function renderActions() {
+    const card = action => `<button type="button" class="action ${action.premium ? 'premium' : ''}" data-action="${action.action}" data-search="${escapeHtml((action.title + ' ' + action.description).toLowerCase())}">${iconSmall(action.icon)}<b>${escapeHtml(action.title)}</b><small>${escapeHtml(action.description)}${action.premium ? ' · Premium' : ''}</small></button>`;
+    $('#regular-actions').innerHTML = actionDefinitions.map(card).join('');
+    $('#quick-actions').innerHTML = actionDefinitions.filter(item => ['warn','mute','ban','restrict_media','restrict_links','quarantine'].includes(item.action)).map(card).join('');
+  }
+
+
+  function initialsOf(user) {
+    return [user?.first_name, user?.last_name].filter(Boolean).map(value => String(value)[0]).join('').slice(0, 2).toUpperCase() || 'AG';
+  }
+
+  function avatarHtml(user, large = false) {
+    return `<span class="user-avatar${large ? ' large' : ''}"><span>${escapeHtml(initialsOf(user))}</span>${user?.avatar_url ? `<img src="${escapeHtml(user.avatar_url)}" alt="Аватар ${escapeHtml(user.full_name || user.first_name || '')}" loading="lazy">` : ''}</span>`;
+  }
+
+  function renderBasicCommands() {
+    const node = $('#basic-commands-list');
+    if (!node) return;
+    $('#basic-editor-status').textContent = premiumAvailable() ? 'РЕДАКТОР PREMIUM АКТИВЕН' : 'РЕДАКТОР PREMIUM ЗАБЛОКИРОВАН';
+    node.innerHTML = state.basicCommands.length ? state.basicCommands.map(command => {
+      const action = actionDefinitions.find(item => item.action === command.action);
+      return `<div class="telegram-row basic-command-row" data-basic-key="${escapeHtml(command.key)}">
+        <span class="row-icon"><svg><use href="#${action?.icon || 'i-command-panel'}"></use></svg></span>
+        <span class="row-copy"><b>${escapeHtml(command.name)}</b><small>Вызов команды: ${escapeHtml(command.trigger)}</small></span>
+        <span class="basic-command-actions">
+          <button class="secondary basic-run" type="button" aria-label="Выполнить"><svg><use href="#i-play"></use></svg></button>
+          <button class="secondary basic-edit" type="button" aria-label="Редактировать"><svg><use href="#i-edit"></use></svg></button>
+        </span>
+      </div>`;
+    }).join('') : '<p class="muted">Основные команды недоступны.</p>';
+  }
+
+  function renderMembers(filter = '') {
+    $('#action-target').innerHTML = state.members.length
+      ? state.members.map(user => `<option value="${user.id}">${escapeHtml(user.full_name || user.first_name)}${user.username ? ` (@${escapeHtml(user.username)})` : ''}</option>`).join('')
+      : '<option value="">Нет известных участников</option>';
+    const list = $('#members-list');
+    if (!list) return;
+    const query = String(filter || '').trim().toLowerCase();
+    const rows = state.members.filter(user => !query || `${user.full_name || ''} ${user.id} ${user.username || ''}`.toLowerCase().includes(query));
+    $('#members-count').textContent = `${rows.length} из ${state.members.length} участников`;
+    list.innerHTML = rows.length ? rows.map(user => {
+      const protectedUser = ['owner','admin'].includes(user.role);
+      const username = user.username ? `@${escapeHtml(user.username)}` : 'Юзернейм отсутствует';
+      return `<article class="member-row" data-member-id="${user.id}">
+        <div class="member-identity">${avatarHtml(user)}<div class="user-copy"><b>${escapeHtml(user.full_name || user.first_name || 'Без имени')}</b><small>ID: ${user.id}</small><small>${username}</small></div></div>
+        <div class="member-buttons">
+          <button class="danger member-ban" type="button" ${protectedUser ? 'disabled' : ''}>Заблокировать</button>
+          <button class="secondary member-kick" type="button" ${protectedUser ? 'disabled' : ''}>Удалить</button>
+          <button class="secondary member-info" type="button">Информация</button>
+        </div>
+      </article>`;
+    }).join('') : '<div class="card muted">Участники не найдены.</div>';
+  }
+
+
+  function renderLogs(logs) {
+    $('#overview-logs').innerHTML = logs.length
+      ? logs.slice(0, 12).map(row => `<div class="list-row"><b>${escapeHtml(row.action)}</b><p>${escapeHtml(row.reason || 'Без причины')} · ${new Date(row.created_at).toLocaleString('ru-RU')}</p></div>`).join('')
+      : '<p class="muted">Журнал пока пуст.</p>';
+  }
+
+  function renderFullLogs(logs) {
+    const node = $('#full-logs');
+    if (!node) return;
+    node.innerHTML = logs.length
+      ? logs.map(row => `<article class="list-card"><div>${icon('i-log')}<h3>${escapeHtml(row.action)}</h3><p>${escapeHtml(row.reason || 'Без причины')}</p><p>${new Date(row.created_at).toLocaleString('ru-RU')}${row.target_id ? ` · User ID: ${row.target_id}` : ''}</p></div></article>`).join('')
+      : '<article class="card muted">Журнал пока пуст.</article>';
+  }
+
+  function userInitials(user) {
+    return [user?.first_name, user?.last_name]
+      .filter(Boolean)
+      .map(value => String(value).trim().charAt(0))
+      .join('')
+      .slice(0, 2)
+      .toUpperCase() || 'AG';
+  }
+
+  function setUserAccountAvatar(node, user) {
+    if (!node || !user) return;
+    node.innerHTML = `<span>${escapeHtml(userInitials(user))}</span>${user.avatar_url ? `<img src="${escapeHtml(user.avatar_url)}" alt="Аватар пользователя" onerror="this.remove()">` : ''}`;
+  }
+
+  function pluralRu(value, forms) {
+    const n = Math.abs(Number(value)) % 100;
+    const n1 = n % 10;
+    if (n > 10 && n < 20) return forms[2];
+    if (n1 > 1 && n1 < 5) return forms[1];
+    if (n1 === 1) return forms[0];
+    return forms[2];
+  }
+
+  function formatAccountAge(createdAt) {
+    const start = createdAt ? new Date(createdAt) : new Date();
+    const now = new Date();
+    if (Number.isNaN(start.getTime()) || start > now) return 'Вы с нами уже сегодня';
+
+    let years = now.getFullYear() - start.getFullYear();
+    let months = now.getMonth() - start.getMonth();
+    let days = now.getDate() - start.getDate();
+    if (days < 0) {
+      months -= 1;
+      days += new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+    }
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+
+    const parts = [];
+    if (years > 0) parts.push(`${years} ${pluralRu(years, ['год', 'года', 'лет'])}`);
+    if (months > 0) parts.push(`${months} ${pluralRu(months, ['месяц', 'месяца', 'месяцев'])}`);
+    if (years === 0 && days > 0) parts.push(`${days} ${pluralRu(days, ['день', 'дня', 'дней'])}`);
+    return `Вы с нами уже ${parts.length ? parts.join(' ') : 'сегодня'}`;
+  }
+
+  function reputationLabel(value) {
+    if (value >= 90) return 'Надёжный пользователь';
+    if (value >= 70) return 'Хорошая репутация';
+    if (value >= 40) return 'Требует внимания';
+    return 'Низкая репутация';
+  }
+
+  function renderMenuAccountSummary() {
+    const node = $('#menu-account-summary');
+    if (!node || !state.user) return;
+    const fullName = [state.user.first_name, state.user.last_name].filter(Boolean).join(' ') || 'Пользователь';
+    node.innerHTML = `
+      <span class="menu-user-avatar"><span>${escapeHtml(userInitials(state.user))}</span>${state.user.avatar_url ? `<img src="${escapeHtml(state.user.avatar_url)}" alt="Аватар" onerror="this.remove()">` : ''}</span>
+      <span><b class="${state.user.premium ? 'premium-user-name' : 'regular-user-name'}">${escapeHtml(fullName)}</b><small>ID ${state.user.id}${state.user.premium ? ' · Premium' : ''}</small></span>`;
+  }
+
+  function renderUserProfile() {
+    if (!state.user) return;
+    const user = state.user;
+    const stats = user.statistics || {};
+    const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ') || 'Пользователь';
+
+    setUserAccountAvatar($('#account-user-avatar'), user);
+    $('#account-user-name').textContent = fullName;
+    $('#account-user-name').classList.toggle('premium', Boolean(user.premium));
+    $('#account-user-name').classList.toggle('regular', !user.premium);
+    $('#account-user-id').textContent = `ID аккаунта: ${user.id}`;
+    $('#account-user-age').textContent = formatAccountAge(user.created_at);
+    $('#account-user-status').textContent = user.premium ? 'Premium аккаунт' : 'Обычный аккаунт';
+    $('#account-user-status').classList.toggle('premium', Boolean(user.premium));
+    $('#account-premium-mark')?.classList.toggle('hidden', !user.premium);
+    $('#account-anicoin').textContent = Number(user.ani_coin || 0).toLocaleString('ru-RU');
+
+    $('#account-rating').textContent = Number(stats.rating || 0).toLocaleString('ru-RU');
+    $('#account-level').textContent = Number(stats.account_level || 1).toLocaleString('ru-RU');
+    $('#account-game-level').textContent = Number(stats.game_level || 1).toLocaleString('ru-RU');
+    $('#account-reputation').textContent = `${Number(stats.reputation ?? 100)} / 100`;
+    $('#account-rating-meta').textContent = `${Number(stats.chats || 0)} ${pluralRu(Number(stats.chats || 0), ['беседа', 'беседы', 'бесед'])}`;
+    $('#account-level-meta').textContent = `${Number(stats.messages || 0).toLocaleString('ru-RU')} сообщений`;
+    $('#account-game-meta').textContent = `${Number(stats.total_xp || 0).toLocaleString('ru-RU')} XP`;
+    $('#account-reputation-meta').textContent = reputationLabel(Number(stats.reputation ?? 100));
+
+    $('#account-info-list').innerHTML = [
+      accountInfoCard('i-account-chats', 'Подключённые беседы', String(stats.chats || 0), 'Группы под вашим управлением'),
+      accountInfoCard('i-account-messages', 'Сообщения', Number(stats.messages || 0).toLocaleString('ru-RU'), 'Учтённая активность'),
+      accountInfoCard('i-account-warnings', 'Предупреждения', String(stats.warnings || 0), 'Получено в беседах'),
+      accountInfoCard(
+        'i-account-premium',
+        'Premium',
+        user.premium ? 'Активен' : 'Неактивен',
+        user.premium_lifetime
+          ? 'Бессрочный доступ'
+          : user.premium_until
+            ? `До ${new Date(user.premium_until).toLocaleDateString('ru-RU')}`
+            : 'Подписка не активна',
+        'user-premium',
+        Boolean(user.premium)
+      ),
+    ].join('');
+    renderMenuAccountSummary();
+  }
+
+
+  function accountInfoCard(iconId, title, value, subtitle, action = '', premium = false) {
+    return `<button class="account-info-card pressable ${premium ? 'premium' : ''}" type="button" ${action ? `data-profile-action="${action}"` : ''}>
+      <span class="account-info-icon"><svg viewBox="0 0 24 24"><use href="#${iconId}"></use></svg></span>
+      <span class="account-info-copy">
+        <small>${escapeHtml(title)}</small>
+        <strong>${escapeHtml(value)}</strong>
+        <em>${escapeHtml(subtitle)}</em>
+      </span>
+    </button>`;
+  }
+
+  function profileRow(iconId, title, subtitle, value = '', action = '') {
+    return `<button class="telegram-row pressable profile-click-row" type="button" ${action ? `data-profile-action="${action}"` : ''}><span class="row-icon"><svg><use href="#${iconId}"></use></svg></span><span class="row-copy"><b>${escapeHtml(title)}</b><small>${escapeHtml(subtitle)}</small></span>${value ? `<span class="muted">${escapeHtml(value)}</span>` : '<svg class="chevron"><use href="#i-chevron-right"></use></svg>'}</button>`;
+  }
+
+  function quickSettingRow(key, iconId, title, subtitle) {
+    return `<label class="telegram-row"><span class="row-icon"><svg><use href="#${iconId}"></use></svg></span><span class="row-copy"><b>${escapeHtml(title)}</b><small>${escapeHtml(subtitle)}</small></span><span class="toggle"><input type="checkbox" data-quick-setting="${key}"><span></span></span></label>`;
+  }
+
+  function renderProfile() {
+    if (!state.profile) return;
+    const profile = state.profile;
+    setChatAvatar($('#profile-avatar'), {...profile, avatar_url: profile.avatar_url || currentChat()?.avatar_url});
+    $('#profile-title').textContent = profile.title;
+    $('#profile-username').textContent = profile.username ? `@${profile.username} · Telegram-группа` : `ID: ${profile.id}`;
+    const owner = profile.owner;
+    const ownerName = owner ? (owner.full_name || owner.first_name || `ID ${owner.id}`) : 'Не определён';
+    const premiumSubtitle = state.premiumStatus?.source === 'owner'
+      ? 'Получен автоматически от Premium создателя группы'
+      : profile.premium ? 'Premium куплен для группы' : 'Premium не активен';
+    $('#profile-info-list').innerHTML = [
+      profileRow('i-users', 'Участники', 'Открыть полный список участников', String(profile.members ?? state.members.length), 'members'),
+      profileRow('i-crown', 'Владелец', 'Открыть данные создателя группы', ownerName, 'owner'),
+      profileRow('i-diamond', 'AniGuard Premium', premiumSubtitle, profile.premium ? 'Активен' : 'Неактивен', 'premium'),
+      profileRow('i-id', 'Telegram ID', 'Идентификатор выбранной группы', String(profile.id)),
+    ].join('');
+    $('#profile-quick-settings').innerHTML = [
+      profileRow('i-rule', 'Правила группы', 'Создать или изменить опубликованные правила', `${state.rulesConfig?.rules?.length || 0}`, 'rules'),
+      profileRow('i-message-star', 'Приветственное сообщение', state.welcome?.photo_name ? 'Текст и фотография добавлены' : 'Текст и фотография для новичков', state.welcome?.enabled ? 'Включено' : 'Выключено', 'welcome'),
+      profileRow('i-captcha', 'CAPTCHA новых участников', 'Смысловая картинка и клавиатура 3×3', state.captcha?.enabled ? 'Включена' : 'Выключена', 'captcha'),
+      quickSettingRow('anti_flood_enabled', 'i-filter', 'Антифлуд', 'Контроль частых сообщений'),
+      quickSettingRow('link_filter_enabled', 'i-link-lock', 'Фильтр ссылок', 'Ограничение ссылок новичков'),
+    ].join('');
+    $$('[data-quick-setting]').forEach(input => { input.checked = Boolean(state.settings[input.dataset.quickSetting]); });
+    $('#profile-open-link').disabled = !(profile.username || profile.invite_link);
+  }
+
+
+  function renderAutomodStructure() {
+    const node = $('#automod-sections');
+    if (!node) return;
+    node.innerHTML = settingGroups.filter(group => group.automod).map(group => `
+      <section class="automod-group" data-automod-group="${group.id}">
+        <h2>${escapeHtml(group.title)}</h2>
+        <p>Автоматические функции выбранной группы</p>
+        <div class="telegram-list">
+          ${group.fields.map(field => `
+            <label class="automod-row" data-search="${escapeHtml((field.label + ' ' + field.description).toLowerCase())}">
+              <span class="row-icon"><svg><use href="#${field.icon}"></use></svg></span>
+              <span class="row-copy"><span class="automod-title-line"><span class="automod-title">${escapeHtml(field.label)}</span>${field.premium ? '<span class="premium-chip">PREMIUM</span>' : ''}</span><span class="automod-description">${escapeHtml(field.description)}</span></span>
+              <span class="toggle"><input type="checkbox" data-automod-key="${field.key}" data-premium="${field.premium ? 'true' : 'false'}"><span></span></span>
+            </label>`).join('')}
+        </div>
+      </section>`).join('');
+  }
+
+  function renderAutomodValues() {
+    $$('[data-automod-key]').forEach(input => {
+      input.checked = Boolean(state.settings[input.dataset.automodKey]);
+    });
+    $('#moderation-premium-state').textContent = premiumAvailable() ? 'Premium активен' : 'Обычный доступ';
+  }
+
+  function renderMenuLinks() {
+    const node = $('#menu-links');
+    if (!node) return;
+    const links = [
+      ['profile', 'i-menu-profile', 'profile', 'Профиль', 'Баланс, уровни и статистика аккаунта'],
+      ['settings', 'i-menu-settings', 'settings', 'Настройки', 'Оформление и параметры пользователя'],
+      ['advertising', 'i-menu-advertising', 'advertising', 'Реклама', 'Покупка размещений в боте и канале'],
+      ['faq', 'i-menu-faq', 'faq', 'FAQ', 'Ответы на частые вопросы'],
+    ];
+    node.innerHTML = links.map(([action,iconId,tone,title,sub]) => `<button class="telegram-row account-menu-link pressable" data-user-menu-action="${action}" type="button"><span class="row-icon account-menu-icon ${tone}"><svg><use href="#${iconId}"></use></svg></span><span class="row-copy"><b>${title}</b><small>${sub}</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>`).join('');
+    renderMenuAccountSummary();
+  }
+
+  function openUserActionDialog(action) {
+    const dialog = $('#user-action-dialog');
+    const title = $('#user-action-title');
+    const subtitle = $('#user-action-subtitle');
+    const content = $('#user-action-content');
+
+    if (action === 'settings') {
+      title.textContent = 'Настройки';
+      subtitle.textContent = 'Параметры аккаунта AniGuard';
+      content.innerHTML = `
+        <div class="account-action-card"><h3>Оформление</h3><p>Переключайте тему независимо от темы Telegram. Выбор сохраняется на устройстве.</p></div>
+        <button class="telegram-row pressable" type="button" data-toggle-theme-from-settings><span class="row-icon account-menu-icon settings"><svg><use href="#i-menu-settings"></use></svg></span><span class="row-copy"><b>Светлая или тёмная тема</b><small>Текущая тема: ${document.documentElement.dataset.theme === 'dark' ? 'тёмная' : 'светлая'}</small></span><svg class="chevron"><use href="#i-chevron-right"></use></svg></button>
+        <div class="account-action-card"><h3>Данные аккаунта</h3><p>Имя, фамилия, ID, Premium и баланс загружаются с сервера. Права и баланс нельзя изменить через код страницы.</p></div>`;
+    } else if (action === 'advertising') {
+      title.textContent = 'Реклама';
+      subtitle.textContent = 'Размещения в экосистеме AniGuard';
+      content.innerHTML = `
+        <div class="account-action-card"><h3>AniGuard Ads</h3><p>Покупка рекламы в Telegram-боте, рекламных постов в канале и комбинированных размещений.</p></div>
+        <button class="primary account-action-button" type="button" data-open-advertising>Открыть магазин рекламы</button>`;
+    } else if (action === 'faq') {
+      title.textContent = 'FAQ';
+      subtitle.textContent = 'Часто задаваемые вопросы';
+      content.innerHTML = `
+        <details class="faq-item" open><summary>Как подключить беседу?</summary><p>Добавьте AniGuard администратором. Если регистрация не выполнилась автоматически, отправьте в группе команду <code>/register_chat</code>.</p></details>
+        <details class="faq-item"><summary>Для чего нужен AniCoin?</summary><p>AniCoin используется в магазине, кейсах, оформлении профиля и игровых механиках.</p></details>
+        <details class="faq-item"><summary>Почему ник золотой?</summary><p>Золотой или жёлтый ник отображается только у пользователя с активным Premium. У обычного аккаунта ник серо-синий.</p></details>
+        <details class="faq-item"><summary>Как определяется статистика?</summary><p>Уровни, рейтинг и репутация рассчитываются сервером по активности, XP, числу бесед и предупреждениям.</p></details>`;
+    }
+    if (!dialog.open) dialog.showModal();
+  }
+
+  async function saveSettingKey(key, value, sourceInput = null) {
+    const previous = state.settings[key];
+    state.settings[key] = value;
+    try {
+      const result = await api(`/api/chats/${state.chatId}/settings`, {
+        method:'PUT',
+        body:JSON.stringify({settings:{[key]:value}}),
+      });
+      state.settings = {...state.settings, ...result.settings};
+      renderAutomodValues();
+      renderProfile();
+      notify('Настройка сохранена.');
+    } catch (error) {
+      state.settings[key] = previous;
+      if (sourceInput) sourceInput.checked = Boolean(previous);
+      if (/Premium/i.test(error.message)) openPremiumDialog(error.message);
+      else notify(error.message, true);
+    }
+  }
+
+  function openPremiumDialog(message = 'Эта функция доступна только с AniGuard Premium.') {
+    $('#premium-dialog-text').textContent = message;
+    $('#premium-dialog').showModal();
+  }
+
+  function renderReports(reports) {
+    $('#reports-list').innerHTML = reports.length ? reports.map(report => `<article class="list-card" data-report-id="${report.id}"><div>${icon('i-report')}<h3>Жалоба AG-${report.id}</h3><p>User ID: ${report.target_id} · ${escapeHtml(report.reason)} · ${new Date(report.created_at).toLocaleString('ru-RU')}</p></div><div class="actions"><button class="secondary report-decision" data-decision="dismiss">Отклонить</button><button class="secondary report-decision" data-decision="warn">Пред</button><button class="secondary report-decision" data-decision="mute">Мут</button><button class="danger report-decision" data-decision="ban">Бан</button></div></article>`).join('') : '<article class="card muted">Открытых жалоб нет.</article>';
+  }
+
+  function renderRp(rows) {
+    $('#rp-list').innerHTML = rows.length ? rows.map(row => `<article class="list-card" data-rp-id="${row.id}"><div>${icon(row.is_premium ? 'i-premium' : 'i-rp')}<h3>${escapeHtml(row.name)}</h3><p>${escapeHtml(row.response_template)} · кулдаун ${row.cooldown_seconds} сек.</p></div><div class="actions"><button class="secondary rp-toggle" data-enabled="${row.enabled}">${row.enabled ? 'Отключить' : 'Включить'}</button><button class="danger rp-delete">Удалить</button></div></article>`).join('') : '<article class="card muted">RP-команд пока нет.</article>';
+  }
+
+  function renderRules(rows) {
+    $('#rules-list').innerHTML = rows.length ? rows.map(row => `<article class="list-card" data-rule-id="${row.id}"><div>${icon(row.is_premium ? 'i-premium' : 'i-shield')}<h3>${escapeHtml(row.name)}</h3><p>${escapeHtml(JSON.stringify(row.condition))} → ${escapeHtml(JSON.stringify(row.actions))}</p></div><div class="actions"><button class="secondary rule-toggle" data-enabled="${row.enabled}">${row.enabled ? 'Отключить' : 'Включить'}</button><button class="danger rule-delete">Удалить</button></div></article>`).join('') : '<article class="card muted">Правила ещё не созданы.</article>';
+  }
+
+  function formatDuration(seconds) {
+    if (seconds === 0) return 'навсегда';
+    if (seconds == null) return 'по настройкам группы';
+    const units = [[2592000,'мес'],[604800,'нед'],[86400,'д'],[3600,'ч'],[60,'мин'],[1,'сек']];
+    let left = Number(seconds), parts = [];
+    for (const [size,label] of units) {
+      if (left >= size) { const count = Math.floor(left / size); left %= size; parts.push(`${count} ${label}`); }
+      if (parts.length === 2) break;
+    }
+    return parts.join(' ') || '0 сек.';
+  }
+
+  function renderCustom(rows) {
+    $('#custom-list').innerHTML = rows.length ? rows.map(row => `<article class="list-card" data-custom-id="${row.id}"><div>${icon('i-premium')}<h3>${escapeHtml(row.name)} <span class="muted">— ${escapeHtml(row.trigger)}</span></h3><p>${escapeHtml(row.action_type)} · ${formatDuration(row.duration_seconds)}${row.frozen ? ' · заморожена' : ''}</p><p>${escapeHtml(row.response_template)}</p></div><div class="actions"><button class="secondary custom-edit" ${row.frozen ? 'disabled' : ''}>Редактировать</button><button class="secondary custom-toggle" data-enabled="${row.enabled}" ${row.frozen ? 'disabled' : ''}>${row.enabled ? 'Отключить' : 'Включить'}</button><button class="danger custom-delete">Удалить</button></div></article>`).join('') : '<article class="card muted">Кастомных команд пока нет.</article>';
+  }
+
+  function renderGame(rows) {
+    $('#game-list').innerHTML = rows.length ? rows.map(row => `<article class="list-card" data-game-id="${row.id}"><div>${icon('i-game')}<h3>${escapeHtml(row.name)} <span class="muted">— ${escapeHtml(row.trigger)}</span></h3><p>${escapeHtml(row.command_type)} · +${row.reward_xp} XP · +${row.reward_coins} AniCoin · кулдаун ${row.cooldown_seconds} сек.</p></div><div class="actions"><button class="secondary game-edit">Редактировать</button><button class="secondary game-toggle" data-enabled="${row.enabled}">${row.enabled ? 'Отключить' : 'Включить'}</button><button class="danger game-delete">Удалить</button></div></article>`).join('') : '<article class="card muted">Игровых команд пока нет.</article>';
+  }
+
+  function fieldHtml(field) {
+    const premium = field.premium ? ' data-premium-setting="true"' : '';
+    const label = `${escapeHtml(field.label)}${field.premium ? ' <span class="premium-chip">PREMIUM</span>' : ''}`;
+    if (field.type === 'switch') return `<label class="switch-line"><input id="setting-${field.key}" data-key="${field.key}"${premium} type="checkbox"><span>${label}</span></label>`;
+    if (field.type === 'textarea-list') return `<label>${label}<textarea id="setting-${field.key}" data-key="${field.key}"${premium} data-type="list" class="control" rows="4"></textarea></label>`;
+    if (field.type === 'duration') return `<label>${label}<input id="setting-${field.key}" data-key="${field.key}"${premium} data-type="duration" class="control" placeholder="Например: 7 дней или навсегда"></label>`;
+    if (field.type === 'number') return `<label>${label}<input id="setting-${field.key}" data-key="${field.key}"${premium} class="control" type="number" min="${field.min}" max="${field.max}"></label>`;
+    return `<label>${label}<input id="setting-${field.key}" data-key="${field.key}"${premium} class="control"></label>`;
+  }
+
+  function renderSettingsStructure() {
+    $('#settings-list').innerHTML = settingGroups.map(group => `<details class="setting-group" data-search="${escapeHtml(group.keywords)}"><summary><div class="section-title">${icon(group.icon)}<div><h2>${escapeHtml(group.title)}</h2><p>${group.premium ? 'Premium-модуль' : 'Открыть настройки'}</p></div></div></summary><div class="accordion-body">${group.fields.map(fieldHtml).join('')}</div></details>`).join('');
+  }
+
+  function renderSettingsValues() {
+    for (const group of settingGroups) {
+      for (const field of group.fields) {
+        const node = $(`#setting-${field.key}`);
+        if (!node) continue;
+        const value = state.settings[field.key];
+        if (field.type === 'switch') node.checked = Boolean(value);
+        else if (field.type === 'textarea-list') node.value = Array.isArray(value) ? value.join('\n') : '';
+        else if (field.type === 'duration') node.value = formatDuration(value);
+        else node.value = String(value ?? '');
+      }
+    }
+  }
+
+  function readSettings() {
+    for (const node of $$('[data-key]', $('#settings-list'))) {
+      const key = node.dataset.key;
+      if (node.type === 'checkbox') state.settings[key] = node.checked;
+      else if (node.dataset.type === 'list') state.settings[key] = node.value.split('\n').map(v => v.trim()).filter(Boolean);
+      else if (node.dataset.type === 'duration') state.settings[key] = parseDurationText(node.value);
+      else if (node.type === 'number' || node.tagName === 'SELECT') state.settings[key] = Number(node.value);
+      else state.settings[key] = node.value;
+    }
+  }
+
+  function renderPlans() {
+    const label = state.premiumStatus?.active ? 'Продлить' : 'Купить';
+    $('#plans-list').innerHTML = state.plans.map(plan => `<article class="plan ${plan.code === 'season' ? 'recommended' : ''}"><span class="badge">${escapeHtml(plan.badge)}</span><h2>${escapeHtml(plan.title)}</h2><div class="price">${plan.stars} Stars</div><p>${escapeHtml(plan.description)}</p><button class="primary buy-plan" data-plan="${plan.code}">${label} на ${plan.days} дней</button></article>`).join('');
+  }
+
+  function formatRemaining(seconds) {
+    if (seconds == null) return 'Бессрочно';
+    if (seconds <= 0) return 'Истёк';
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    return days ? `${days} д. ${hours} ч.` : `${hours} ч.`;
+  }
+
+  function updatePremiumStatus() {
+    const status = state.premiumStatus;
+    if (!status) return;
+    if (status.source === 'owner') $('#premium-status').textContent = 'Группа автоматически получила Premium от создателя';
+    else if (status.active) $('#premium-status').textContent = status.lifetime ? 'Premium группы активен бессрочно' : `Premium группы активен до ${new Date(status.until).toLocaleString('ru-RU')}`;
+    else $('#premium-status').textContent = 'Premium не активен';
+  }
+
+  function renderPremiumDetails() {
+    const status = state.premiumStatus;
+    if (!status) return;
+    const sourceNames = {owner:'Premium создателя',group:'Premium группы',user:'Premium администратора',none:'Не активен'};
+    $('#premium-details').innerHTML = [
+      ['Статус', status.active ? 'Активен' : 'Неактивен'],
+      ['Источник', sourceNames[status.source] || status.source],
+      ['Осталось', status.active ? formatRemaining(status.remaining_seconds) : '—'],
+    ].map(([label,value]) => `<div class="premium-detail"><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b></div>`).join('');
+    const ownerNote = status.source === 'owner' && status.owner
+      ? `<div class="owner-source-note">Premium действует, пока подписка создателя ${escapeHtml(status.owner.full_name || status.owner.first_name)} активна.</div>` : '';
+    $('#premium-details').insertAdjacentHTML('beforeend', ownerNote);
+    $('#premium-features').innerHTML = (status.features || []).map(feature => `<span>${escapeHtml(feature)}</span>`).join('');
+    renderPlans();
+  }
+
+
+  function openAction(name) {
+    const action = actionDefinitions.find(item => item.action === name);
+    if (!action) return;
+    if (action.premium && !premiumAvailable()) { openPremiumDialog('Для действия «' + action.title + '» нужен AniGuard Premium.'); return; }
+    state.currentAction = action;
+    $('#action-title').textContent = action.title;
+    $('#action-description').textContent = action.description;
+    $('#action-icon use').setAttribute('href', `#${action.icon}`);
+    $('#action-target-row').classList.toggle('hidden', !action.target);
+    $('#action-duration-row').classList.toggle('hidden', !action.duration);
+    $('#action-amount-row').classList.toggle('hidden', !action.amount);
+    $('#action-amount').value = action.action === 'slow' ? 15 : 25;
+    $('#action-duration').value = '';
+    $('#action-reason').value = '';
+    $('#action-dialog').showModal();
+  }
+
+  async function executeAction() {
+    const action = state.currentAction;
+    if (!action || !state.chatId) return;
+    const body = {action:action.action, reason:$('#action-reason').value};
+    if (action.target) body.target_id = Number($('#action-target').value);
+    if (action.duration && $('#action-duration').value.trim()) body.duration_seconds = parseDurationText($('#action-duration').value);
+    if (action.amount) body.amount = Number($('#action-amount').value);
+    try {
+      await api(`/api/chats/${state.chatId}/actions`, {method:'POST', body:JSON.stringify(body)});
+      $('#action-dialog').close(); notify(`Команда «${action.title}» выполнена.`); await loadChat();
+    } catch (error) { notify(error.message, true); }
+  }
+
+  function parseDurationText(value) {
+    const text = value.trim().toLowerCase();
+    if (['навсегда','бессрочно','постоянно'].includes(text)) return 0;
+    const regex = /(\d+)\s*(секунд(?:а|ы)?|сек|с|минут(?:а|ы)?|мин|м|час(?:а|ов)?|ч|день|дня|дней|д|неделя|недели|недель|нед|месяц|месяца|месяцев|мес)\.?/g;
+    const multipliers = {с:1,сек:1,секунда:1,секунды:1,секунд:1,м:60,мин:60,минута:60,минуты:60,минут:60,ч:3600,час:3600,часа:3600,часов:3600,д:86400,день:86400,дня:86400,дней:86400,нед:604800,неделя:604800,недели:604800,недель:604800,мес:2592000,месяц:2592000,месяца:2592000,месяцев:2592000};
+    let total = 0, match, consumed = '';
+    while ((match = regex.exec(text))) { total += Number(match[1]) * multipliers[match[2]]; consumed += match[0]; }
+    if (!total || consumed.replace(/\s/g,'').length !== text.replace(/\s/g,'').length) throw new Error('Срок указывается так: 30 секунд, 2 часа, 7 дней, 1 месяц или навсегда');
+    if (total > 31536000) throw new Error('Максимальный временный срок — 365 дней');
+    return total;
+  }
+
+  async function createCustom() {
+    try {
+      if (!premiumAvailable()) throw new Error('Конструктор кастомных команд доступен с Premium');
+      const action = $('#custom-action').value;
+      const timedActions = new Set(['mute','ban','quarantine','restrict_media','restrict_links','restrict_commands']);
+      const duration = timedActions.has(action) ? parseDurationText($('#custom-duration').value) : null;
+      const payload = {
+        name:$('#custom-name').value.trim(), trigger:$('#custom-trigger').value.trim(), action_type:action,
+        duration_seconds:duration, response_template:$('#custom-template').value.trim(), required_role:$('#custom-role').value,
+        target_mode:$('#custom-target').value, cooldown_seconds:Number($('#custom-cooldown').value),
+        delete_trigger:$('#custom-delete').checked, require_reason:$('#custom-reason-required').checked, enabled:true,
+      };
+      const path = state.editingCustomId
+        ? `/api/chats/${state.chatId}/custom-commands/${state.editingCustomId}`
+        : `/api/chats/${state.chatId}/custom-commands`;
+      await api(path, {method:state.editingCustomId ? 'PATCH' : 'POST', body:JSON.stringify(payload)});
+      notify(state.editingCustomId ? 'Кастомная команда обновлена.' : 'Кастомная команда создана.');
+      state.editingCustomId = null;
+      $('#create-custom').textContent = 'Создать кастомную команду';
+      await loadChat();
+    } catch (error) { notify(error.message, true); }
+  }
+
+  function editCustom(id) {
+    const row = state.customCommands.find(item => item.id === Number(id));
+    if (!row || row.frozen) return;
+    state.editingCustomId = row.id;
+    $('#custom-name').value = row.name;
+    $('#custom-trigger').value = row.trigger;
+    $('#custom-action').value = row.action_type;
+    $('#custom-duration').value = row.duration_seconds == null ? '7 дней' : formatDuration(row.duration_seconds);
+    $('#custom-template').value = row.response_template;
+    $('#custom-role').value = row.required_role;
+    $('#custom-target').value = row.target_mode;
+    $('#custom-cooldown').value = row.cooldown_seconds;
+    $('#custom-delete').checked = row.delete_trigger;
+    $('#custom-reason-required').checked = row.require_reason;
+    $('#create-custom').textContent = 'Сохранить изменения';
+    setView('custom');
+  }
+
+  async function createGame() {
+    const payload = {
+      name:$('#game-name').value.trim(), trigger:$('#game-trigger').value.trim(), command_type:$('#game-type').value,
+      response_template:$('#game-template').value.trim(), response_variants:$('#game-variants').value.split('\n').map(v => v.trim()).filter(Boolean),
+      reward_xp:Number($('#game-xp').value), reward_coins:Number($('#game-coins').value), cooldown_seconds:Number($('#game-cooldown').value),
+      access:$('#game-access').value, enabled:true,
+    };
+    try {
+      const path = state.editingGameId
+        ? `/api/chats/${state.chatId}/game-commands/${state.editingGameId}`
+        : `/api/chats/${state.chatId}/game-commands`;
+      await api(path, {method:state.editingGameId ? 'PATCH' : 'POST', body:JSON.stringify(payload)});
+      notify(state.editingGameId ? 'Игровая команда обновлена.' : 'Игровая команда добавлена.');
+      state.editingGameId = null;
+      $('#create-game').textContent = 'Добавить игровую команду';
+      await loadChat();
+    }
+    catch (error) { notify(error.message, true); }
+  }
+
+  function editGame(id) {
+    const row = state.gameCommands.find(item => item.id === Number(id));
+    if (!row) return;
+    state.editingGameId = row.id;
+    $('#game-name').value = row.name;
+    $('#game-trigger').value = row.trigger;
+    $('#game-type').value = row.command_type;
+    $('#game-template').value = row.response_template;
+    $('#game-variants').value = (row.response_variants || []).join('\n');
+    $('#game-xp').value = row.reward_xp;
+    $('#game-coins').value = row.reward_coins;
+    $('#game-cooldown').value = row.cooldown_seconds;
+    $('#game-access').value = row.access;
+    $('#create-game').textContent = 'Сохранить изменения';
+    setView('game');
+  }
+
+  async function createRp() {
+    const payload = {name:$('#rp-name').value.trim(), aliases:$('#rp-aliases').value.split(',').map(v=>v.trim()).filter(Boolean), response_template:$('#rp-template').value.trim(), response_variants:$('#rp-variants').value.split('\n').map(v=>v.trim()).filter(Boolean), enabled:true, is_premium:$('#rp-premium').checked, cooldown_seconds:Number($('#rp-cooldown').value), access:$('#rp-access').value, reward_xp:Number($('#rp-xp').value), reward_coins:Number($('#rp-coins').value)};
+    try { await api(`/api/chats/${state.chatId}/rp`, {method:'POST', body:JSON.stringify(payload)}); notify('RP-команда добавлена.'); await loadChat(); }
+    catch (error) { notify(error.message, true); }
+  }
+
+  async function createRule() {
+    const payload = {name:$('#rule-name').value.trim(), condition:{type:$('#rule-condition').value}, actions:[{type:$('#rule-action').value}], enabled:true, is_premium:$('#rule-premium').checked};
+    try { await api(`/api/chats/${state.chatId}/rules`, {method:'POST', body:JSON.stringify(payload)}); notify('Правило создано.'); await loadChat(); }
+    catch (error) { notify(error.message, true); }
+  }
+
+  async function saveSettings() {
+    readSettings();
+    try { const result = await api(`/api/chats/${state.chatId}/settings`, {method:'PUT', body:JSON.stringify({settings:state.settings})}); state.settings = result.settings; renderSettingsValues(); notify('Настройки сохранены.'); await loadChat(); }
+    catch (error) { notify(error.message, true); }
+  }
+
+  async function buyPlan(code) {
+    try {
+      const result = await api(`/api/chats/${state.chatId}/premium/invoice`, {method:'POST', body:JSON.stringify({plan_code:code})});
+      if (!tg?.openInvoice) throw new Error('Оплата доступна только внутри Telegram');
+      tg.openInvoice(result.invoice_url, status => { if (status === 'paid') { notify('Оплата прошла. Premium активируется автоматически.'); setTimeout(loadChat, 1200); } else if (status === 'failed') notify('Оплата не прошла.', true); });
+    } catch (error) { notify(error.message, true); }
+  }
+
+
+  async function askConfirm(text) {
+    if (tg?.showConfirm) return await new Promise(resolve => tg.showConfirm(text, resolve));
+    return window.confirm(text);
+  }
+
+  async function memberModeration(memberId, action) {
+    const member = state.members.find(item => item.id === Number(memberId));
+    if (!member) return;
+    const verb = action === 'ban' ? 'заблокировать' : 'удалить из группы';
+    if (!await askConfirm(`Действительно ${verb} ${member.full_name || member.first_name}?`)) return;
+    try {
+      const payload = {action, target_id:member.id, reason:'Действие администратора через Mini App'};
+      if (action === 'ban') payload.duration_seconds = 0;
+      await api(`/api/chats/${state.chatId}/actions`, {method:'POST', body:JSON.stringify(payload)});
+      notify(action === 'ban' ? 'Участник заблокирован.' : 'Участник удалён из группы.');
+      await loadChat();
+    } catch (error) { notify(error.message, true); }
+  }
+
+  async function showMemberDetails(memberId) {
+    try {
+      const member = await api(`/api/chats/${state.chatId}/members/${memberId}`);
+      const username = member.username ? `@${member.username}` : 'Юзернейм отсутствует';
+      const date = value => value ? new Date(value).toLocaleString('ru-RU') : 'Нет';
+      $('#member-details').innerHTML = `<article class="member-details-card">
+        ${avatarHtml(member, true)}
+        <h2>${escapeHtml(member.full_name || member.first_name || 'Без имени')}</h2>
+        <p class="muted">ID: ${member.id}</p><p>${escapeHtml(username)}</p>
+        <div class="detail-grid">
+          <div class="detail-item"><small>Роль</small><b>${escapeHtml(member.role)}</b></div>
+          <div class="detail-item"><small>Статус Telegram</small><b>${escapeHtml(member.telegram?.status || 'неизвестен')}</b></div>
+          <div class="detail-item"><small>Предупреждения</small><b>${member.warnings}</b></div>
+          <div class="detail-item"><small>Сообщения</small><b>${member.messages}</b></div>
+          <div class="detail-item"><small>XP</small><b>${member.xp}</b></div>
+          <div class="detail-item"><small>AniCoin</small><b>${member.coins}</b></div>
+          <div class="detail-item"><small>Вступил</small><b>${escapeHtml(date(member.joined_at))}</b></div>
+          <div class="detail-item"><small>Последняя активность</small><b>${escapeHtml(date(member.last_seen_at))}</b></div>
+          <div class="detail-item"><small>Мут до</small><b>${escapeHtml(date(member.muted_until))}</b></div>
+          <div class="detail-item"><small>Карантин до</small><b>${escapeHtml(date(member.quarantined_until))}</b></div>
+        </div>
+        <p class="muted">Активные ограничения: ${escapeHtml((member.active_restrictions || []).join(', ') || 'нет')}</p>
+      </article>`;
+      $('#member-dialog').showModal();
+    } catch (error) { notify(error.message, true); }
+  }
+
+  function showOwnerDetails() {
+    const owner = state.profile?.owner;
+    if (!owner) return notify('Telegram не вернул данные владельца.', true);
+    $('#owner-details').innerHTML = `<article class="member-details-card">${avatarHtml(owner, true)}<h2>${escapeHtml(owner.full_name || owner.first_name || 'Без имени')}</h2><p class="muted">ID: ${owner.id}</p><p>${owner.username ? '@' + escapeHtml(owner.username) : 'Юзернейм отсутствует'}</p><div class="owner-source-note">Создатель Telegram-группы. Premium этого аккаунта автоматически распространяется на группу до окончания подписки.</div></article>`;
+    $('#owner-dialog').showModal();
+  }
+
+  function openBasicEditor(key) {
+    if (!premiumAvailable()) return openPremiumDialog('Редактор основных команд доступен только с AniGuard Premium.');
+    const command = state.basicCommands.find(item => item.key === key);
+    if (!command) return;
+    state.editingBasicKey = key;
+    $('#basic-command-title').textContent = `Редактирование: ${command.name}`;
+    $('#basic-command-trigger').value = command.trigger;
+    $('#basic-command-response').value = command.response;
+    $('#basic-command-dialog').showModal();
+  }
+
+  async function saveBasicCommand() {
+    const trigger = $('#basic-command-trigger').value.trim();
+    const response = $('#basic-command-response').value.trim();
+    if (!trigger || !response) return notify('Введите вызов команды и текст ответа.', true);
+    try {
+      await api(`/api/chats/${state.chatId}/basic-commands/${state.editingBasicKey}`, {method:'PUT', body:JSON.stringify({trigger,response})});
+      $('#basic-command-dialog').close();
+      notify('Основная команда обновлена в боте.');
+      await loadChat();
+    } catch (error) { notify(error.message, true); }
+  }
+
+  function updateRulesPreview() {
+    const rules = $('#group-rules-text').value.split('\n').map(item => item.trim()).filter(Boolean);
+    $('#group-rules-preview').innerHTML = rules.map((rule,index) => `<div class="rule-preview-item"><span>${index + 1}</span><div>${escapeHtml(rule)}</div></div>`).join('') || '<p class="muted">Правила не добавлены.</p>';
+  }
+
+  function openRulesDialog() {
+    $('#group-rules-text').value = (state.rulesConfig?.rules || []).join('\n');
+    updateRulesPreview();
+    $('#rules-dialog').showModal();
+  }
+
+  async function saveGroupRules() {
+    const rules = $('#group-rules-text').value.split('\n').map(item => item.trim()).filter(Boolean);
+    try {
+      state.rulesConfig = await api(`/api/chats/${state.chatId}/group-rules`, {method:'PUT', body:JSON.stringify({rules})});
+      $('#rules-dialog').close();
+      notify('Правила группы сохранены и подключены к команде бота.');
+      renderProfile();
+    } catch (error) { notify(error.message, true); }
+  }
+
+  function renderWelcomePhoto() {
+    const image = $('#welcome-photo-preview');
+    if (state.welcome?.photo_url) {
+      image.src = state.welcome.photo_url;
+      image.classList.remove('hidden');
+    } else {
+      image.removeAttribute('src');
+      image.classList.add('hidden');
+    }
+  }
+
+  function openWelcomeDialog() {
+    $('#welcome-enabled').checked = Boolean(state.welcome?.enabled);
+    $('#welcome-after-captcha').checked = Boolean(state.welcome?.after_captcha);
+    $('#welcome-text').value = state.welcome?.text || '';
+    $('#welcome-photo').value = '';
+    renderWelcomePhoto();
+    $('#welcome-dialog').showModal();
+  }
+
+  async function saveWelcome() {
+    try {
+      state.welcome = await api(`/api/chats/${state.chatId}/welcome`, {method:'PUT', body:JSON.stringify({enabled:$('#welcome-enabled').checked,text:$('#welcome-text').value,after_captcha:$('#welcome-after-captcha').checked})});
+      $('#welcome-dialog').close();
+      notify('Приветственное сообщение подключено к боту.');
+      renderProfile();
+    } catch (error) { notify(error.message, true); }
+  }
+
+  async function uploadWelcomePhoto() {
+    const file = $('#welcome-photo').files?.[0];
+    if (!file) return notify('Сначала выберите фотографию.', true);
+    const form = new FormData();
+    form.append('photo', file);
+    try {
+      const result = await api(`/api/chats/${state.chatId}/welcome/photo`, {method:'POST', body:form});
+      state.welcome = {...state.welcome, ...result};
+      renderWelcomePhoto();
+      renderProfile();
+      notify('Фотография загружена на сервер бота.');
+    } catch (error) { notify(error.message, true); }
+  }
+
+  async function deleteWelcomePhoto() {
+    try {
+      await api(`/api/chats/${state.chatId}/welcome/photo`, {method:'DELETE'});
+      state.welcome = {...state.welcome, photo_name:'', photo_url:null};
+      renderWelcomePhoto();
+      renderProfile();
+      notify('Фотография удалена.');
+    } catch (error) { notify(error.message, true); }
+  }
+
+  function openCaptchaDialog() {
+    const value = state.captcha || {};
+    $('#captcha-enabled').checked = Boolean(value.enabled);
+    $('#captcha-timeout').value = String(value.timeout_seconds || 60);
+    $('#captcha-attempts').value = String(value.attempts || 3);
+    $('#captcha-failure').value = value.failure_action || 'kick';
+    $('#captcha-image-set').value = value.image_set || 'random';
+    $('#captcha-message').value = value.message || '';
+    $('#captcha-preview').classList.add('hidden');
+    $('#captcha-dialog').showModal();
+  }
+
+  async function saveCaptcha() {
+    try {
+      state.captcha = await api(`/api/chats/${state.chatId}/captcha`, {method:'PUT', body:JSON.stringify({enabled:$('#captcha-enabled').checked,timeout_seconds:Number($('#captcha-timeout').value),attempts:Number($('#captcha-attempts').value),failure_action:$('#captcha-failure').value,image_set:$('#captcha-image-set').value,message:$('#captcha-message').value})});
+      state.settings.captcha_enabled = state.captcha.enabled;
+      $('#captcha-dialog').close();
+      renderProfile();
+      renderAutomodValues();
+      notify('CAPTCHA сохранена и работает для новых участников.');
+    } catch (error) { notify(error.message, true); }
+  }
+
+  async function previewCaptcha() {
+    try {
+      const preview = await api(`/api/chats/${state.chatId}/captcha/preview?image_set=${encodeURIComponent($('#captcha-image-set').value)}`);
+      state.captchaPreviewAnswer = preview.answer;
+      $('#captcha-preview-image').src = preview.image_url;
+      $('#captcha-result').textContent = 'Выберите ответ.';
+      $('#captcha-options').innerHTML = preview.options.map(option => `<button type="button" data-captcha-option="${escapeHtml(option)}">${escapeHtml(option)}</button>`).join('');
+      $('#captcha-preview').classList.remove('hidden');
+    } catch (error) { notify(error.message, true); }
+  }
+
+  function handleProfileAction(action) {
+    if (action === 'members') setView('members');
+    else if (action === 'owner') showOwnerDetails();
+    else if (action === 'premium') setView('premium');
+    else if (action === 'rules') openRulesDialog();
+    else if (action === 'welcome') openWelcomeDialog();
+    else if (action === 'captcha') openCaptchaDialog();
+  }
+
+  async function loadAdmin() {
+    if (!state.user?.is_bot_admin) return;
+    try {
+      const [overview, logs] = await Promise.all([api('/api/admin/overview'), api('/api/admin/logs?limit=50')]);
+      const metrics = [['i-user','Пользователи',overview.users],['i-shield','Группы',overview.chats],['i-premium','Premium',overview.active_premium],['i-ban','Блокировки',overview.blocked],['i-command','Кастомные',overview.custom_commands]];
+      $('#admin-metrics').innerHTML = metrics.map(([ic,label,value]) => `<div class="metric">${iconSmall(ic)}<span>${label}</span><strong>${value}</strong></div>`).join('');
+      $('#admin-logs').innerHTML = logs.length ? logs.map(row => `<div class="list-row"><b>${escapeHtml(row.action)}</b><p>${escapeHtml(row.entity_type || '')} ${row.entity_id ?? ''} · ${new Date(row.created_at).toLocaleString('ru-RU')}</p></div>`).join('') : '<p class="muted">Действий пока нет.</p>';
+      await searchAdminEntities();
+    } catch (error) { notify(error.message, true); }
+  }
+
+  async function searchAdminEntities() {
+    const type = $('#admin-entity-type').value;
+    const q = encodeURIComponent($('#admin-search').value.trim());
+    try {
+      const rows = await api(`/api/admin/entities?entity_type=${type}&q=${q}&limit=100`);
+      $('#admin-entities').innerHTML = rows.length ? rows.map(row => adminEntityHtml(type,row)).join('') : '<article class="card muted">Ничего не найдено.</article>';
+    } catch (error) { notify(error.message, true); }
+  }
+
+  function adminEntityHtml(type, row) {
+    const premium = row.premium_permanent ? 'Premium навсегда' : row.premium_until ? `Premium до ${new Date(row.premium_until).toLocaleDateString('ru-RU')}` : 'Без Premium';
+    return `<article class="list-card admin-entity" data-entity-type="${type}" data-entity-id="${row.id}"><div>${icon(type === 'user' ? 'i-user' : 'i-shield')}<h3>${escapeHtml(row.title)}${row.username ? ` · @${escapeHtml(row.username)}` : ''}</h3><p>ID: ${row.id} · <span class="${row.premium_until || row.premium_permanent ? 'status-good' : ''}">${premium}</span> · <span class="${row.blocked ? 'status-bad' : 'status-good'}">${row.blocked ? 'заблокирован' : 'доступ открыт'}</span></p>${row.block_reason ? `<p>Причина: ${escapeHtml(row.block_reason)}</p>` : ''}</div><div class="admin-controls"><input class="control admin-days" type="number" min="0" max="3650" value="30" title="Дней"><label class="switch-line"><input class="admin-permanent" type="checkbox"><span>Навсегда</span></label><button class="secondary admin-grant">Выдать Premium</button><button class="secondary admin-revoke">Снять Premium</button><input class="control admin-block-reason" placeholder="Причина блокировки"><input class="control admin-block-duration" placeholder="Срок: пусто = навсегда"><button class="${row.blocked ? 'secondary admin-unblock' : 'danger admin-block'}">${row.blocked ? 'Разблокировать' : 'Заблокировать'}</button></div></article>`;
+  }
+
+  async function adminPremium(card, revoke = false) {
+    const payload = {entity_type:card.dataset.entityType, entity_id:Number(card.dataset.entityId), days:revoke ? 0 : Number($('.admin-days',card).value), permanent:revoke ? false : $('.admin-permanent',card).checked, plan:'admin', note:'Выдано через глобальную панель'};
+    try { await api('/api/admin/premium', {method:'POST', body:JSON.stringify(payload)}); notify(revoke ? 'Premium снят.' : 'Premium выдан.'); await loadAdmin(); }
+    catch (error) { notify(error.message, true); }
+  }
+
+  async function adminBlock(card, blocked) {
+    const durationText = $('.admin-block-duration',card)?.value.trim() || '';
+    const payload = {entity_type:card.dataset.entityType, entity_id:Number(card.dataset.entityId), blocked, reason:$('.admin-block-reason',card).value || 'Решение владельца AniGuard'};
+    if (blocked && durationText) payload.duration_seconds = parseDurationText(durationText);
+    try { await api('/api/admin/block', {method:'POST', body:JSON.stringify(payload)}); notify(blocked ? 'Доступ заблокирован.' : 'Доступ восстановлен.'); await loadAdmin(); }
+    catch (error) { notify(error.message, true); }
+  }
+
+  async function switchChat(chatId) {
+    if (!chatId || Number.isNaN(Number(chatId)) || Number(chatId) === state.chatId) {
+      $('#group-dialog')?.close();
+      return;
+    }
+    state.chatId = Number(chatId);
+    state.editingCustomId = null;
+    state.editingGameId = null;
+    $('#chat-select').value = String(state.chatId);
+    await loadChat();
+    $('#group-dialog')?.close();
+    notify('Группа переключена.');
+  }
+
+  function bindEvents() {
+    document.addEventListener('pointerdown', event => {
+      if (event.target.closest('button, .pressable, input[type="checkbox"], select')) haptic('light');
+    }, {passive:true});
+
+    document.addEventListener('click', async event => {
+      const nav = event.target.closest('.nav[data-view]');
+      if (nav) setView(nav.dataset.view);
+
+      const userMenuAction = event.target.closest('[data-user-menu-action]');
+      if (userMenuAction) {
+        $('#menu-dialog').close();
+        const action = userMenuAction.dataset.userMenuAction;
+        if (action === 'profile') setView('profile');
+        else openUserActionDialog(action);
+      }
+
+      if (event.target.closest('[data-toggle-theme-from-settings]')) {
+        toggleAppTheme();
+        openUserActionDialog('settings');
+      }
+
+      if (event.target.closest('[data-open-advertising]')) {
+        notify('Магазин рекламы будет открыт в отдельном разделе AniGuard.');
+      }
+
+      const groupOption = event.target.closest('[data-chat-id]');
+      if (groupOption) await switchChat(Number(groupOption.dataset.chatId));
+
+      const action = event.target.closest('[data-action]');
+      if (action) openAction(action.dataset.action);
+
+      const buy = event.target.closest('.buy-plan');
+      if (buy) buyPlan(buy.dataset.plan);
+
+      const profileAction = event.target.closest('[data-profile-action]');
+      if (profileAction) {
+        if (profileAction.dataset.profileAction === 'user-premium') setView('premium');
+        else handleProfileAction(profileAction.dataset.profileAction);
+      }
+
+      const memberCard = event.target.closest('[data-member-id]');
+      if (memberCard && event.target.closest('.member-info')) await showMemberDetails(memberCard.dataset.memberId);
+      if (memberCard && event.target.closest('.member-ban')) await memberModeration(memberCard.dataset.memberId, 'ban');
+      if (memberCard && event.target.closest('.member-kick')) await memberModeration(memberCard.dataset.memberId, 'kick');
+
+      const basicCard = event.target.closest('[data-basic-key]');
+      if (basicCard && event.target.closest('.basic-edit')) openBasicEditor(basicCard.dataset.basicKey);
+      if (basicCard && event.target.closest('.basic-run')) {
+        const command = state.basicCommands.find(item => item.key === basicCard.dataset.basicKey);
+        if (command) openAction(command.action);
+      }
+
+      const captchaOption = event.target.closest('[data-captcha-option]');
+      if (captchaOption) {
+        const correct = captchaOption.dataset.captchaOption === state.captchaPreviewAnswer;
+        if (correct) captchaOption.classList.add('correct');
+        $('#captcha-result').textContent = correct ? 'Верный ответ. Пользователь получит доступ к беседе.' : 'Неверный ответ. Попытка будет уменьшена.';
+        tg?.HapticFeedback?.notificationOccurred(correct ? 'success' : 'error');
+      }
+
+      const cardReport = event.target.closest('[data-report-id]');
+      const decision = event.target.closest('.report-decision');
+      if (decision && cardReport) {
+        try {
+          await api(`/api/chats/${state.chatId}/reports/${cardReport.dataset.reportId}/decision`, {
+            method:'POST',
+            body:JSON.stringify({decision:decision.dataset.decision, duration_seconds:604800, reason:'Решение из Mini App'}),
+          });
+          notify('Решение выполнено.');
+          await loadChat();
+        } catch(error) { notify(error.message,true); }
+      }
+
+      const customCard = event.target.closest('[data-custom-id]');
+      if (customCard && event.target.closest('.custom-edit')) editCustom(customCard.dataset.customId);
+      if (customCard && event.target.closest('.custom-delete')) {
+        try { await api(`/api/chats/${state.chatId}/custom-commands/${customCard.dataset.customId}`, {method:'DELETE'}); notify('Команда удалена.'); await loadChat(); }
+        catch(error){ notify(error.message,true); }
+      }
+      if (customCard && event.target.closest('.custom-toggle')) {
+        const button=event.target.closest('.custom-toggle');
+        try { await api(`/api/chats/${state.chatId}/custom-commands/${customCard.dataset.customId}`, {method:'PATCH', body:JSON.stringify({enabled:button.dataset.enabled !== 'true'})}); notify('Состояние изменено.'); await loadChat(); }
+        catch(error){ notify(error.message,true); }
+      }
+
+      const gameCard = event.target.closest('[data-game-id]');
+      if (gameCard && event.target.closest('.game-edit')) editGame(gameCard.dataset.gameId);
+      if (gameCard && event.target.closest('.game-delete')) {
+        try { await api(`/api/chats/${state.chatId}/game-commands/${gameCard.dataset.gameId}`, {method:'DELETE'}); notify('Игровая команда удалена.'); await loadChat(); }
+        catch(error){ notify(error.message,true); }
+      }
+      if (gameCard && event.target.closest('.game-toggle')) {
+        const button=event.target.closest('.game-toggle');
+        try { await api(`/api/chats/${state.chatId}/game-commands/${gameCard.dataset.gameId}`, {method:'PATCH', body:JSON.stringify({enabled:button.dataset.enabled !== 'true'})}); notify('Состояние изменено.'); await loadChat(); }
+        catch(error){ notify(error.message,true); }
+      }
+
+      const rpCard = event.target.closest('[data-rp-id]');
+      if (rpCard && event.target.closest('.rp-delete')) {
+        try { await api(`/api/chats/${state.chatId}/rp/${rpCard.dataset.rpId}`, {method:'DELETE'}); notify('RP-команда удалена.'); await loadChat(); }
+        catch(error){ notify(error.message,true); }
+      }
+      if (rpCard && event.target.closest('.rp-toggle')) {
+        const button=event.target.closest('.rp-toggle');
+        try { await api(`/api/chats/${state.chatId}/rp/${rpCard.dataset.rpId}`, {method:'PATCH', body:JSON.stringify({enabled:button.dataset.enabled !== 'true'})}); notify('Состояние изменено.'); await loadChat(); }
+        catch(error){ notify(error.message,true); }
+      }
+
+      const ruleCard = event.target.closest('[data-rule-id]');
+      if (ruleCard && event.target.closest('.rule-delete')) {
+        try { await api(`/api/chats/${state.chatId}/rules/${ruleCard.dataset.ruleId}`, {method:'DELETE'}); notify('Правило удалено.'); await loadChat(); }
+        catch(error){ notify(error.message,true); }
+      }
+      if (ruleCard && event.target.closest('.rule-toggle')) {
+        const button=event.target.closest('.rule-toggle');
+        try { await api(`/api/chats/${state.chatId}/rules/${ruleCard.dataset.ruleId}`, {method:'PATCH', body:JSON.stringify({enabled:button.dataset.enabled !== 'true'})}); notify('Состояние изменено.'); await loadChat(); }
+        catch(error){ notify(error.message,true); }
+      }
+
+      const adminCard = event.target.closest('[data-entity-id]');
+      if (adminCard && event.target.closest('.admin-grant')) adminPremium(adminCard,false);
+      if (adminCard && event.target.closest('.admin-revoke')) adminPremium(adminCard,true);
+      if (adminCard && event.target.closest('.admin-block')) adminBlock(adminCard,true);
+      if (adminCard && event.target.closest('.admin-unblock')) adminBlock(adminCard,false);
+    });
+
+    document.addEventListener('change', async event => {
+      const roleSelect = event.target.closest('.member-role');
+      if (roleSelect && !roleSelect.disabled) {
+        const card = roleSelect.closest('[data-member-id]');
+        try {
+          await api(`/api/chats/${state.chatId}/members/${card.dataset.memberId}/role`, {method:'PATCH', body:JSON.stringify({role:roleSelect.value})});
+          notify('Роль участника обновлена.');
+          await loadChat();
+        } catch (error) { notify(error.message, true); }
+        return;
+      }
+
+      const automodInput = event.target.closest('[data-automod-key]');
+      if (automodInput) {
+        if (automodInput.dataset.premium === 'true' && automodInput.checked && !premiumAvailable()) {
+          automodInput.checked = false;
+          openPremiumDialog(`Функция «${automodInput.closest('.automod-row').querySelector('.automod-title').textContent}» доступна с Premium.`);
+          return;
+        }
+        await saveSettingKey(automodInput.dataset.automodKey, automodInput.checked, automodInput);
+        return;
+      }
+
+      const quickInput = event.target.closest('[data-quick-setting]');
+      if (quickInput) {
+        await saveSettingKey(quickInput.dataset.quickSetting, quickInput.checked, quickInput);
+        return;
+      }
+
+      const premiumSetting = event.target.closest('[data-premium-setting="true"]');
+      if (premiumSetting && premiumSetting.type === 'checkbox' && premiumSetting.checked && !premiumAvailable()) {
+        premiumSetting.checked = false;
+        openPremiumDialog('Эта настройка доступна только с AniGuard Premium.');
+      }
+    });
+
+    $('#chat-select').addEventListener('change', event => switchChat(Number(event.target.value)));
+    $('#group-switch-button').addEventListener('click', () => { renderChatSelect(); $('#group-dialog').showModal(); });
+    $('#close-group-dialog').addEventListener('click', () => $('#group-dialog').close());
+    $('#theme-toggle-button').addEventListener('click', toggleAppTheme);
+    $('#header-menu-button').addEventListener('click', () => $('#menu-dialog').showModal());
+    $('#close-menu-dialog').addEventListener('click', () => $('#menu-dialog').close());
+    $('#close-user-action-dialog').addEventListener('click', () => $('#user-action-dialog').close());
+    $('#header-search-button').addEventListener('click', () => { $('#global-search').focus(); haptic('medium'); });
+
+    $('#premium-dialog-close').addEventListener('click', () => $('#premium-dialog').close());
+    $('#premium-dialog-open').addEventListener('click', () => { $('#premium-dialog').close(); setView('premium'); });
+
+    $('#profile-open-link').addEventListener('click', () => {
+      const profile = state.profile;
+      const url = profile?.username ? `https://t.me/${profile.username}` : profile?.invite_link;
+      if (!url) return notify('Ссылка группы недоступна.', true);
+      if (url.includes('t.me/')) tg?.openTelegramLink ? tg.openTelegramLink(url) : window.open(url, '_blank', 'noopener');
+      else tg?.openLink ? tg.openLink(url) : window.open(url, '_blank', 'noopener');
+    });
+
+    $('#close-member-dialog').addEventListener('click', () => $('#member-dialog').close());
+    $('#close-owner-dialog').addEventListener('click', () => $('#owner-dialog').close());
+    $('#close-basic-command').addEventListener('click', () => $('#basic-command-dialog').close());
+    $('#save-basic-command').addEventListener('click', saveBasicCommand);
+    $('#close-rules-dialog').addEventListener('click', () => $('#rules-dialog').close());
+    $('#group-rules-text').addEventListener('input', updateRulesPreview);
+    $('#save-group-rules').addEventListener('click', saveGroupRules);
+    $('#close-welcome-dialog').addEventListener('click', () => $('#welcome-dialog').close());
+    $('#save-welcome').addEventListener('click', saveWelcome);
+    $('#upload-welcome-photo').addEventListener('click', uploadWelcomePhoto);
+    $('#delete-welcome-photo').addEventListener('click', deleteWelcomePhoto);
+    $('#close-captcha-dialog').addEventListener('click', () => $('#captcha-dialog').close());
+    $('#save-captcha').addEventListener('click', saveCaptcha);
+    $('#preview-captcha').addEventListener('click', previewCaptcha);
+    $('#members-search').addEventListener('input', event => renderMembers(event.target.value));
+
+    $('#close-action').addEventListener('click', () => $('#action-dialog').close());
+    $('#execute-action').addEventListener('click', executeAction);
+    $('#create-custom').addEventListener('click', createCustom);
+    $('#create-game').addEventListener('click', createGame);
+    $('#create-rp').addEventListener('click', createRp);
+    $('#create-rule').addEventListener('click', createRule);
+    $('#save-settings').addEventListener('click', saveSettings);
+    $('#admin-search-button').addEventListener('click', searchAdminEntities);
+    $('#admin-entity-type').addEventListener('change', searchAdminEntities);
+
+    $('#command-search').addEventListener('input', event => {
+      const q=event.target.value.toLowerCase().trim();
+      $$('#regular-actions .action').forEach(node => node.classList.toggle('hidden', !node.dataset.search.includes(q)));
+    });
+    $('#settings-search').addEventListener('input', event => {
+      const q=event.target.value.toLowerCase().trim();
+      $$('.setting-group').forEach(node => {
+        const match=node.dataset.search.includes(q)||node.textContent.toLowerCase().includes(q);
+        node.classList.toggle('hidden',!match);
+        if(q&&match) node.open=true;
+      });
+    });
+    $('#global-search').addEventListener('input', event => {
+      const q = event.target.value.toLowerCase().trim();
+      const active = $(`.view[data-panel="${state.currentView}"]`);
+      if (!active) return;
+      $$('.telegram-row, .action, .automod-row, .list-card, .setting-group', active).forEach(node => {
+        node.classList.toggle('hidden', Boolean(q) && !node.textContent.toLowerCase().includes(q));
+      });
+    });
+  }
+
+
+  init();
+})();
+
+</script>
+</body>
+</html>

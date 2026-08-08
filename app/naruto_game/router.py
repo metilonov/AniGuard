@@ -410,7 +410,10 @@ async def _send_battle_message(
         previous_state=previous_state,
         finished=finished,
     )
-    await target.answer_animation(FSInputFile(str(media_path)), caption=_safe(text), reply_markup=markup)
+    if media_path.suffix.lower() == ".mp4":
+        await target.answer_animation(FSInputFile(str(media_path)), caption=_safe(text), reply_markup=markup)
+    else:
+        await target.answer_photo(FSInputFile(str(media_path)), caption=_safe(text), reply_markup=markup)
 
 
 async def _edit_battle_message(

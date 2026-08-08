@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import html
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -7,7 +8,7 @@ from typing import Any
 from aiogram import F, Router
 from aiogram.enums import ChatType
 from aiogram.filters import Command, CommandObject
-from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import CallbackQuery, FSInputFile, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from sqlalchemy import select
 
 from app.db import SessionFactory
@@ -106,6 +107,8 @@ from .v3 import (
     world_chronicle_text,
     world_pulse_text,
 )
+from .media import build_battle_animation, get_screen_media
+
 from .v4 import (
     activity_digest_text,
     arena_center_text,
@@ -314,7 +317,129 @@ async def _with_session(
             raise
 
 
-async def _answer_game(message: Message, operation: Callable[[Any], Awaitable[str]], *, markup: InlineKeyboardMarkup | None = None) -> None:
+def _screen_for_menu(section: str) -> str:
+    mapping = {
+        "home": "home",
+        "profile": "profile",
+        "daily": "profile",
+        "mission": "mission",
+        "story": "mission",
+        "battle": "ready",
+        "arena": "battle",
+        "techniques": "growth",
+        "cards": "cards",
+        "inventory": "inventory",
+        "world": "world",
+        "clan": "clan",
+        "raid": "raid",
+        "social": "social",
+        "mmo": "social",
+        "path": "growth",
+        "events": "world",
+        "territory": "world",
+        "recommend": "growth",
+        "government": "world",
+        "newspaper": "world",
+        "mmo3": "world",
+        "mmo4": "world",
+    }
+    return mapping.get(section, "home")
+
+
+def _screen_for_hub(hub: str) -> str:
+    mapping = {
+        "shinobi": "profile",
+        "activities": "mission",
+        "world": "world",
+        "social": "clan",
+        "economy": "market",
+        "growth": "growth",
+    }
+    return mapping.get(hub, "home")
+
+
+def _screen_for_v4(domain: str, action: str) -> str:
+    if domain == "profile":
+        return "ready" if action == "ready" else "profile"
+    if domain == "daily":
+        return "profile"
+    if domain in {"mission"}:
+        return "mission"
+    if domain in {"arena"}:
+        return "battle"
+    if domain in {"raid"}:
+        return "raid"
+    if domain in {"cards"}:
+        return "cards"
+    if domain in {"inventory"}:
+        return "inventory"
+    if domain in {"tech"}:
+        return "growth"
+    if domain in {"world", "event", "terr", "bijuu", "gov", "news", "mmo"}:
+        return "world"
+    if domain in {"clan", "social"}:
+        return "clan"
+    if domain in {"economy", "craft"}:
+        return "market"
+    if domain in {"growth", "path"}:
+        return "growth"
+    return "home"
+
+
+async def _send_media_message(target: Message, user_id: int, text: str, markup: InlineKeyboardMarkup | None, screen: str) -> None:
+    media_path, is_animation = await get_screen_media(user_id, screen)
+    if is_animation:
+        await target.answer_animation(FSInputFile(str(media_path)), caption=_safe(text), reply_markup=markup)
+    else:
+        await target.answer_photo(FSInputFile(str(media_path)), caption=_safe(text), reply_markup=markup)
+
+
+async def _send_battle_message(
+    target: Message,
+    user_id: int,
+    text: str,
+    markup: InlineKeyboardMarkup | None,
+    current_state: dict[str, Any],
+    previous_state: dict[str, Any] | None = None,
+    *,
+    finished: bool = False,
+) -> None:
+    media_path = build_battle_animation(
+        user_id,
+        current_state=current_state,
+        previous_state=previous_state,
+        finished=finished,
+    )
+    await target.answer_animation(FSInputFile(str(media_path)), caption=_safe(text), reply_markup=markup)
+
+
+async def _edit_battle_message(
+    callback: CallbackQuery,
+    text: str,
+    markup: InlineKeyboardMarkup | None,
+    current_state: dict[str, Any],
+    previous_state: dict[str, Any] | None = None,
+    *,
+    finished: bool = False,
+) -> None:
+    if not callback.message or not callback.from_user:
+        return
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+    await _send_battle_message(
+        callback.message,
+        callback.from_user.id,
+        text,
+        markup,
+        current_state,
+        previous_state,
+        finished=finished,
+    )
+
+
+async def _answer_game(message: Message, operation: Callable[[Any], Awaitable[str]], *, markup: InlineKeyboardMarkup | None = None, screen: str | None = None) -> None:
     if not message.from_user:
         return
     try:
@@ -322,11 +447,21 @@ async def _answer_game(message: Message, operation: Callable[[Any], Awaitable[st
     except GameError as exc:
         await message.answer(f"⚠️ {_safe(str(exc))}", reply_markup=markup)
         return
+    if screen:
+        await _send_media_message(message, message.from_user.id, text, markup, screen)
+        return
     await message.answer(_safe(text), reply_markup=markup)
 
 
-async def _edit_or_answer(callback: CallbackQuery, text: str, markup: InlineKeyboardMarkup | None = None) -> None:
+async def _edit_or_answer(callback: CallbackQuery, text: str, markup: InlineKeyboardMarkup | None = None, *, screen: str | None = None, user_id: int | None = None) -> None:
     if not callback.message:
+        return
+    if screen and user_id is not None:
+        try:
+            await callback.message.delete()
+        except Exception:
+            pass
+        await _send_media_message(callback.message, user_id, text, markup, screen)
         return
     try:
         await callback.message.edit_text(_safe(text), reply_markup=markup)
@@ -348,14 +483,14 @@ async def ninja_menu(message: Message) -> None:
         return
     async with SessionFactory() as session:
         text = await command_center_text(session, message.from_user.id)
-    await message.answer(_safe(text), reply_markup=_menu_keyboard())
+    await _send_media_message(message, message.from_user.id, text, _menu_keyboard(), "home")
 
 
 @router.message(Command("mmo4", "mmov4"))
 async def mmo4_handler(message: Message) -> None:
     if not message.from_user:
         return
-    await _answer_game(message, lambda s: mmo_v4_text(s, message.from_user.id), markup=_mmo4_menu())
+    await _answer_game(message, lambda s: mmo_v4_text(s, message.from_user.id), markup=_mmo4_menu(), screen="world")
 
 
 @router.message(Command("ninja_create"))
@@ -387,7 +522,7 @@ async def create_callback(callback: CallbackQuery) -> None:
         async with SessionFactory() as session:
             profile = await create_profile(session, callback.from_user.id, name, village)
             await session.commit()
-        await _edit_or_answer(callback, profile_text(profile), _menu_keyboard())
+        await _edit_or_answer(callback, profile_text(profile), _menu_keyboard(), screen="profile", user_id=callback.from_user.id)
         await callback.answer("Путь шиноби начался!")
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -395,7 +530,7 @@ async def create_callback(callback: CallbackQuery) -> None:
 
 @router.message(Command("nprofile", "ninja_profile"))
 async def profile_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: _profile_op(s, message.from_user.id), markup=_profile_menu())
+    await _answer_game(message, lambda s: _profile_op(s, message.from_user.id), markup=_profile_menu(), screen="profile")
 
 
 async def _profile_op(session: Any, user_id: int) -> str:
@@ -404,22 +539,22 @@ async def _profile_op(session: Any, user_id: int) -> str:
 
 @router.message(Command("daily"))
 async def daily_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: claim_daily(s, message.from_user.id), markup=_daily_menu())
+    await _answer_game(message, lambda s: claim_daily(s, message.from_user.id), markup=_daily_menu(), screen="profile")
 
 
 @router.message(Command("mission"))
 async def mission_handler(message: Message, command: CommandObject) -> None:
     key = (command.args or "").strip().lower() or None
-    await _answer_game(message, lambda s: run_mission(s, message.from_user.id, key), markup=_mission_menu())
+    await _answer_game(message, lambda s: run_mission(s, message.from_user.id, key), markup=_mission_menu(), screen="mission")
 
 
 @router.message(Command("train"))
 async def train_handler(message: Message, command: CommandObject) -> None:
     stat = (command.args or "").strip().lower()
     if not stat:
-        await message.answer("🥋 Выберите направление тренировки:", reply_markup=_training_keyboard())
+        await _send_media_message(message, message.from_user.id, "🥋 Выберите направление тренировки:", _training_keyboard(), "growth")
         return
-    await _answer_game(message, lambda s: train(s, message.from_user.id, stat), markup=_training_keyboard())
+    await _answer_game(message, lambda s: train(s, message.from_user.id, stat), markup=_training_keyboard(), screen="growth")
 
 
 @router.callback_query(F.data.startswith("ng:train:"))
@@ -429,7 +564,7 @@ async def train_callback(callback: CallbackQuery) -> None:
     stat = (callback.data or "").split(":", 2)[-1]
     try:
         text = await _with_session(callback.from_user.id, lambda s: train(s, callback.from_user.id, stat))
-        await _edit_or_answer(callback, text, _training_keyboard())
+        await _edit_or_answer(callback, text, _training_keyboard(), screen="growth", user_id=callback.from_user.id)
         await callback.answer()
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -437,7 +572,7 @@ async def train_callback(callback: CallbackQuery) -> None:
 
 @router.message(Command("techniques", "jutsu"))
 async def techniques_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: techniques_text(s, message.from_user.id), markup=_techniques_menu())
+    await _answer_game(message, lambda s: techniques_text(s, message.from_user.id), markup=_techniques_menu(), screen="growth")
 
 
 @router.message(Command("learn"))
@@ -446,7 +581,7 @@ async def learn_handler(message: Message, command: CommandObject) -> None:
     if not key:
         await message.answer("Использование: <code>/learn rasengan</code>")
         return
-    await _answer_game(message, lambda s: learn_technique(s, message.from_user.id, key), markup=_techniques_menu())
+    await _answer_game(message, lambda s: learn_technique(s, message.from_user.id, key), markup=_techniques_menu(), screen="growth")
 
 
 @router.message(Command("battle"))
@@ -455,13 +590,20 @@ async def battle_handler(message: Message, command: CommandObject) -> None:
         return
     boss_key = (command.args or "rogue").strip().lower()
     if boss_key not in BOSSES:
-        await message.answer("Выберите противника:", reply_markup=_boss_keyboard())
+        await _send_media_message(message, message.from_user.id, "⚔️ Выберите противника:", _boss_keyboard(), "battle")
         return
     try:
         async with SessionFactory() as session:
             battle = await start_battle(session, message.from_user.id, boss_key)
+            state = copy.deepcopy(battle.state)
             await session.commit()
-        await message.answer(_safe(active_battle_from_state(battle.state)), reply_markup=_battle_keyboard(battle.state))
+        await _send_battle_message(
+            message,
+            message.from_user.id,
+            active_battle_from_state(state),
+            _battle_keyboard(state),
+            state,
+        )
     except GameError as exc:
         await message.answer(f"⚠️ {_safe(str(exc))}")
 
@@ -479,8 +621,14 @@ async def start_boss_callback(callback: CallbackQuery) -> None:
     try:
         async with SessionFactory() as session:
             battle = await start_battle(session, callback.from_user.id, boss_key)
+            state = copy.deepcopy(battle.state)
             await session.commit()
-        await _edit_or_answer(callback, active_battle_from_state(battle.state), _battle_keyboard(battle.state))
+        await _edit_battle_message(
+            callback,
+            active_battle_from_state(state),
+            _battle_keyboard(state),
+            state,
+        )
         await callback.answer()
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -492,27 +640,48 @@ async def battle_callback(callback: CallbackQuery) -> None:
         return
     raw = callback.data or ""
     action = raw.removeprefix("ng:battle:")
+    uid = callback.from_user.id
+
     if action == "show":
         async with SessionFactory() as session:
-            battle = await session.get(NinjaBattle, callback.from_user.id)
-        if battle is None:
+            battle = await session.get(NinjaBattle, uid)
+            state = copy.deepcopy(battle.state) if battle else None
+        if state is None:
             await callback.answer("Активного боя нет.", show_alert=True)
             return
-        await _edit_or_answer(callback, active_battle_from_state(battle.state), _battle_keyboard(battle.state))
+        await _edit_battle_message(
+            callback,
+            active_battle_from_state(state),
+            _battle_keyboard(state),
+            state,
+        )
         await callback.answer()
         return
-    if action.startswith("tech:") or action.startswith("item:"):
-        action = action
-    elif action not in {"attack", "defend", "focus"}:
+
+    if not (action.startswith("tech:") or action.startswith("item:")) and action not in {"attack", "defend", "focus"}:
         action = "attack"
+
     try:
         async with SessionFactory() as session:
-            text, finished = await battle_action(session, callback.from_user.id, action)
-            battle = await session.get(NinjaBattle, callback.from_user.id)
-            state = dict(battle.state) if battle else None
+            row = await session.get(NinjaBattle, uid)
+            if row is None:
+                raise GameError("Активного боя нет. /battle")
+            previous_state = copy.deepcopy(row.state)
+            text, finished = await battle_action(session, uid, action)
+            # battle_action mutates the same ORM row. Even if it marks the row for deletion,
+            # the final combat state remains available on this in-session object.
+            current_state = copy.deepcopy(row.state)
             await session.commit()
-        markup = _battle_menu() if finished or state is None else _battle_keyboard(state)
-        await _edit_or_answer(callback, text, markup)
+
+        markup = _battle_menu() if finished else _battle_keyboard(current_state)
+        await _edit_battle_message(
+            callback,
+            text,
+            markup,
+            current_state,
+            previous_state,
+            finished=finished,
+        )
         await callback.answer("Бой завершён" if finished else "Ход выполнен")
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -523,27 +692,33 @@ async def battle_status_handler(message: Message) -> None:
     if not message.from_user:
         return
     async with SessionFactory() as session:
-        text = await active_battle_text(session, message.from_user.id)
         battle = await session.get(NinjaBattle, message.from_user.id)
-    if not text or not battle:
+        state = copy.deepcopy(battle.state) if battle else None
+    if state is None:
         await message.answer("Активного боя нет. Начните: <code>/battle rogue</code>")
         return
-    await message.answer(_safe(text), reply_markup=_battle_keyboard(battle.state))
+    await _send_battle_message(
+        message,
+        message.from_user.id,
+        active_battle_from_state(state),
+        _battle_keyboard(state),
+        state,
+    )
 
 
 @router.message(Command("cards"))
 async def cards_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: cards_text(s, message.from_user.id), markup=_cards_menu())
+    await _answer_game(message, lambda s: cards_text(s, message.from_user.id), markup=_cards_menu(), screen="cards")
 
 
 @router.message(Command("summon_card", "gacha"))
 async def draw_card_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: draw_card(s, message.from_user.id), markup=_cards_menu())
+    await _answer_game(message, lambda s: draw_card(s, message.from_user.id), markup=_cards_menu(), screen="cards")
 
 
 @router.message(Command("inventory", "ninventory"))
 async def inventory_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: inventory_text(s, message.from_user.id), markup=_inventory_menu())
+    await _answer_game(message, lambda s: inventory_text(s, message.from_user.id), markup=_inventory_menu(), screen="inventory")
 
 
 @router.message(Command("craft"))
@@ -551,9 +726,9 @@ async def craft_handler(message: Message, command: CommandObject) -> None:
     key = (command.args or "").strip().lower()
     if not key:
         lines = ["🔨 Рецепты:"] + [f"• <code>{k}</code> — {html.escape(str(ITEMS.get(k, {'name': k})['name']))}" for k in CRAFT_RECIPES]
-        await message.answer("\n".join(lines))
+        await _send_media_message(message, message.from_user.id, "\n".join(lines), _craft_menu(), "craft")
         return
-    await _answer_game(message, lambda s: craft(s, message.from_user.id, key), markup=_craft_menu())
+    await _answer_game(message, lambda s: craft(s, message.from_user.id, key), markup=_craft_menu(), screen="market")
 
 
 @router.message(Command("item_upgrade"))
@@ -562,7 +737,7 @@ async def item_upgrade_handler(message: Message, command: CommandObject) -> None
     if not key:
         await message.answer("Использование: <code>/item_upgrade kunai</code>")
         return
-    await _answer_game(message, lambda s: upgrade_item(s, message.from_user.id, key), markup=_inventory_menu())
+    await _answer_game(message, lambda s: upgrade_item(s, message.from_user.id, key), markup=_inventory_menu(), screen="inventory")
 
 
 @router.message(Command("equip"))
@@ -571,18 +746,18 @@ async def equip_handler(message: Message, command: CommandObject) -> None:
     if not key:
         await message.answer("🎒 /equip ITEM_KEY · пример: /equip kunai")
         return
-    await _answer_game(message, lambda s: equip_item(s, message.from_user.id, key), markup=_inventory_menu())
+    await _answer_game(message, lambda s: equip_item(s, message.from_user.id, key), markup=_inventory_menu(), screen="inventory")
 
 
 @router.message(Command("unequip"))
 async def unequip_handler(message: Message, command: CommandObject) -> None:
     slot = (command.args or "").strip().lower()
-    await _answer_game(message, lambda s: unequip_item(s, message.from_user.id, slot), markup=_inventory_menu())
+    await _answer_game(message, lambda s: unequip_item(s, message.from_user.id, slot), markup=_inventory_menu(), screen="inventory")
 
 
 @router.message(Command("exam"))
 async def exam_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: exam(s, message.from_user.id), markup=_growth_menu())
+    await _answer_game(message, lambda s: exam(s, message.from_user.id), markup=_growth_menu(), screen="growth")
 
 
 @router.message(Command("story"))
@@ -593,26 +768,33 @@ async def story_handler(message: Message, command: CommandObject) -> None:
         try:
             async with SessionFactory() as session:
                 battle = await start_story(session, message.from_user.id)
+                state = copy.deepcopy(battle.state)
                 await session.commit()
-            await message.answer(_safe(active_battle_from_state(battle.state)), reply_markup=_battle_keyboard(battle.state))
+            await _send_battle_message(
+                message,
+                message.from_user.id,
+                active_battle_from_state(state),
+                _battle_keyboard(state),
+                state,
+            )
         except GameError as exc:
             await message.answer(f"⚠️ {_safe(str(exc))}")
         return
-    await _answer_game(message, lambda s: story_text(s, message.from_user.id), markup=_story_menu())
+    await _answer_game(message, lambda s: story_text(s, message.from_user.id), markup=_story_menu(), screen="mission")
 
 
 @router.message(Command("explore"))
 async def explore_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: explore(s, message.from_user.id), markup=_world_menu())
+    await _answer_game(message, lambda s: explore(s, message.from_user.id), markup=_world_menu(), screen="world")
 
 
 @router.message(Command("profession"))
 async def profession_handler(message: Message, command: CommandObject) -> None:
     key = (command.args or "").strip().lower()
     if not key:
-        await message.answer("Выберите профессию:", reply_markup=_profession_keyboard())
+        await _send_media_message(message, message.from_user.id, "Выберите профессию:", _profession_keyboard(), "growth")
         return
-    await _answer_game(message, lambda s: choose_profession(s, message.from_user.id, key), markup=_growth_menu())
+    await _answer_game(message, lambda s: choose_profession(s, message.from_user.id, key), markup=_growth_menu(), screen="growth")
 
 
 @router.callback_query(F.data.startswith("ng:profession:"))
@@ -622,7 +804,7 @@ async def profession_callback(callback: CallbackQuery) -> None:
     key = (callback.data or "").split(":", 2)[-1]
     try:
         text = await _with_session(callback.from_user.id, lambda s: choose_profession(s, callback.from_user.id, key))
-        await _edit_or_answer(callback, text, _growth_menu())
+        await _edit_or_answer(callback, text, _growth_menu(), screen="growth", user_id=callback.from_user.id)
         await callback.answer()
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -632,9 +814,9 @@ async def profession_callback(callback: CallbackQuery) -> None:
 async def mentor_handler(message: Message, command: CommandObject) -> None:
     key = (command.args or "").strip().lower()
     if not key:
-        await message.answer("Выберите наставника:", reply_markup=_mentor_keyboard())
+        await _send_media_message(message, message.from_user.id, "Выберите наставника:", _mentor_keyboard(), "growth")
         return
-    await _answer_game(message, lambda s: choose_mentor(s, message.from_user.id, key), markup=_growth_menu())
+    await _answer_game(message, lambda s: choose_mentor(s, message.from_user.id, key), markup=_growth_menu(), screen="growth")
 
 
 @router.callback_query(F.data.startswith("ng:mentor:"))
@@ -644,7 +826,7 @@ async def mentor_callback(callback: CallbackQuery) -> None:
     key = (callback.data or "").split(":", 2)[-1]
     try:
         text = await _with_session(callback.from_user.id, lambda s: choose_mentor(s, callback.from_user.id, key))
-        await _edit_or_answer(callback, text, _growth_menu())
+        await _edit_or_answer(callback, text, _growth_menu(), screen="growth", user_id=callback.from_user.id)
         await callback.answer()
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -652,16 +834,16 @@ async def mentor_callback(callback: CallbackQuery) -> None:
 
 @router.message(Command("mentor_train"))
 async def mentor_train_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: mentor_training(s, message.from_user.id), markup=_growth_menu())
+    await _answer_game(message, lambda s: mentor_training(s, message.from_user.id), markup=_growth_menu(), screen="growth")
 
 
 @router.message(Command("summoning"))
 async def summoning_handler(message: Message, command: CommandObject) -> None:
     key = (command.args or "").strip().lower()
     if not key:
-        await message.answer("Выберите контракт призыва:", reply_markup=_summon_keyboard())
+        await _send_media_message(message, message.from_user.id, "Выберите контракт призыва:", _summon_keyboard(), "growth")
         return
-    await _answer_game(message, lambda s: contract_summon(s, message.from_user.id, key), markup=_growth_menu())
+    await _answer_game(message, lambda s: contract_summon(s, message.from_user.id, key), markup=_growth_menu(), screen="growth")
 
 
 @router.callback_query(F.data.startswith("ng:summon_contract:"))
@@ -671,7 +853,7 @@ async def summoning_callback(callback: CallbackQuery) -> None:
     key = (callback.data or "").split(":", 2)[-1]
     try:
         text = await _with_session(callback.from_user.id, lambda s: contract_summon(s, callback.from_user.id, key))
-        await _edit_or_answer(callback, text, _growth_menu())
+        await _edit_or_answer(callback, text, _growth_menu(), screen="growth", user_id=callback.from_user.id)
         await callback.answer()
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -679,17 +861,17 @@ async def summoning_callback(callback: CallbackQuery) -> None:
 
 @router.message(Command("home"))
 async def home_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: home_upgrade(s, message.from_user.id), markup=_profile_menu())
+    await _answer_game(message, lambda s: home_upgrade(s, message.from_user.id), markup=_profile_menu(), screen="profile")
 
 
 @router.message(Command("nukenin"))
 async def nukenin_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: toggle_nukenin(s, message.from_user.id), markup=_path_menu())
+    await _answer_game(message, lambda s: toggle_nukenin(s, message.from_user.id), markup=_path_menu(), screen="growth")
 
 
 @router.message(Command("bingo"))
 async def bingo_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: bingo_text(s), markup=_mission_menu())
+    await _answer_game(message, lambda s: bingo_text(s), markup=_mission_menu(), screen="mission")
 
 
 @router.message(Command("clan"))
@@ -698,28 +880,28 @@ async def clan_handler(message: Message, command: CommandObject) -> None:
     head, _, tail = raw.partition(" ")
     action = head.lower()
     if action == "create" and tail:
-        await _answer_game(message, lambda s: create_clan(s, message.from_user.id, tail.strip()), markup=_clan_menu())
+        await _answer_game(message, lambda s: create_clan(s, message.from_user.id, tail.strip()), markup=_clan_menu(), screen="clan")
     elif action == "join" and tail:
-        await _answer_game(message, lambda s: join_clan(s, message.from_user.id, tail.strip()), markup=_clan_menu())
+        await _answer_game(message, lambda s: join_clan(s, message.from_user.id, tail.strip()), markup=_clan_menu(), screen="clan")
     elif action == "donate" and tail.isdigit():
-        await _answer_game(message, lambda s: clan_donate(s, message.from_user.id, int(tail)), markup=_clan_menu())
+        await _answer_game(message, lambda s: clan_donate(s, message.from_user.id, int(tail)), markup=_clan_menu(), screen="clan")
     else:
-        await _answer_game(message, lambda s: clan_text(s, message.from_user.id), markup=_clan_menu())
+        await _answer_game(message, lambda s: clan_text(s, message.from_user.id), markup=_clan_menu(), screen="clan")
 
 
 @router.message(Command("arena"))
 async def arena_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: arena_match(s, message.from_user.id), markup=_arena_menu())
+    await _answer_game(message, lambda s: arena_match(s, message.from_user.id), markup=_arena_menu(), screen="battle")
 
 
 @router.message(Command("world"))
 async def world_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: world_text(s), markup=_world_menu())
+    await _answer_game(message, lambda s: world_text(s), markup=_world_menu(), screen="world")
 
 
 @router.message(Command("raid"))
 async def raid_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: raid_attack(s, message.from_user.id), markup=_raid_menu())
+    await _answer_game(message, lambda s: raid_attack(s, message.from_user.id), markup=_raid_menu(), screen="raid")
 
 
 @router.message(Command("market"))
@@ -727,23 +909,23 @@ async def market_handler(message: Message, command: CommandObject) -> None:
     raw = (command.args or "").strip()
     parts = raw.split()
     if parts and parts[0].lower() == "buy" and len(parts) >= 2 and parts[1].isdigit():
-        await _answer_game(message, lambda s: market_buy(s, message.from_user.id, int(parts[1])), markup=_economy_menu())
+        await _answer_game(message, lambda s: market_buy(s, message.from_user.id, int(parts[1])), markup=_economy_menu(), screen="market")
         return
     if parts and parts[0].lower() == "sell" and len(parts) >= 4 and parts[2].isdigit() and parts[3].isdigit():
         key, qty, price = parts[1].lower(), int(parts[2]), int(parts[3])
-        await _answer_game(message, lambda s: market_list(s, message.from_user.id, key, qty, price), markup=_economy_menu())
+        await _answer_game(message, lambda s: market_list(s, message.from_user.id, key, qty, price), markup=_economy_menu(), screen="market")
         return
-    await _answer_game(message, lambda s: market_text(s), markup=_economy_menu())
+    await _answer_game(message, lambda s: market_text(s), markup=_economy_menu(), screen="market")
 
 
 @router.message(Command("ninja_top"))
 async def top_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: top_text(s), markup=_mmo_menu())
+    await _answer_game(message, lambda s: top_text(s), markup=_mmo_menu(), screen="clan")
 
 
 @router.message(Command("biju_train"))
 async def biju_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: biju_train(s, message.from_user.id), markup=_world_menu())
+    await _answer_game(message, lambda s: biju_train(s, message.from_user.id), markup=_world_menu(), screen="world")
 
 
 @router.callback_query(F.data.startswith("ng:hub:"))
@@ -753,7 +935,7 @@ async def hub_callback(callback: CallbackQuery) -> None:
     hub = (callback.data or "").split(":", 2)[-1]
     try:
         text = await _with_session(callback.from_user.id, lambda s: hub_text(s, callback.from_user.id, hub))
-        await _edit_or_answer(callback, text, _hub_menu(hub))
+        await _edit_or_answer(callback, text, _hub_menu(hub), screen=_screen_for_hub(hub), user_id=callback.from_user.id)
         await callback.answer()
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -838,7 +1020,7 @@ async def menu_callback(callback: CallbackQuery) -> None:
         else:
             text = await _with_session(user_id, lambda s: command_center_text(s, user_id))
             markup = _menu_keyboard()
-        await _edit_or_answer(callback, text, markup)
+        await _edit_or_answer(callback, text, markup, screen=_screen_for_menu(section), user_id=callback.from_user.id)
         await callback.answer()
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -1050,7 +1232,7 @@ async def v4_action_callback(callback: CallbackQuery) -> None:
             text = await _with_session(uid, lambda s: command_center_text(s, uid))
             markup = _menu_keyboard()
 
-        await _edit_or_answer(callback, text, markup)
+        await _edit_or_answer(callback, text, markup, screen=_screen_for_v4(domain, action), user_id=callback.from_user.id)
         await callback.answer()
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -1063,8 +1245,14 @@ async def story_callback(callback: CallbackQuery) -> None:
     try:
         async with SessionFactory() as session:
             battle = await start_story(session, callback.from_user.id)
+            state = copy.deepcopy(battle.state)
             await session.commit()
-        await _edit_or_answer(callback, active_battle_from_state(battle.state), _battle_keyboard(battle.state))
+        await _edit_battle_message(
+            callback,
+            active_battle_from_state(state),
+            _battle_keyboard(state),
+            state,
+        )
         await callback.answer()
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -1081,7 +1269,7 @@ async def card_draw_callback(callback: CallbackQuery) -> None:
             [InlineKeyboardButton(text="⬅️ Карточки", callback_data="ng:menu:cards")],
             [InlineKeyboardButton(text="🏠 Центр", callback_data="ng:menu:home")],
         ])
-        await _edit_or_answer(callback, text, markup)
+        await _edit_or_answer(callback, text, markup, screen="cards", user_id=callback.from_user.id)
         await callback.answer()
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)

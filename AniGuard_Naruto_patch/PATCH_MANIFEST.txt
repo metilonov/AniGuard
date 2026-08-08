@@ -1,0 +1,21 @@
+ИЗМЕНЁННЫЕ ФАЙЛЫ
+app/main.py
+
+НОВЫЕ ФАЙЛЫ
+app/naruto_game/__init__.py
+app/naruto_game/content.py
+app/naruto_game/models.py
+app/naruto_game/engine.py
+app/naruto_game/service.py
+app/naruto_game/router.py
+app/naruto_game/extended.py
+app/naruto_game/extended_router.py
+app/naruto_game/integration.py
+tests/test_naruto_game_engine.py
+NARUTO_GAME_INTEGRATION.md
+PATCH_MANIFEST.txt
+
+ПРОВЕРКА
+- Python compileall: OK
+- tests.test_naruto_game_engine: 11/11 OK
+- requirements.txt не изменяется

@@ -1,0 +1,15 @@
+AniGuard Naruto MMO V4 global patch
+
+NEW:
+- app/naruto_game/v4.py
+- app/naruto_game/ui_v4.py
+- tests/test_naruto_mmo_v4_ui.py
+- MMO_V4_GLOBAL_PATCH.md
+- MMO_V4_PATCH_MANIFEST.txt
+
+UPDATED:
+- app/naruto_game/router.py
+- app/naruto_game/integration.py
+- app/main.py
+
+NO DELETIONS REQUIRED.

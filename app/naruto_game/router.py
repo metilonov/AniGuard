@@ -63,8 +63,96 @@ from .service import (
     world_text,
 )
 
-from .social import friends_text, mmo_top_text
-from .advanced import path_text, recommendations_text, territory_map_text, world_events_text
+from .social import (
+    alliance_text,
+    clan_base_text,
+    clan_history_text,
+    friends_text,
+    mail_inbox,
+    mentorship_text,
+    mmo_top_text,
+    settlement_top,
+)
+from .advanced import (
+    dynamic_mission_choose,
+    dynamic_mission_create,
+    dynamic_mission_prepare,
+    dynamic_mission_text,
+    ensure_world_event,
+    legacy_text,
+    path_text,
+    recommendations_text,
+    research_text,
+    return_summary_text,
+    territory_expedition,
+    territory_map_text,
+    world_event_participate,
+    world_events_text,
+)
+from .extended import (
+    bank_text,
+    black_market_text,
+    card_arena,
+    card_team_text,
+    chronicle_text,
+    contracts_text,
+)
+from .v3 import (
+    bijuu_text,
+    election_status,
+    government_text,
+    newspaper_text,
+    project_status,
+    world_chronicle_text,
+    world_pulse_text,
+)
+from .v4 import (
+    activity_digest_text,
+    arena_center_text,
+    cards_center_text,
+    combat_readiness_text,
+    command_center_text,
+    daily_center_text,
+    development_center_text,
+    economy_center_text,
+    hub_text,
+    inventory_center_text,
+    mission_center_text,
+    mmo_v4_text,
+    raid_center_text,
+    social_center_text,
+    world_center_text,
+)
+from .ui_v4 import (
+    arena_menu as _arena_menu,
+    battle_menu as _battle_menu,
+    bijuu_menu as _bijuu_menu,
+    cards_menu as _cards_menu,
+    clan_menu as _clan_menu,
+    craft_menu as _craft_menu,
+    daily_menu as _daily_menu,
+    economy_menu as _economy_menu,
+    events_menu as _events_menu,
+    government_menu as _government_menu,
+    growth_menu as _growth_menu,
+    hub_menu as _hub_menu,
+    inventory_menu as _inventory_menu,
+    main_menu as _main_menu,
+    mission_menu as _mission_menu,
+    mmo4_menu as _mmo4_menu,
+    mmo_menu as _mmo_menu,
+    newspaper_menu as _newspaper_menu,
+    path_menu as _path_menu,
+    profile_menu as _profile_menu,
+    pulse_menu as _pulse_menu,
+    recommend_menu as _recommend_menu,
+    raid_menu as _raid_menu,
+    social_menu as _social_menu,
+    story_menu as _story_menu,
+    techniques_menu as _techniques_menu,
+    territory_menu as _territory_menu,
+    world_menu as _world_menu,
+)
 
 router = Router(name="naruto-rpg")
 _pending_names: dict[int, str] = {}
@@ -81,46 +169,8 @@ def _safe(text: str) -> str:
 
 
 def _menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(text="🥷 Профиль", callback_data="ng:menu:profile"),
-                InlineKeyboardButton(text="🎁 Ежедневная", callback_data="ng:menu:daily"),
-            ],
-            [
-                InlineKeyboardButton(text="📜 Миссия", callback_data="ng:menu:mission"),
-                InlineKeyboardButton(text="🗺 Сюжет", callback_data="ng:menu:story"),
-            ],
-            [
-                InlineKeyboardButton(text="⚔️ Бой", callback_data="ng:menu:battle"),
-                InlineKeyboardButton(text="🏆 Арена", callback_data="ng:menu:arena"),
-            ],
-            [
-                InlineKeyboardButton(text="📚 Техники", callback_data="ng:menu:techniques"),
-                InlineKeyboardButton(text="🎴 Карточки", callback_data="ng:menu:cards"),
-            ],
-            [
-                InlineKeyboardButton(text="🎒 Инвентарь", callback_data="ng:menu:inventory"),
-                InlineKeyboardButton(text="🌍 Мир", callback_data="ng:menu:world"),
-            ],
-            [
-                InlineKeyboardButton(text="👥 Клан", callback_data="ng:menu:clan"),
-                InlineKeyboardButton(text="👹 Рейд", callback_data="ng:menu:raid"),
-            ],
-            [
-                InlineKeyboardButton(text="🤝 Друзья", callback_data="ng:menu:social"),
-                InlineKeyboardButton(text="🌍 MMO-рейтинг", callback_data="ng:menu:mmo"),
-            ],
-            [
-                InlineKeyboardButton(text="🥷 Мой путь", callback_data="ng:menu:path"),
-                InlineKeyboardButton(text="🌍 События", callback_data="ng:menu:events"),
-            ],
-            [
-                InlineKeyboardButton(text="🗺 Территории", callback_data="ng:menu:territory"),
-                InlineKeyboardButton(text="🧭 Что делать?", callback_data="ng:menu:recommend"),
-            ],
-        ]
-    )
+    # MMO V4: compact root menu. Leaf screens use their own context keyboards.
+    return _main_menu()
 
 
 def _village_keyboard() -> InlineKeyboardMarkup:
@@ -140,7 +190,7 @@ def _training_keyboard() -> InlineKeyboardMarkup:
         ("chakra_control", "🔵 Контроль чакры"),
     ]
     rows = [[InlineKeyboardButton(text=label, callback_data=f"ng:train:{key}")] for key, label in items]
-    rows.append([InlineKeyboardButton(text="⬅️ Меню", callback_data="ng:menu:home")])
+    rows.append([InlineKeyboardButton(text="⬅️ Развитие", callback_data="ng:hub:growth")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -149,6 +199,7 @@ def _profession_keyboard() -> InlineKeyboardMarkup:
         [InlineKeyboardButton(text=str(data["name"]), callback_data=f"ng:profession:{key}")]
         for key, data in PROFESSIONS.items()
     ]
+    rows.append([InlineKeyboardButton(text="⬅️ Развитие", callback_data="ng:hub:growth")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
@@ -164,21 +215,21 @@ def _mentor_keyboard() -> InlineKeyboardMarkup:
         "tsunade": "Цунаде",
         "orochimaru": "Орочимару",
     }
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=name, callback_data=f"ng:mentor:{key}")]
-            for key, name in mentors.items()
-        ]
-    )
+    rows = [
+        [InlineKeyboardButton(text=name, callback_data=f"ng:mentor:{key}")]
+        for key, name in mentors.items()
+    ]
+    rows.append([InlineKeyboardButton(text="⬅️ Развитие", callback_data="ng:hub:growth")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def _summon_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text=str(data), callback_data=f"ng:summon_contract:{key}")]
-            for key, data in SUMMONS.items()
-        ]
-    )
+    rows = [
+        [InlineKeyboardButton(text=str(data), callback_data=f"ng:summon_contract:{key}")]
+        for key, data in SUMMONS.items()
+    ]
+    rows.append([InlineKeyboardButton(text="⬅️ Развитие", callback_data="ng:hub:growth")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
 def _battle_keyboard(state: dict[str, Any]) -> InlineKeyboardMarkup:
@@ -295,7 +346,16 @@ async def ninja_menu(message: Message) -> None:
             "Используйте <code>/ninja_create Имя</code>, затем выберите скрытую деревню.",
         )
         return
-    await message.answer(_safe(profile_text(profile)), reply_markup=_menu_keyboard())
+    async with SessionFactory() as session:
+        text = await command_center_text(session, message.from_user.id)
+    await message.answer(_safe(text), reply_markup=_menu_keyboard())
+
+
+@router.message(Command("mmo4", "mmov4"))
+async def mmo4_handler(message: Message) -> None:
+    if not message.from_user:
+        return
+    await _answer_game(message, lambda s: mmo_v4_text(s, message.from_user.id), markup=_mmo4_menu())
 
 
 @router.message(Command("ninja_create"))
@@ -335,7 +395,7 @@ async def create_callback(callback: CallbackQuery) -> None:
 
 @router.message(Command("nprofile", "ninja_profile"))
 async def profile_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: _profile_op(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: _profile_op(s, message.from_user.id), markup=_profile_menu())
 
 
 async def _profile_op(session: Any, user_id: int) -> str:
@@ -344,13 +404,13 @@ async def _profile_op(session: Any, user_id: int) -> str:
 
 @router.message(Command("daily"))
 async def daily_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: claim_daily(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: claim_daily(s, message.from_user.id), markup=_daily_menu())
 
 
 @router.message(Command("mission"))
 async def mission_handler(message: Message, command: CommandObject) -> None:
     key = (command.args or "").strip().lower() or None
-    await _answer_game(message, lambda s: run_mission(s, message.from_user.id, key), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: run_mission(s, message.from_user.id, key), markup=_mission_menu())
 
 
 @router.message(Command("train"))
@@ -377,7 +437,7 @@ async def train_callback(callback: CallbackQuery) -> None:
 
 @router.message(Command("techniques", "jutsu"))
 async def techniques_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: techniques_text(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: techniques_text(s, message.from_user.id), markup=_techniques_menu())
 
 
 @router.message(Command("learn"))
@@ -386,7 +446,7 @@ async def learn_handler(message: Message, command: CommandObject) -> None:
     if not key:
         await message.answer("Использование: <code>/learn rasengan</code>")
         return
-    await _answer_game(message, lambda s: learn_technique(s, message.from_user.id, key), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: learn_technique(s, message.from_user.id, key), markup=_techniques_menu())
 
 
 @router.message(Command("battle"))
@@ -451,7 +511,7 @@ async def battle_callback(callback: CallbackQuery) -> None:
             battle = await session.get(NinjaBattle, callback.from_user.id)
             state = dict(battle.state) if battle else None
             await session.commit()
-        markup = _menu_keyboard() if finished or state is None else _battle_keyboard(state)
+        markup = _battle_menu() if finished or state is None else _battle_keyboard(state)
         await _edit_or_answer(callback, text, markup)
         await callback.answer("Бой завершён" if finished else "Ход выполнен")
     except GameError as exc:
@@ -473,17 +533,17 @@ async def battle_status_handler(message: Message) -> None:
 
 @router.message(Command("cards"))
 async def cards_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: cards_text(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: cards_text(s, message.from_user.id), markup=_cards_menu())
 
 
 @router.message(Command("summon_card", "gacha"))
 async def draw_card_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: draw_card(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: draw_card(s, message.from_user.id), markup=_cards_menu())
 
 
 @router.message(Command("inventory", "ninventory"))
 async def inventory_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: inventory_text(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: inventory_text(s, message.from_user.id), markup=_inventory_menu())
 
 
 @router.message(Command("craft"))
@@ -493,7 +553,7 @@ async def craft_handler(message: Message, command: CommandObject) -> None:
         lines = ["🔨 Рецепты:"] + [f"• <code>{k}</code> — {html.escape(str(ITEMS.get(k, {'name': k})['name']))}" for k in CRAFT_RECIPES]
         await message.answer("\n".join(lines))
         return
-    await _answer_game(message, lambda s: craft(s, message.from_user.id, key), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: craft(s, message.from_user.id, key), markup=_craft_menu())
 
 
 @router.message(Command("item_upgrade"))
@@ -502,7 +562,7 @@ async def item_upgrade_handler(message: Message, command: CommandObject) -> None
     if not key:
         await message.answer("Использование: <code>/item_upgrade kunai</code>")
         return
-    await _answer_game(message, lambda s: upgrade_item(s, message.from_user.id, key), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: upgrade_item(s, message.from_user.id, key), markup=_inventory_menu())
 
 
 @router.message(Command("equip"))
@@ -511,18 +571,18 @@ async def equip_handler(message: Message, command: CommandObject) -> None:
     if not key:
         await message.answer("🎒 /equip ITEM_KEY · пример: /equip kunai")
         return
-    await _answer_game(message, lambda s: equip_item(s, message.from_user.id, key), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: equip_item(s, message.from_user.id, key), markup=_inventory_menu())
 
 
 @router.message(Command("unequip"))
 async def unequip_handler(message: Message, command: CommandObject) -> None:
     slot = (command.args or "").strip().lower()
-    await _answer_game(message, lambda s: unequip_item(s, message.from_user.id, slot), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: unequip_item(s, message.from_user.id, slot), markup=_inventory_menu())
 
 
 @router.message(Command("exam"))
 async def exam_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: exam(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: exam(s, message.from_user.id), markup=_growth_menu())
 
 
 @router.message(Command("story"))
@@ -538,12 +598,12 @@ async def story_handler(message: Message, command: CommandObject) -> None:
         except GameError as exc:
             await message.answer(f"⚠️ {_safe(str(exc))}")
         return
-    await _answer_game(message, lambda s: story_text(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: story_text(s, message.from_user.id), markup=_story_menu())
 
 
 @router.message(Command("explore"))
 async def explore_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: explore(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: explore(s, message.from_user.id), markup=_world_menu())
 
 
 @router.message(Command("profession"))
@@ -552,7 +612,7 @@ async def profession_handler(message: Message, command: CommandObject) -> None:
     if not key:
         await message.answer("Выберите профессию:", reply_markup=_profession_keyboard())
         return
-    await _answer_game(message, lambda s: choose_profession(s, message.from_user.id, key), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: choose_profession(s, message.from_user.id, key), markup=_growth_menu())
 
 
 @router.callback_query(F.data.startswith("ng:profession:"))
@@ -562,7 +622,7 @@ async def profession_callback(callback: CallbackQuery) -> None:
     key = (callback.data or "").split(":", 2)[-1]
     try:
         text = await _with_session(callback.from_user.id, lambda s: choose_profession(s, callback.from_user.id, key))
-        await _edit_or_answer(callback, text, _menu_keyboard())
+        await _edit_or_answer(callback, text, _growth_menu())
         await callback.answer()
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -574,7 +634,7 @@ async def mentor_handler(message: Message, command: CommandObject) -> None:
     if not key:
         await message.answer("Выберите наставника:", reply_markup=_mentor_keyboard())
         return
-    await _answer_game(message, lambda s: choose_mentor(s, message.from_user.id, key), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: choose_mentor(s, message.from_user.id, key), markup=_growth_menu())
 
 
 @router.callback_query(F.data.startswith("ng:mentor:"))
@@ -584,7 +644,7 @@ async def mentor_callback(callback: CallbackQuery) -> None:
     key = (callback.data or "").split(":", 2)[-1]
     try:
         text = await _with_session(callback.from_user.id, lambda s: choose_mentor(s, callback.from_user.id, key))
-        await _edit_or_answer(callback, text, _menu_keyboard())
+        await _edit_or_answer(callback, text, _growth_menu())
         await callback.answer()
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -592,7 +652,7 @@ async def mentor_callback(callback: CallbackQuery) -> None:
 
 @router.message(Command("mentor_train"))
 async def mentor_train_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: mentor_training(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: mentor_training(s, message.from_user.id), markup=_growth_menu())
 
 
 @router.message(Command("summoning"))
@@ -601,7 +661,7 @@ async def summoning_handler(message: Message, command: CommandObject) -> None:
     if not key:
         await message.answer("Выберите контракт призыва:", reply_markup=_summon_keyboard())
         return
-    await _answer_game(message, lambda s: contract_summon(s, message.from_user.id, key), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: contract_summon(s, message.from_user.id, key), markup=_growth_menu())
 
 
 @router.callback_query(F.data.startswith("ng:summon_contract:"))
@@ -611,7 +671,7 @@ async def summoning_callback(callback: CallbackQuery) -> None:
     key = (callback.data or "").split(":", 2)[-1]
     try:
         text = await _with_session(callback.from_user.id, lambda s: contract_summon(s, callback.from_user.id, key))
-        await _edit_or_answer(callback, text, _menu_keyboard())
+        await _edit_or_answer(callback, text, _growth_menu())
         await callback.answer()
     except GameError as exc:
         await callback.answer(str(exc), show_alert=True)
@@ -619,17 +679,17 @@ async def summoning_callback(callback: CallbackQuery) -> None:
 
 @router.message(Command("home"))
 async def home_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: home_upgrade(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: home_upgrade(s, message.from_user.id), markup=_profile_menu())
 
 
 @router.message(Command("nukenin"))
 async def nukenin_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: toggle_nukenin(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: toggle_nukenin(s, message.from_user.id), markup=_path_menu())
 
 
 @router.message(Command("bingo"))
 async def bingo_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: bingo_text(s), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: bingo_text(s), markup=_mission_menu())
 
 
 @router.message(Command("clan"))
@@ -638,28 +698,28 @@ async def clan_handler(message: Message, command: CommandObject) -> None:
     head, _, tail = raw.partition(" ")
     action = head.lower()
     if action == "create" and tail:
-        await _answer_game(message, lambda s: create_clan(s, message.from_user.id, tail.strip()), markup=_menu_keyboard())
+        await _answer_game(message, lambda s: create_clan(s, message.from_user.id, tail.strip()), markup=_clan_menu())
     elif action == "join" and tail:
-        await _answer_game(message, lambda s: join_clan(s, message.from_user.id, tail.strip()), markup=_menu_keyboard())
+        await _answer_game(message, lambda s: join_clan(s, message.from_user.id, tail.strip()), markup=_clan_menu())
     elif action == "donate" and tail.isdigit():
-        await _answer_game(message, lambda s: clan_donate(s, message.from_user.id, int(tail)), markup=_menu_keyboard())
+        await _answer_game(message, lambda s: clan_donate(s, message.from_user.id, int(tail)), markup=_clan_menu())
     else:
-        await _answer_game(message, lambda s: clan_text(s, message.from_user.id), markup=_menu_keyboard())
+        await _answer_game(message, lambda s: clan_text(s, message.from_user.id), markup=_clan_menu())
 
 
 @router.message(Command("arena"))
 async def arena_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: arena_match(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: arena_match(s, message.from_user.id), markup=_arena_menu())
 
 
 @router.message(Command("world"))
 async def world_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: world_text(s), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: world_text(s), markup=_world_menu())
 
 
 @router.message(Command("raid"))
 async def raid_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: raid_attack(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: raid_attack(s, message.from_user.id), markup=_raid_menu())
 
 
 @router.message(Command("market"))
@@ -667,23 +727,36 @@ async def market_handler(message: Message, command: CommandObject) -> None:
     raw = (command.args or "").strip()
     parts = raw.split()
     if parts and parts[0].lower() == "buy" and len(parts) >= 2 and parts[1].isdigit():
-        await _answer_game(message, lambda s: market_buy(s, message.from_user.id, int(parts[1])), markup=_menu_keyboard())
+        await _answer_game(message, lambda s: market_buy(s, message.from_user.id, int(parts[1])), markup=_economy_menu())
         return
     if parts and parts[0].lower() == "sell" and len(parts) >= 4 and parts[2].isdigit() and parts[3].isdigit():
         key, qty, price = parts[1].lower(), int(parts[2]), int(parts[3])
-        await _answer_game(message, lambda s: market_list(s, message.from_user.id, key, qty, price), markup=_menu_keyboard())
+        await _answer_game(message, lambda s: market_list(s, message.from_user.id, key, qty, price), markup=_economy_menu())
         return
-    await _answer_game(message, lambda s: market_text(s), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: market_text(s), markup=_economy_menu())
 
 
 @router.message(Command("ninja_top"))
 async def top_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: top_text(s), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: top_text(s), markup=_mmo_menu())
 
 
 @router.message(Command("biju_train"))
 async def biju_handler(message: Message) -> None:
-    await _answer_game(message, lambda s: biju_train(s, message.from_user.id), markup=_menu_keyboard())
+    await _answer_game(message, lambda s: biju_train(s, message.from_user.id), markup=_world_menu())
+
+
+@router.callback_query(F.data.startswith("ng:hub:"))
+async def hub_callback(callback: CallbackQuery) -> None:
+    if not await _callback_allowed(callback) or not callback.from_user:
+        return
+    hub = (callback.data or "").split(":", 2)[-1]
+    try:
+        text = await _with_session(callback.from_user.id, lambda s: hub_text(s, callback.from_user.id, hub))
+        await _edit_or_answer(callback, text, _hub_menu(hub))
+        await callback.answer()
+    except GameError as exc:
+        await callback.answer(str(exc), show_alert=True)
 
 
 @router.callback_query(F.data.startswith("ng:menu:"))
@@ -693,69 +766,290 @@ async def menu_callback(callback: CallbackQuery) -> None:
     section = (callback.data or "").split(":", 2)[-1]
     user_id = callback.from_user.id
     try:
-        if section in {"home", "profile"}:
+        if section == "home":
+            text = await _with_session(user_id, lambda s: command_center_text(s, user_id))
+            markup = _menu_keyboard()
+        elif section == "profile":
             text = await _with_session(user_id, lambda s: _profile_op(s, user_id))
-            markup = _menu_keyboard()
+            markup = _profile_menu()
         elif section == "daily":
-            text = await _with_session(user_id, lambda s: claim_daily(s, user_id))
-            markup = _menu_keyboard()
+            text = await _with_session(user_id, lambda s: daily_center_text(s, user_id))
+            markup = _daily_menu()
         elif section == "mission":
-            text = await _with_session(user_id, lambda s: run_mission(s, user_id, None))
-            markup = _menu_keyboard()
+            text = await _with_session(user_id, lambda s: mission_center_text(s, user_id))
+            markup = _mission_menu()
         elif section == "story":
             text = await _with_session(user_id, lambda s: story_text(s, user_id))
-            markup = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⚔️ Начать главу", callback_data="ng:story:start")],
-                [InlineKeyboardButton(text="⬅️ Меню", callback_data="ng:menu:home")],
-            ])
+            markup = _story_menu()
         elif section == "battle":
-            text = "⚔️ Выберите противника. Более сильные боссы рассчитаны на развитого шиноби."
-            markup = _boss_keyboard()
+            text = await _with_session(user_id, lambda s: combat_readiness_text(s, user_id))
+            markup = _battle_menu()
         elif section == "arena":
-            text = await _with_session(user_id, lambda s: arena_match(s, user_id))
-            markup = _menu_keyboard()
+            text = await _with_session(user_id, lambda s: arena_center_text(s, user_id))
+            markup = _arena_menu()
         elif section == "techniques":
             text = await _with_session(user_id, lambda s: techniques_text(s, user_id))
-            markup = _menu_keyboard()
+            markup = _techniques_menu()
         elif section == "cards":
-            text = await _with_session(user_id, lambda s: cards_text(s, user_id))
-            markup = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🎴 Призвать", callback_data="ng:card:draw")],
-                [InlineKeyboardButton(text="⬅️ Меню", callback_data="ng:menu:home")],
-            ])
+            text = await _with_session(user_id, lambda s: cards_center_text(s, user_id))
+            markup = _cards_menu()
         elif section == "inventory":
-            text = await _with_session(user_id, lambda s: inventory_text(s, user_id))
-            markup = _menu_keyboard()
+            text = await _with_session(user_id, lambda s: inventory_center_text(s, user_id))
+            markup = _inventory_menu()
         elif section == "world":
-            text = await _with_session(user_id, lambda s: world_text(s))
-            markup = _menu_keyboard()
+            text = await _with_session(user_id, lambda s: world_center_text(s, user_id))
+            markup = _world_menu()
         elif section == "clan":
             text = await _with_session(user_id, lambda s: clan_text(s, user_id))
-            markup = _menu_keyboard()
+            markup = _clan_menu()
         elif section == "raid":
-            text = await _with_session(user_id, lambda s: raid_attack(s, user_id))
-            markup = _menu_keyboard()
+            text = await _with_session(user_id, lambda s: raid_center_text(s, user_id))
+            markup = _raid_menu()
         elif section == "social":
-            text = await _with_session(user_id, lambda s: friends_text(s, user_id))
-            markup = _menu_keyboard()
+            text = await _with_session(user_id, lambda s: social_center_text(s, user_id))
+            markup = _social_menu()
         elif section == "mmo":
             text = await _with_session(user_id, lambda s: mmo_top_text(s))
-            markup = _menu_keyboard()
+            markup = _mmo_menu()
         elif section == "path":
             text = await _with_session(user_id, lambda s: path_text(s, user_id))
-            markup = _menu_keyboard()
+            markup = _path_menu()
         elif section == "events":
             text = await _with_session(user_id, lambda s: world_events_text(s))
-            markup = _menu_keyboard()
+            markup = _events_menu()
         elif section == "territory":
             text = await _with_session(user_id, lambda s: territory_map_text(s))
-            markup = _menu_keyboard()
+            markup = _territory_menu()
         elif section == "recommend":
             text = await _with_session(user_id, lambda s: recommendations_text(s, user_id))
-            markup = _menu_keyboard()
+            markup = _recommend_menu()
+        elif section == "government":
+            text = await _with_session(user_id, lambda s: government_text(s, user_id))
+            markup = _government_menu()
+        elif section == "newspaper":
+            text = await _with_session(user_id, lambda s: newspaper_text(s))
+            markup = _newspaper_menu()
+        elif section == "mmo3":
+            text = await _with_session(user_id, lambda s: world_pulse_text(s, user_id))
+            markup = _pulse_menu()
+        elif section == "mmo4":
+            text = await _with_session(user_id, lambda s: mmo_v4_text(s, user_id))
+            markup = _mmo4_menu()
         else:
-            text = "🥷 Naruto RPG"
+            text = await _with_session(user_id, lambda s: command_center_text(s, user_id))
             markup = _menu_keyboard()
+        await _edit_or_answer(callback, text, markup)
+        await callback.answer()
+    except GameError as exc:
+        await callback.answer(str(exc), show_alert=True)
+
+
+@router.callback_query(F.data.startswith("ng4:"))
+async def v4_action_callback(callback: CallbackQuery) -> None:
+    if not await _callback_allowed(callback) or not callback.from_user:
+        return
+    raw = callback.data or ""
+    parts = raw.split(":")
+    if len(parts) < 3:
+        await callback.answer("Некорректное действие.", show_alert=True)
+        return
+    domain, action = parts[1], parts[2]
+    uid = callback.from_user.id
+
+    try:
+        # Profile and daily actions
+        if domain == "profile" and action == "ready":
+            text = await _with_session(uid, lambda s: combat_readiness_text(s, uid))
+            markup = _profile_menu()
+        elif domain == "daily" and action == "claim":
+            text = await _with_session(uid, lambda s: claim_daily(s, uid))
+            markup = _daily_menu()
+        elif domain == "daily" and action == "return":
+            text = await _with_session(uid, lambda s: return_summary_text(s, uid))
+            markup = _daily_menu()
+
+        # Missions
+        elif domain == "mission" and action == "classic":
+            text = await _with_session(uid, lambda s: run_mission(s, uid, None))
+            markup = _mission_menu()
+        elif domain == "mission" and action == "create":
+            text = await _with_session(uid, lambda s: dynamic_mission_create(s, uid))
+            markup = _mission_menu()
+        elif domain == "mission" and action == "status":
+            text = await _with_session(uid, lambda s: dynamic_mission_text(s, uid))
+            markup = _mission_menu()
+        elif domain == "mission" and action == "prepare":
+            text = await _with_session(uid, lambda s: dynamic_mission_prepare(s, uid))
+            markup = _mission_menu()
+        elif domain == "mission" and action in {"stealth", "assault", "negotiate"}:
+            choice = {"stealth": "investigate", "assault": "direct", "negotiate": "negotiate"}[action]
+            text = await _with_session(uid, lambda s: dynamic_mission_choose(s, uid, choice))
+            markup = _mission_menu()
+
+        # Arena / raid
+        elif domain == "arena" and action == "match":
+            text = await _with_session(uid, lambda s: arena_match(s, uid))
+            markup = _arena_menu()
+        elif domain == "arena" and action == "duel":
+            text = (
+                "🤺 <b>Дуэли игроков</b>\n\n"
+                "В группе ответьте на сообщение соперника командой <code>/duel</code> или используйте существующую систему вызова. "
+                "Ставки проходят через безопасный эскроу."
+            )
+            markup = _arena_menu()
+        elif domain == "raid" and action == "attack":
+            text = await _with_session(uid, lambda s: raid_attack(s, uid))
+            markup = _raid_menu()
+
+        # Cards
+        elif domain == "cards" and action == "list":
+            text = await _with_session(uid, lambda s: cards_text(s, uid))
+            markup = _cards_menu()
+        elif domain == "cards" and action == "team":
+            text = await _with_session(uid, lambda s: card_team_text(s, uid))
+            markup = _cards_menu()
+        elif domain == "cards" and action == "arena":
+            text = await _with_session(uid, lambda s: card_arena(s, uid))
+            markup = _cards_menu()
+
+        # Inventory / techniques
+        elif domain == "inventory" and action == "list":
+            text = await _with_session(uid, lambda s: inventory_text(s, uid))
+            markup = _inventory_menu()
+        elif domain == "tech" and action == "list":
+            text = await _with_session(uid, lambda s: techniques_text(s, uid))
+            markup = _techniques_menu()
+
+        # World
+        elif domain == "world" and action == "state":
+            text = await _with_session(uid, lambda s: world_text(s))
+            markup = _world_menu()
+        elif domain == "event" and action == "join":
+            async def _join_event(session: Any) -> str:
+                row = await ensure_world_event(session)
+                return await world_event_participate(session, uid, int(row.id))
+            text = await _with_session(uid, _join_event)
+            markup = _events_menu()
+        elif domain == "terr" and action:
+            text = await _with_session(uid, lambda s: territory_expedition(s, uid, action))
+            markup = _territory_menu()
+        elif domain == "bijuu" and action == "status":
+            text = await _with_session(uid, lambda s: bijuu_text(s, uid))
+            markup = _bijuu_menu()
+        elif domain == "bijuu" and action == "train":
+            text = await _with_session(uid, lambda s: biju_train(s, uid))
+            markup = _bijuu_menu()
+
+        # Clan / social
+        elif domain == "clan" and action == "status":
+            text = await _with_session(uid, lambda s: clan_text(s, uid))
+            markup = _clan_menu()
+        elif domain == "clan" and action == "base":
+            text = await _with_session(uid, lambda s: clan_base_text(s, uid))
+            markup = _clan_menu()
+        elif domain == "clan" and action == "roles":
+            text = (
+                "🎖 <b>Роли клана</b>\n\n"
+                "👑 Клан-лидер\n⚔️ Джонин-командир\n🕵 АНБУ-разведчик\n"
+                "💰 Хранитель свитков и казны\n🥷 Элитный шиноби\n🎓 Генин\n\n"
+                "Назначение ролей выполняется через <code>/clanroles</code>."
+            )
+            markup = _clan_menu()
+        elif domain == "clan" and action == "alliance":
+            text = await _with_session(uid, lambda s: alliance_text(s, uid))
+            markup = _clan_menu()
+        elif domain == "clan" and action == "history":
+            text = await _with_session(uid, lambda s: clan_history_text(s, uid))
+            markup = _clan_menu()
+        elif domain == "social" and action == "friends":
+            text = await _with_session(uid, lambda s: friends_text(s, uid))
+            markup = _social_menu()
+        elif domain == "social" and action == "mentor":
+            text = await _with_session(uid, lambda s: mentorship_text(s, uid))
+            markup = _social_menu()
+        elif domain == "social" and action == "mail":
+            text = await _with_session(uid, lambda s: mail_inbox(s, uid))
+            markup = _social_menu()
+        elif domain == "social" and action == "privacy":
+            text = (
+                "🔒 <b>Приватность профиля</b>\n\n"
+                "Управляйте видимостью профиля и социальными запросами через <code>/privacy</code>. "
+                "Игровая почта и разведка не раскрывают реальные личные данные Telegram."
+            )
+            markup = _social_menu()
+        elif domain == "social" and action == "settlement":
+            text = await _with_session(uid, lambda s: settlement_top(s))
+            markup = _social_menu()
+
+        # Economy
+        elif domain == "economy" and action == "overview":
+            text = await _with_session(uid, lambda s: economy_center_text(s, uid))
+            markup = _economy_menu()
+        elif domain == "economy" and action == "market":
+            text = await _with_session(uid, lambda s: market_text(s))
+            markup = _economy_menu()
+        elif domain == "economy" and action == "craft":
+            text = "🔨 <b>Крафт</b>\n\nВыберите рецепт. Материалы будут списаны только после выбора конкретного рецепта."
+            markup = _craft_menu()
+        elif domain == "economy" and action == "contracts":
+            text = await _with_session(uid, lambda s: contracts_text(s))
+            markup = _economy_menu()
+        elif domain == "economy" and action == "bank":
+            text = await _with_session(uid, lambda s: bank_text(s, uid))
+            markup = _economy_menu()
+        elif domain == "economy" and action == "black":
+            text = await _with_session(uid, lambda s: black_market_text(s, uid))
+            markup = _economy_menu()
+        elif domain == "craft" and action:
+            text = await _with_session(uid, lambda s: craft(s, uid, action))
+            markup = _craft_menu()
+
+        # Development
+        elif domain == "growth" and action == "train":
+            text = await _with_session(uid, lambda s: development_center_text(s, uid))
+            markup = _training_keyboard()
+        elif domain == "growth" and action == "exam":
+            text = await _with_session(uid, lambda s: exam(s, uid))
+            markup = _growth_menu()
+        elif domain == "growth" and action == "mentor":
+            text = "👤 <b>Выбор наставника</b>\n\nНаставник влияет на тренировки и персональные ветки. Выберите персонажа ниже."
+            markup = _mentor_keyboard()
+        elif domain == "growth" and action == "profession":
+            text = "🛠 <b>Профессия шиноби</b>\n\nПрофессия открывает отдельное экономическое и ремесленное развитие."
+            markup = _profession_keyboard()
+        elif domain == "growth" and action == "research":
+            text = await _with_session(uid, lambda s: research_text(s, uid))
+            markup = _growth_menu()
+        elif domain == "growth" and action == "legacy":
+            text = await _with_session(uid, lambda s: legacy_text(s, uid))
+            markup = _growth_menu()
+
+        # Government/news/MMO
+        elif domain == "gov" and action == "election":
+            text = await _with_session(uid, lambda s: election_status(s, uid))
+            markup = _government_menu()
+        elif domain == "gov" and action == "project":
+            text = await _with_session(uid, lambda s: project_status(s, uid))
+            markup = _government_menu()
+        elif domain == "gov" and action == "treasury":
+            text = await _with_session(uid, lambda s: government_text(s, uid))
+            markup = _government_menu()
+        elif domain == "news" and action == "chronicle":
+            text = await _with_session(uid, lambda s: world_chronicle_text(s))
+            markup = _newspaper_menu()
+        elif domain == "mmo" and action == "ranking":
+            text = await _with_session(uid, lambda s: mmo_top_text(s))
+            markup = _mmo_menu()
+        elif domain == "mmo" and action == "digest":
+            text = await _with_session(uid, lambda s: activity_digest_text(s, uid))
+            markup = _mmo4_menu()
+        elif domain == "path" and action == "status":
+            text = await _with_session(uid, lambda s: path_text(s, uid))
+            markup = _path_menu()
+        else:
+            text = await _with_session(uid, lambda s: command_center_text(s, uid))
+            markup = _menu_keyboard()
+
         await _edit_or_answer(callback, text, markup)
         await callback.answer()
     except GameError as exc:
@@ -784,7 +1078,8 @@ async def card_draw_callback(callback: CallbackQuery) -> None:
         text = await _with_session(callback.from_user.id, lambda s: draw_card(s, callback.from_user.id))
         markup = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🎴 Ещё призыв", callback_data="ng:card:draw")],
-            [InlineKeyboardButton(text="⬅️ Меню", callback_data="ng:menu:home")],
+            [InlineKeyboardButton(text="⬅️ Карточки", callback_data="ng:menu:cards")],
+            [InlineKeyboardButton(text="🏠 Центр", callback_data="ng:menu:home")],
         ])
         await _edit_or_answer(callback, text, markup)
         await callback.answer()

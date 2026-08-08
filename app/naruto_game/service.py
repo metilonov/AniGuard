@@ -526,6 +526,10 @@ async def run_mission(session: AsyncSession, user_id: int, mission_key: str | No
     ryo = random.randint(*data["ryo"])
     xp = random.randint(*data["xp"])
     profile.ryo += ryo
+    # MMO V3: village tax is capped at 5% and goes only to the public treasury.
+    # The import is local to avoid a module-load cycle: v3 itself reuses service helpers.
+    from .v3 import collect_village_tax
+    mission_tax = await collect_village_tax(session, profile, ryo)
     profile.xp += xp
     profile.reputation = min(10000, profile.reputation + int(data["rep"]))
     profile.village_points += max(1, int(data["rep"]) // 2)
@@ -540,7 +544,8 @@ async def run_mission(session: AsyncSession, user_id: int, mission_key: str | No
         extra += "\n🏆 " + ", ".join(achievements)
     if ups:
         extra += "\n" + "\n".join(ups)
-    return f"✅ <b>{data['name']}</b> выполнена.\n🪙 +{ryo} · ⭐ +{xp} XP · 📕 +{data['rep']} репутации{extra}"
+    tax_text = f" · 🏯 налог −{mission_tax}" if mission_tax else ""
+    return f"✅ <b>{data['name']}</b> выполнена.\n🪙 +{ryo - mission_tax}{tax_text} · ⭐ +{xp} XP · 📕 +{data['rep']} репутации{extra}"
 
 
 async def _battle_techniques(

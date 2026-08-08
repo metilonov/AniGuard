@@ -7,9 +7,11 @@ from aiogram.types import BotCommand, BotCommandScopeChat
 # Import models before init_db(): AniGuard's init_db() runs Base.metadata.create_all,
 # therefore all Naruto RPG tables are created without a separate migration package.
 from . import models as _models  # noqa: F401
+from . import v3_models as _v3_models  # noqa: F401
 from .router import router as naruto_router
 from .extended_router import router as extended_router
 from .advanced_router import router as advanced_router
+from .v3_router import router as v3_router
 from .social_router import SocialPresenceMiddleware, router as social_router
 
 logger = logging.getLogger(__name__)
@@ -61,6 +63,16 @@ _GAME_COMMANDS = [
     BotCommand(command="legend", description="Путь легендарного шиноби"),
     BotCommand(command="epithet", description="Прозвище шиноби"),
     BotCommand(command="legacy", description="Летопись и наследие"),
+    BotCommand(command="mmo3", description="MMO V3 — пульс живого мира"),
+    BotCommand(command="mmo4", description="MMO V4 — командный центр и новая навигация"),
+    BotCommand(command="government", description="Правительство вашей деревни"),
+    BotCommand(command="election", description="Выборы Каге"),
+    BotCommand(command="project", description="Проекты и развитие деревни"),
+    BotCommand(command="criminalorg", description="Преступные организации нукенинов"),
+    BotCommand(command="crime", description="Операции преступной организации"),
+    BotCommand(command="bijuu", description="Уникальные биджу сервера"),
+    BotCommand(command="newspaper", description="Газета мира шиноби"),
+    BotCommand(command="worldchronicle", description="Мировая летопись MMO"),
 ]
 
 
@@ -104,6 +116,10 @@ def install_naruto_game() -> None:
     # social "Наруто, ..." handler.
     if advanced_router.parent_router is None:
         naruto_router.include_router(advanced_router)
+    # MMO V3 politics/underworld/bijuu aliases are also specific and must run
+    # before the broad social natural-language handler.
+    if v3_router.parent_router is None:
+        naruto_router.include_router(v3_router)
     if social_router.parent_router is None:
         naruto_router.include_router(social_router)
 

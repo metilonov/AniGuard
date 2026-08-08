@@ -1,0 +1,18 @@
+AniGuard Naruto MMO V3 additive patch
+
+ADDED:
+app/naruto_game/v3.py
+app/naruto_game/v3_models.py
+app/naruto_game/v3_router.py
+tests/test_naruto_mmo_v3.py
+MMO_V3_RELEASE_NOTES.md
+MMO_V3_PATCH_MANIFEST.txt
+
+UPDATED:
+app/main.py
+app/naruto_game/integration.py
+app/naruto_game/router.py
+app/naruto_game/service.py
+
+NO INTENTIONAL DELETIONS.
+MMO V3 is intended to be applied on top of AniGuard Working MMO V2 FULL.

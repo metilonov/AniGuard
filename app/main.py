@@ -20,7 +20,7 @@ from app.config import get_settings
 from app.db import init_db
 from app.monitoring import resource_monitor
 
-# Подключаем Naruto RPG/MMO V2 до init_db/start_polling.
+# Подключаем Naruto RPG/MMO V4 до init_db/start_polling.
 install_naruto_game()
 
 
@@ -57,7 +57,7 @@ async def lifespan(app: FastAPI):
             pass
 
 
-app = FastAPI(title="AniGuard", version="2.0.0", lifespan=lifespan)
+app = FastAPI(title="AniGuard", version="4.0.0", lifespan=lifespan)
 app.include_router(premium_account_router)
 app.include_router(api_router)
 app.include_router(store_router)
